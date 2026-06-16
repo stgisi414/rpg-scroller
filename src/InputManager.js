@@ -19,7 +19,8 @@ class InputManager {
             skill4: Phaser.Input.Keyboard.KeyCodes.FOUR,
             skill5: Phaser.Input.Keyboard.KeyCodes.FIVE,
             skill6: Phaser.Input.Keyboard.KeyCodes.SIX,
-            superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA
+            superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA,
+            space: Phaser.Input.Keyboard.KeyCodes.SPACE
         });
 
         // Mouse pointer for aiming

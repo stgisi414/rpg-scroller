@@ -77,36 +77,45 @@ class NPCController {
         this.npcNameDiv = document.getElementById('chat-npc-name');
 
         // Setup Event Listeners for UI
-        this.chatSubmitBtn.addEventListener('click', () => this.handlePlayerMessage());
-        this.chatInput.addEventListener('keypress', (e) => {
+        this.onSubmitClick = () => this.handlePlayerMessage();
+        this.onKeyPress = (e) => {
             if (e.key === 'Enter') this.handlePlayerMessage();
-        });
+        };
+        this.onTradeClick = () => {
+            if (this.isChatOpen) {
+                this.closeChat();
+                this.openShop();
+            }
+        };
+        this.onActivityClick = () => {
+            if (this.isChatOpen && this.indoorAction) {
+                this.startActivity();
+            }
+        };
+        this.onEscKeyDown = () => {
+            if (this.isChatOpen) this.closeChat();
+            if (this.isShopOpen) this.closeShop();
+        };
+
+        if (this.chatSubmitBtn) {
+            this.chatSubmitBtn.addEventListener('click', this.onSubmitClick);
+        }
+        if (this.chatInput) {
+            this.chatInput.addEventListener('keypress', this.onKeyPress);
+        }
         
         this.chatTradeBtn = document.getElementById('chat-trade');
         if (this.chatTradeBtn) {
-            // Need to remove previous listeners, or just rely on isChatOpen check
-            this.chatTradeBtn.addEventListener('click', () => {
-                if (this.isChatOpen) {
-                    this.closeChat();
-                    this.openShop();
-                }
-            });
+            this.chatTradeBtn.addEventListener('click', this.onTradeClick);
         }
 
         this.chatActivityBtn = document.getElementById('chat-activity');
         if (this.chatActivityBtn) {
-            this.chatActivityBtn.addEventListener('click', () => {
-                if (this.isChatOpen && this.indoorAction) {
-                    this.startActivity();
-                }
-            });
+            this.chatActivityBtn.addEventListener('click', this.onActivityClick);
         }
 
         // Setup key to close chat or shop
-        this.scene.input.keyboard.on('keydown-ESC', () => {
-            if (this.isChatOpen) this.closeChat();
-            if (this.isShopOpen) this.closeShop();
-        });
+        this.scene.input.keyboard.on('keydown-ESC', this.onEscKeyDown);
     }
 
     update(time, delta) {
@@ -275,6 +284,7 @@ class NPCController {
         // Re-enable Phaser key capture for game input
         if (this.player.inputManager) {
             this.player.inputManager.enableForInput();
+            this.scene.input.keyboard.addCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT');
         }
     }
 
@@ -290,7 +300,7 @@ class NPCController {
         const prompts = {
             'rest': "The player wants to rest at your tavern. Roleplay asking them to sit by the fire and tell a short tale of their travels before they sleep. If they reply well, end your next message with the exact string [ACTION_SUCCESS].",
             'forge': "The player wants to forge and upgrade their weapon. Roleplay asking them to help pump the bellows or strike the hot iron. If they describe helping successfully, end your next message with the exact string [ACTION_SUCCESS].",
-            'brew': "The player wants to brew a potion. Roleplay asking them to hand you a specific bizarre ingredient (like a bat wing or glowing moss). If they do it, end your next message with the exact string [ACTION_SUCCESS].",
+            'brew': "The player wants to brew a free potion. Roleplay asking them to help by stirring the cauldron clockwise, whispering a magical phrase, or regulating the heat. If they describe helping successfully in their reply, end your next message with the exact string [ACTION_SUCCESS].",
             'contracts': "The player wants to check the bounty board. Roleplay presenting a small bounty and asking them how they plan to defeat the target. If their plan is good, end your next message with the exact string [ACTION_SUCCESS].",
             'pray': "The player wants to pray for a blessing. Roleplay asking them to chant a short holy phrase or make an offering. If they do, end your next message with the exact string [ACTION_SUCCESS].",
             'study': "The player wants to study in the library. Roleplay giving them a short riddle. If they answer correctly, end your next message with the exact string [ACTION_SUCCESS]."
@@ -382,7 +392,7 @@ class NPCController {
                 this.player.hp = this.player.maxHp;
                 this.player.mp = this.player.maxMp;
                 this.player.sp = this.player.maxSp;
-                this.player.updateHUD();
+                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
                 rewardText = "Fully Rested!";
                 break;
             case 'forge':
@@ -393,7 +403,7 @@ class NPCController {
                 break;
             case 'brew':
                 this.player.inventory.potions = (this.player.inventory.potions || 0) + 1;
-                this.player.updateHUD();
+                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
                 rewardText = "Received 1 HP Potion!";
                 break;
             case 'contracts':
@@ -417,17 +427,17 @@ class NPCController {
                 const randomStat = stats[Math.floor(Math.random() * stats.length)];
                 if (this.player.classData && this.player.classData.stats) {
                     this.player.classData.stats[randomStat]++;
-                    this.player.calculateDerivedStats();
+                    this.player.recalculateStats();
                 }
-                this.player.updateHUD();
+                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
                 rewardText = `Blessing Received (+1 ${randomStat.toUpperCase()})!`;
                 break;
             case 'study':
-                if (this.player.classData && this.player.classData.stats) {
-                    this.player.classData.stats.int += 1;
-                    this.player.calculateDerivedStats();
+                if (this.player.tempStats) {
+                    this.player.tempStats.int += 1;
+                    this.player.recalculateStats();
                 }
-                this.player.updateHUD();
+                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
                 rewardText = "Temporary +1 INT Buff!";
                 break;
         }
@@ -561,9 +571,9 @@ class NPCController {
     }
 
     removeFromWorld() {
-        if (window.saveData && window.saveData.worldMap && window.saveData.currentZone !== undefined) {
+        if (window.saveData && window.saveData.zones && window.saveData.currentZone !== undefined) {
             const currentZone = window.saveData.currentZone;
-            const zoneData = window.saveData.worldMap[currentZone];
+            const zoneData = window.saveData.zones[currentZone];
             if (zoneData && zoneData.npcs) {
                 zoneData.npcs = zoneData.npcs.filter(n => n.name !== this.npcName);
                 
@@ -628,6 +638,22 @@ class NPCController {
     }
 
     destroy() {
+        if (this.chatSubmitBtn) {
+            this.chatSubmitBtn.removeEventListener('click', this.onSubmitClick);
+        }
+        if (this.chatInput) {
+            this.chatInput.removeEventListener('keypress', this.onKeyPress);
+        }
+        if (this.chatTradeBtn) {
+            this.chatTradeBtn.removeEventListener('click', this.onTradeClick);
+        }
+        if (this.chatActivityBtn) {
+            this.chatActivityBtn.removeEventListener('click', this.onActivityClick);
+        }
+        if (this.scene && this.scene.input && this.scene.input.keyboard) {
+            this.scene.input.keyboard.off('keydown-ESC', this.onEscKeyDown);
+        }
+
         if (this.nameText) this.nameText.destroy();
         if (this.promptText) this.promptText.destroy();
         if (this.sprite) this.sprite.destroy();

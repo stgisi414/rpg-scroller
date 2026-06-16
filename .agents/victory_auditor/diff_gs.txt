@@ -1,0 +1,129 @@
+diff --git a/src/GeminiService.js b/src/GeminiService.js
+index 36e825c..d1c35f6 100644
+--- a/src/GeminiService.js
++++ b/src/GeminiService.js
+@@ -23,7 +23,7 @@ class GeminiService {
+             
+             // We use the JSON response mimeType to ensure structured data back to our game engine
+             this.model = this.ai.getGenerativeModel({ 
+-                model: "gemini-3.1-flash-lite",
++                model: "gemini-3.5-flash",
+                 generationConfig: { responseMimeType: "application/json" }
+             });
+             this.isReady = true;
+@@ -35,33 +35,83 @@ class GeminiService {
+ 
+     async getEnemyTactic(battleState) {
+         if (!this.isReady) {
+-            console.warn("GeminiService: Not ready yet. Defaulting tactic.");
+-            return { tactic: "IDLE" };
++            return { tactic: "IDLE", dialogue: "" };
+         }
+ 
+-        const prompt = `You are the Director AI controlling a Slime enemy in an Action-RPG game.
+-You must choose the best tactical action based on the current battle state.
++        const prompt = `You are an advanced Director AI controlling an enemy (${battleState.enemyType}) in an Action-RPG game.
++You must choose the best tactical action based on the current battle state and roleplay as this enemy by providing a short taunt or piece of battle chatter.
+ The available actions are:
+-- "CHASE": Move aggressively towards the player. Best when player is far away or slime has high HP.
+-- "FLEE": Run away from the player. Best when slime is low on HP and player is close.
+-- "IDLE": Stand still or jiggle in place. Best when player is completely out of range or dead.
++- "MELEE_ATTACK": Use a close-range melee attack.
++- "RANGED_ATTACK": Fire a projectile or spell from a distance.
++- "SUPER_ATTACK": Use a devastating combo spell or special move (Costs MP/SP).
++- "BLOCK": Hold a defensive stance to mitigate incoming damage.
++- "DASH_EVADE": Quickly dash backward or jump to dodge an incoming attack.
++- "CHASE": Move aggressively towards the player to close distance.
++- "FLEE": Run away from the player (best when low on HP).
++- "HEAL": Drink a potion to restore health (if available).
++- "IDLE": Stand still and do nothing.
+ 
+ Current Battle State:
+-- Distance to Player: ${Math.round(battleState.distance)} pixels (Close is < 150, Far is > 400)
+-- Player HP: ${battleState.playerHp}/100
+-- Slime HP: ${battleState.enemyHp}/100
++- Enemy Type: ${battleState.enemyType}
++- Distance to Player: ${Math.round(battleState.distance)} pixels (Close is < 100, Mid is 100-300, Far is > 300)
++- Player Action: ${battleState.playerAction} (e.g., Attacking, Idle, Moving)
++- Player HP: ${battleState.playerHp}/${battleState.playerMaxHp}
++- Enemy HP: ${battleState.enemyHp}/${battleState.enemyMaxHp}
++- Enemy MP/SP: ${battleState.enemyMp} / ${battleState.enemySp}
+ 
+ Return ONLY a valid JSON object in this exact format:
+-{ "tactic": "CHASE" }`;
++{ 
++  "tactic": "RANGED_ATTACK",
++  "dialogue": "You cannot escape my magic, fool!" 
++}
++(If no dialogue is appropriate, return an empty string for dialogue).`;
+ 
+         try {
+             const result = await this.model.generateContent(prompt);
+             const text = result.response.text();
+-            console.log("Gemini AI Decision:", text);
+             return JSON.parse(text);
+         } catch (e) {
+             console.error("GeminiService: Failed to get tactic", e);
+-            return { tactic: "CHASE" }; // Fallback tactic
++            return { tactic: "CHASE", dialogue: "" };
++        }
++    }
++
++    async getGameMasterDecision(gameState) {
++        if (!this.isReady) {
++            return { action: "NONE", announcement: "" };
++        }
++
++        const prompt = `You are the cruel, omnipotent AI Game Master of a dark fantasy RPG.
++You observe the player's progress and randomly intervene to make the game more interesting, chaotic, or difficult.
++
++Player Status:
++- Level: ${gameState.player.level}
++- HP: ${gameState.player.hp}/${gameState.player.maxHp}
++- Zone: ${gameState.zone.name} (Biome: ${gameState.zone.biome})
++- Current Enemies Alive: ${gameState.activeEnemies}
++
++Choose ONE intervention:
++- "AMBUSH": Spawn 2-3 extra powerful enemies (like rivals or heavy knights).
++- "WEATHER_RAIN": Start a heavy rainstorm (reduces visibility).
++- "WEATHER_FOG": Blanket the area in thick fog.
++- "HEAL": Fully restore the player's HP (rarely, if you feel pity).
++- "GOLD_RUSH": Drop a massive pile of gold on the player.
++- "NONE": Do nothing this time.
++
++Return ONLY a valid JSON object:
++{
++  "action": "AMBUSH",
++  "announcement": "The Game Master deems your journey too easy... face my assassins!"
++}`;
++
++        try {
++            const result = await this.model.generateContent(prompt);
++            const text = result.response.text();
++            console.log("Game Master Decision:", text);
++            return JSON.parse(text);
++        } catch (e) {
++            console.error("GeminiService: GM failed", e);
++            return { action: "NONE", announcement: "" };
+         }
+     }
+ 
+@@ -213,6 +263,7 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
+         const biomeEnemies = {
+             'Forest': ['slime', 'goblin', 'mushroom', 'spider', 'bat', 'bandit'],
+             'Plains': ['slime', 'goblin', 'orc', 'bat', 'bandit'],
++            'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton'],
+             'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'bandit'],
+             'Coastal': ['slime', 'bat', 'plague_flies', 'bandit'],
+             'Winter': ['slime', 'orc', 'burning_skull_blue', 'frost_giant'],
+@@ -251,8 +302,9 @@ ${forceTown ?
+ 9. Town NPC personas should be merchants, sages, or village folk. Wilderness NPC personas should be adventurers, scouts, or exiles.
+ 10. CRITICAL: The zone "name" MUST be unique and thematic to the biome. Examples:
+    - Forest: "The Whispering Woods", "Darkhollow Thicket", "Gloomveil Forest", "Mistfang Wilds"
+-   - Desert: "The Scorched Expanse", "Sunblight Wastes", "Dunefall Passage", "Ashen Barrens"
+    - Plains: "Stormbreak Ridge", "The Windswept Heath", "Greenvale Crossing", "The Open March"
++   - Cave: "The Gloomy Depths", "Echoless Caverns", "Stonefang Grotto", "The Underhollow"
++   - Desert: "The Scorched Expanse", "Sunblight Wastes", "Dunefall Passage", "Ashen Barrens"
+    - Winter: "The Frozen Reach", "Glacial Peaks", "Frostfall Tundra", "The Shivering Pines"
+    - Coastal: "The Coral Sands", "Sunken Cove", "Whispering Shores", "Tidefall Beach"
+    - Dungeon: "Hollow of Echoes", "The Shattered Crypt", "Deepstone Ruins", "The Sunken Vault"

@@ -1,0 +1,508 @@
+﻿diff --git a/src/scenes/GameScene.js b/src/scenes/GameScene.js
+index 940f0fc..ed2ae4f 100644
+--- a/src/scenes/GameScene.js
++++ b/src/scenes/GameScene.js
+@@ -122,9 +122,13 @@ class GameScene extends Phaser.Scene {
+             if (!tex || !rows) return;
+ 
+             const rowCount = rows.length;
+-            const defaultColW = key === 'the_devil' ? 102 : 102.4;
++            let defaultColW = 102.4;
++            if (key === 'the_devil') defaultColW = 102;
++            else if (key === 'lich_lord') defaultColW = 128;
++
+             const colData = window.sliceColData[key];
+-            const numCols = colData ? colData.length : 10;
++            let numCols = colData ? colData.length : 10;
++            if (!colData && key === 'lich_lord') numCols = 8;
+             const frameHMax = key === 'the_devil' ? 92 : 128;
+ 
+             // Remove old frames if they exist (to allow re-slicing)
+@@ -164,11 +168,16 @@ class GameScene extends Phaser.Scene {
+         this.anims.create({ key: 'the_devil-die', frames: getFrames('the_devil', 43, 49), frameRate: 8, repeat: 0 });
+ 
+         // Lich Lord animations
+-        this.anims.create({ key: 'lich_lord-idle', frames: getFrames('lich_lord', 0, 4), frameRate: 8, repeat: -1 });
+-        this.anims.create({ key: 'lich_lord-move', frames: getFrames('lich_lord', 10, 15), frameRate: 10, repeat: -1 });
+-        this.anims.create({ key: 'lich_lord-shoot', frames: getFrames('lich_lord', 20, 25), frameRate: 12, repeat: 0 });
+-        this.anims.create({ key: 'lich_lord-attack', frames: getFrames('lich_lord', 30, 38), frameRate: 12, repeat: 0 }); // AOE
+-        this.anims.create({ key: 'lich_lord-summon', frames: getFrames('lich_lord', 40, 49), frameRate: 10, repeat: 0 });
++        this.anims.create({ key: 'lich_lord-idle', frames: getFrames('lich_lord', 0, 7), frameRate: 8, repeat: -1 });
++        this.anims.create({ key: 'lich_lord-move', frames: getFrames('lich_lord', 8, 15), frameRate: 10, repeat: -1 });
++        this.anims.create({ key: 'lich_lord-shoot', frames: getFrames('lich_lord', 16, 23), frameRate: 12, repeat: 0 });
++        this.anims.create({ key: 'lich_lord-attack', frames: getFrames('lich_lord', 24, 31), frameRate: 12, repeat: 0 }); // AOE
++        this.anims.create({ key: 'lich_lord-summon', frames: getFrames('lich_lord', 32, 39), frameRate: 10, repeat: 0 });
++        this.anims.create({ key: 'lich_lord-hit', frames: getFrames('lich_lord', 40, 41), frameRate: 10, repeat: 0 });
++        this.anims.create({ key: 'lich_lord-die', frames: getFrames('lich_lord', 40, 47), frameRate: 8, repeat: 0 });
++
++        // Projectile animations
++        this.anims.create({ key: 'projectile_blue_anim', frames: this.anims.generateFrameNumbers('projectile_blue', { start: 0, end: 5 }), frameRate: 15, repeat: -1 });
+         
+         // Skeleton animations
+         this.anims.create({ key: 'skeleton-idle', frames: getFrames('skeleton', 0, 4), frameRate: 8, repeat: -1 });
+@@ -621,87 +630,309 @@ class GameScene extends Phaser.Scene {
+         try { this.updateHUD(); } catch(e) { console.error('updateHUD error:', e); }
+     }
+     
+-    renderRoomTracker() {
++       renderRoomTracker() {
++        // Placeholder for future tracker logic
+     }
+     
+     _createCharacterSheetModal() {
+         if (document.getElementById('char-sheet-modal')) return;
+         const modal = document.createElement('div');
+         modal.id = 'char-sheet-modal';
+-        modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.8);pointer-events:auto;';
++        modal.className = 'fixed inset-0 z-[100] bg-background/95 flex items-center justify-center p-4 backdrop-blur-md pointer-events-auto transition-opacity duration-300';
++        modal.style.display = 'none';
++        
++        // Use inline SVG for a subtle noise texture to give a parchment/stone feel
++        const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='a'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23a)' opacity='0.05'/></svg>`;
++        
+         modal.innerHTML = `
+-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(145deg,#1a1410,#2a2018);border:2px solid #a0832b;border-radius:12px;padding:32px 40px;width:600px;max-height:80vh;overflow-y:auto;color:#e0d8c8;font-family:'Space Grotesk',sans-serif;">
+-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+-                    <h2 id="cs-title" style="margin:0;font-size:24px;color:#fde68a;">Character Sheet</h2>
+-                    <button id="cs-close" style="background:none;border:none;color:#aaa;font-size:26px;cursor:pointer;">&times;</button>
++            <div class="bg-surface-container/95 border-2 border-outline-variant rounded p-8 max-w-5xl w-full shadow-[0_0_50px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col" style="background-image: url('data:image/svg+xml;base64,${btoa(noiseSvg)}'); border-color: #a0832b;">
++                
++                <!-- Decorative Corner Ornaments -->
++                <div class="absolute top-0 left-0 opacity-50" style="width:64px;height:64px;border-top:4px solid #a0832b;border-left:4px solid #a0832b;border-top-left-radius:4px;"></div>
++                <div class="absolute top-0 right-0 opacity-50" style="width:64px;height:64px;border-top:4px solid #a0832b;border-right:4px solid #a0832b;border-top-right-radius:4px;"></div>
++                <div class="absolute bottom-0 left-0 opacity-50" style="width:64px;height:64px;border-bottom:4px solid #a0832b;border-left:4px solid #a0832b;border-bottom-left-radius:4px;"></div>
++                <div class="absolute bottom-0 right-0 opacity-50" style="width:64px;height:64px;border-bottom:4px solid #a0832b;border-right:4px solid #a0832b;border-bottom-right-radius:4px;"></div>
++
++                <button id="cs-close" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px] font-bold" style="position:absolute; top:24px; right:24px; z-index:50;">Close (ESC)</button>
++
++                <!-- Header Panel -->
++                <div class="flex items-center gap-6 mb-8 border-b border-outline-variant pb-6 relative z-10">
++                    <div id="cs-sprite-container" class="w-24 h-24 bg-surface-container-lowest border-2 border-primary rounded-lg flex items-center justify-center shadow-inner relative overflow-hidden" style="image-rendering: pixelated;">
++                        <div id="cs-sprite-img" style="transform: scale(3);"></div>
++                    </div>
++                    <div class="flex-grow">
++                        <h2 id="cs-name" class="font-headline-lg text-[40px] text-primary uppercase tracking-widest mb-1" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-family: 'Space Grotesk', sans-serif;">Hero Name</h2>
++                        <p id="cs-subtitle" class="font-body-lg text-secondary uppercase tracking-widest text-[16px] font-bold">Level 1 Adventurer</p>
++                        <div class="flex flex-wrap gap-4 mt-3 font-label-caps text-[14px] text-on-surface-variant font-bold">
++                            <span id="cs-alignment" class="bg-surface-container-highest px-3 py-1 rounded border border-outline-variant shadow">Neutral (0)</span>
++                            <span id="cs-gold" class="bg-surface-container-highest px-3 py-1 rounded border border-tertiary text-tertiary shadow">0 Gold</span>
++                            <span id="cs-xp" class="bg-surface-container-highest px-3 py-1 rounded border border-info text-info shadow">0/100 XP</span>
++                            <span id="cs-hpmp" class="bg-surface-container-highest px-3 py-1 rounded border border-error text-error shadow">HP: 100/100</span>
++                        </div>
++                    </div>
++                </div>
++
++                <!-- 3-Column Layout -->
++                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 font-body-md text-on-surface relative z-10 overflow-y-auto pr-2" style="max-height: 50vh;">
++                    
++                    <!-- Left Col: Core Stats & Exploration -->
++                    <div class="space-y-8">
++                        <div>
++                            <h3 class="font-headline-sm text-secondary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">psychology</span> Core Attributes</h3>
++                            <div id="cs-core-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
++                                <!-- Injected -->
++                            </div>
++                        </div>
++                        <div>
++                            <h3 class="font-headline-sm text-info uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">explore</span> Exploration</h3>
++                            <div id="cs-exploration-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
++                                <!-- Injected -->
++                            </div>
++                        </div>
++                    </div>
++
++                    <!-- Middle Col: Combat Math -->
++                    <div class="space-y-8">
++                        <div>
++                            <h3 class="font-headline-sm text-primary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">swords</span> Combat Prowess</h3>
++                            <div id="cs-combat-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
++                                <!-- Injected -->
++                            </div>
++                        </div>
++                        <div>
++                            <h3 class="font-headline-sm text-error uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">warning</span> Status Effects</h3>
++                            <div id="cs-status-effects" class="space-y-2 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner text-[14px]">
++                                <!-- Injected -->
++                            </div>
++                        </div>
++                    </div>
++
++                    <!-- Right Col: Equipment -->
++                    <div class="space-y-8">
++                        <div>
++                            <h3 class="font-headline-sm text-tertiary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">backpack</span> Active Equipment</h3>
++                            <div id="cs-equipment" class="space-y-4">
++                                <!-- Injected -->
++                            </div>
++                        </div>
++                        <div>
++                            <h3 class="font-headline-sm text-success uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">group</span> Party Members</h3>
++                            <div id="cs-party" class="space-y-2 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
++                                <!-- Injected -->
++                            </div>
++                        </div>
++                    </div>
+                 </div>
+-                <div id="cs-class" style="font-size:14px;color:#a0832b;margin-bottom:16px;text-transform:uppercase;letter-spacing:2px;"></div>
+-                <hr style="border-color:#3a3020;margin:12px 0 20px;">
+-                <div id="cs-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;font-size:16px;"></div>
+-                <hr style="border-color:#3a3020;margin:20px 0 16px;">
+-                <div id="cs-derived" style="font-size:14px;color:#bbb;line-height:2;"></div>
+-                <hr style="border-color:#3a3020;margin:20px 0 16px;">
+-                <h3 style="margin:0 0 16px 0;font-size:18px;color:#fde68a;">Party Members</h3>
+-                <div id="cs-party" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));gap:16px;font-size:14px;"></div>
+             </div>
+         `;
+         document.body.appendChild(modal);
+-        document.getElementById('cs-close').addEventListener('click', () => modal.style.display = 'none');
+-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
++        document.getElementById('cs-close').addEventListener('click', () => {
++            modal.style.display = 'none';
++            const hud = document.getElementById('game-hud');
++            if (hud) hud.style.display = 'flex';
++        });
++        modal.addEventListener('click', (e) => { 
++            if (e.target === modal) {
++                modal.style.display = 'none';
++                const hud = document.getElementById('game-hud');
++                if (hud) hud.style.display = 'flex';
++            }
++        });
++        window.addEventListener('keydown', (e) => {
++            if (e.key === 'Escape' && modal.style.display !== 'none') {
++                modal.style.display = 'none';
++                const hud = document.getElementById('game-hud');
++                if (hud) hud.style.display = 'flex';
++            }
++        });
+     }
+     
+     toggleCharacterSheet() {
+         const modal = document.getElementById('char-sheet-modal');
++        const hud = document.getElementById('game-hud');
+         if (!modal) return;
+         if (modal.style.display === 'none') {
+             this._updateCharacterSheet();
+             modal.style.display = '';
++            if (hud) hud.style.display = 'none';
+         } else {
+             modal.style.display = 'none';
++            if (hud) hud.style.display = 'flex';
+         }
+     }
+     
+     _updateCharacterSheet() {
+         const p = this.player;
+         if (!p) return;
++        
+         const stats = p.classData.stats;
+         const cd = p.classData;
+         const level = window.saveData ? window.saveData.level : 1;
+         const name = window.saveData ? window.saveData.name : 'Unknown';
++        const xp = window.saveData ? window.saveData.xp : 0;
++        const nextXp = level * 100;
++        const gold = window.saveData ? window.saveData.gold : 0;
++        const align = window.saveData ? window.saveData.alignment : 0;
++        
++        // --- Header Panel ---
++        document.getElementById('cs-name').innerText = name;
++        document.getElementById('cs-subtitle').innerText = `Level ${level} ${cd.id.charAt(0).toUpperCase() + cd.id.slice(1)}`;
++        
++        let alignText = "Neutral";
++        let alignColor = "#a0832b";
++        if (align > 20) { alignText = "Righteous"; alignColor = "#4ade80"; }
++        if (align < -20) { alignText = "Demonic"; alignColor = "#ff6b6b"; }
++        const alignEl = document.getElementById('cs-alignment');
++        alignEl.innerText = `${alignText} (${align})`;
++        alignEl.style.borderColor = alignColor;
++        alignEl.style.color = alignColor;
++        
++        document.getElementById('cs-gold').innerText = `${gold} Gold`;
++        document.getElementById('cs-xp').innerText = `${xp} / ${nextXp} XP`;
++        document.getElementById('cs-hpmp').innerText = `HP: ${p.hp}/${p.maxHp} | MP: ${p.mp}/${p.maxMp}`;
++
++        // Sprite
++        const spriteImg = document.getElementById('cs-sprite-img');
++        const frameW = cd.frameWidth || 64;
++        const frameH = cd.frameHeight || 64;
++        spriteImg.style.width = `${frameW}px`;
++        spriteImg.style.height = `${frameH}px`;
++        
++        let spritePath = '';
++        if (cd.id === 'knight') spritePath = 'GandalfHardcore FREE Warrior/GandalfHardcore Warrior.png';
++        else if (cd.id === 'wizard') spritePath = 'GandalfHardcore Wizard/GandalfHardcore Wizard/Black Wizard sheet.png';
++        else if (cd.id === 'samurai') spritePath = 'GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet black.png';
++        else if (cd.id === 'ranger') spritePath = 'GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png';
+         
+-        document.getElementById('cs-title').innerText = `${name} ΓÇö Lv.${level}`;
+-        document.getElementById('cs-class').innerText = cd.id.charAt(0).toUpperCase() + cd.id.slice(1);
++        spriteImg.style.backgroundImage = `url('src/assets/${spritePath}')`;
++        spriteImg.style.backgroundPosition = `-${cd.idleRow === undefined ? 0 : cd.idleRow * frameW}px 0px`;
++        spriteImg.style.backgroundRepeat = 'no-repeat';
+         
++        // --- Core Stats ---
+         const statColors = { vit: '#ff6b6b', str: '#ff9f43', dex: '#54a0ff', int: '#c471ed' };
+-        document.getElementById('cs-stats').innerHTML = `
+-            <div><span style="color:${statColors.vit}">Γ¥ñ VIT</span></div><div style="text-align:right;font-weight:bold;">${stats.vit}</div>
+-            <div><span style="color:${statColors.str}">ΓÜö STR</span></div><div style="text-align:right;font-weight:bold;">${stats.str}</div>
+-            <div><span style="color:${statColors.dex}">≡ƒÆ¿ DEX</span></div><div style="text-align:right;font-weight:bold;">${stats.dex}</div>
+-            <div><span style="color:${statColors.int}">Γ£¿ INT</span></div><div style="text-align:right;font-weight:bold;">${stats.int}</div>
++        document.getElementById('cs-core-stats').innerHTML = `
++            <div class="flex justify-between items-center"><span style="color:${statColors.vit}" class="font-bold tracking-wider">Γ¥ñ VITALITY</span><span class="font-bold text-[18px]">${stats.vit}</span></div>
++            <div class="text-[12px] text-on-surface-variant mb-2">Increases Max HP.</div>
++            <div class="flex justify-between items-center"><span style="color:${statColors.str}" class="font-bold tracking-wider">ΓÜö STRENGTH</span><span class="font-bold text-[18px]">${stats.str}</span></div>
++            <div class="text-[12px] text-on-surface-variant mb-2">Increases Melee Damage & Jump Height.</div>
++            <div class="flex justify-between items-center"><span style="color:${statColors.dex}" class="font-bold tracking-wider">≡ƒÆ¿ DEXTERITY</span><span class="font-bold text-[18px]">${stats.dex}</span></div>
++            <div class="text-[12px] text-on-surface-variant mb-2">Increases Speed, Crit Chance & Dash.</div>
++            <div class="flex justify-between items-center"><span style="color:${statColors.int}" class="font-bold tracking-wider">Γ£¿ INTELLIGENCE</span><span class="font-bold text-[18px]">${stats.int}</span></div>
++            <div class="text-[12px] text-on-surface-variant">Increases Max MP & Magic Damage.</div>
+         `;
+         
+-        // Derived stats
+-        const weaponBonusRaw = p.inventory && p.inventory.weapon ? p.inventory.weapon.damageBonus : 0;
++        // --- Combat Math ---
++        const weaponObj = p.inventory && p.inventory.weapon ? p.inventory.weapon : null;
++        const weaponBonusRaw = weaponObj ? weaponObj.damageBonus : 0;
+         const weaponBonus = typeof weaponBonusRaw === 'number' && !isNaN(weaponBonusRaw) ? weaponBonusRaw : 0;
++        
++        let baseDmgStr = "";
+         let baseDmg = 0;
+-        if (cd.id === 'wizard') baseDmg = (stats.int * 2) + weaponBonus;
+-        else if (cd.id === 'samurai') baseDmg = Math.floor(stats.dex * 2.5) + Math.floor(stats.str * 0.5) + weaponBonus;
+-        else if (cd.id === 'ranger') baseDmg = (stats.dex * 2) + stats.str + weaponBonus;
+-        else baseDmg = (stats.str * 3) + weaponBonus;
+-        
+-        const mult = typeof p.getDamageMultiplier === 'function' ? p.getDamageMultiplier() : 1.0;
+-        let dmgFormula = `${Math.floor(baseDmg * mult)}`;
+-        if (mult > 1.0) dmgFormula += ` <span style="color:#f6be3b" title="Camaraderie Buff">(+${Math.round((mult-1)*100)}%)</span>`;
+-        
+-        document.getElementById('cs-derived').innerHTML = `
+-            <div>Max HP: <b style="color:#ff6b6b">${p.maxHp}</b> &nbsp;|&nbsp; Max MP: <b style="color:#60a5fa">${p.maxMp}</b> &nbsp;|&nbsp; Max SP: <b style="color:#4ade80">${p.maxSp}</b></div>
+-            <div>Damage: <b>~${dmgFormula}</b> &nbsp;|&nbsp; Crit: <b>${(p.critChance || 0).toFixed(1)}%</b></div>
+-            <div>Speed: <b>${p.speed}</b> &nbsp;|&nbsp; Dash: <b>${p.dashSpeed}</b></div>
++        if (cd.id === 'wizard') { baseDmg = (stats.int * 2); baseDmgStr = `(INT├ù2)`; }
++        else if (cd.id === 'samurai') { baseDmg = Math.floor(stats.dex * 2.5) + Math.floor(stats.str * 0.5); baseDmgStr = `(DEX├ù2.5 + STR├ù0.5)`; }
++        else if (cd.id === 'ranger') { baseDmg = (stats.dex * 2) + stats.str; baseDmgStr = `(DEX├ù2 + STR)`; }
++        else { baseDmg = (stats.str * 3); baseDmgStr = `(STR├ù3)`; }
++        
++        const rawDmg = baseDmg + weaponBonus;
++        const dmgMult = typeof p.getDamageMultiplier === 'function' ? p.getDamageMultiplier() : 1.0;
++        const finalDmg = Math.floor(rawDmg * dmgMult);
++
++        const drMult = typeof p.getDamageReduction === 'function' ? p.getDamageReduction() : 0.0;
++        const lifesteal = typeof p.getLifesteal === 'function' ? p.getLifesteal() : 0.0;
++
++        document.getElementById('cs-combat-stats').innerHTML = `
++            <div class="flex justify-between items-center mb-1"><span class="font-bold text-on-surface-variant">Max Output Damage</span><span class="font-bold text-primary text-[20px]">~${finalDmg}</span></div>
++            <div class="text-[12px] text-on-surface-variant mb-3 border-l-2 border-outline-variant pl-2 font-mono">
++                Base ${baseDmgStr}: <span class="text-on-surface">${baseDmg}</span><br>
++                Weapon Bonus: <span class="text-tertiary">+${weaponBonus}</span><br>
++                Multipliers: <span class="text-info">x${dmgMult.toFixed(2)}</span>
++            </div>
++            
++            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Critical Hit Chance</span><span class="font-bold text-secondary text-[16px]">${(p.critChance || 0).toFixed(1)}%</span></div>
++            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Damage Reduction</span><span class="font-bold text-info text-[16px]">${(drMult * 100).toFixed(0)}%</span></div>
++            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Lifesteal</span><span class="font-bold text-error text-[16px]">${(lifesteal * 100).toFixed(0)}%</span></div>
+         `;
++
++        // --- Exploration ---
++        document.getElementById('cs-exploration-stats').innerHTML = `
++            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Movement Speed</span><span class="font-bold text-[16px]">${p.speed} px/s</span></div>
++            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Dash Power</span><span class="font-bold text-[16px]">${p.dashSpeed} px/s</span></div>
++            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Jump Power</span><span class="font-bold text-[16px]">${Math.abs(p.jumpVelocity)} px/s</span></div>
++        `;
++
++        // --- Equipment ---
++        let equipHtml = "";
++        if (weaponObj) {
++            equipHtml += `
++                <div class="bg-surface-container border border-tertiary rounded p-3 flex gap-4 items-center shadow">
++                    <div class="w-12 h-12 bg-surface-container-highest rounded border border-outline-variant flex items-center justify-center" style="background-image: url('${weaponObj.iconSrc || weaponObj.imageSrc || ''}'); background-size: contain; background-repeat: no-repeat; background-position: center; image-rendering: pixelated;"></div>
++                    <div>
++                        <div class="font-bold text-tertiary uppercase tracking-wider text-[14px]">${weaponObj.name}</div>
++                        <div class="text-[12px] text-on-surface-variant">${weaponObj.desc}</div>
++                    </div>
++                </div>
++            `;
++        } else {
++            equipHtml += `<div class="text-on-surface-variant italic text-[14px]">No Weapon Equipped</div>`;
++        }
++        
++        let artObj = null;
++        if (p.inventory && p.inventory.artifacts && p.inventory.equippedArtifact >= 0) {
++            const artifactKey = p.inventory.artifacts[p.inventory.equippedArtifact];
++            artObj = window.ARTIFACTS_DATA[artifactKey];
++        }
++        
++        if (artObj) {
++            equipHtml += `
++                <div class="bg-surface-container border border-secondary rounded p-3 flex gap-4 items-center shadow mt-2">
++                    <div class="w-12 h-12 bg-surface-container-highest rounded border border-outline-variant flex items-center justify-center" style="background-image: url('${artObj.iconSrc}'); background-size: cover; image-rendering: pixelated;"></div>
++                    <div>
++                        <div class="font-bold text-secondary uppercase tracking-wider text-[14px]">${artObj.name}</div>
++                        <div class="text-[12px] text-on-surface-variant">${artObj.desc}</div>
++                    </div>
++                </div>
++            `;
++        } else {
++            equipHtml += `<div class="text-on-surface-variant italic text-[14px] mt-2">No Artifact Equipped</div>`;
++        }
++        document.getElementById('cs-equipment').innerHTML = equipHtml;
++
++        // --- Status Effects ---
++        let statusHtml = "";
++        
++        // Permanent Artifact Aura
++        if (artObj && artObj.statBoosts) {
++            statusHtml += `
++                <div class="flex justify-between items-center bg-surface border border-secondary rounded px-3 py-2 mb-2">
++                    <span style="color:#fbc531" class="font-bold uppercase flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">stars</span> Artifact Aura</span>
++                    <span class="text-on-surface-variant text-[12px]">${artObj.desc} (Permanent)</span>
++                </div>
++            `;
++        }
+         
+-        const partyContainer = document.getElementById('cs-party');
++        if (p.statusEffects && p.statusEffects.length > 0) {
++            p.statusEffects.forEach(effect => {
++                let color = "#ff6b6b";
++                let icon = "warning";
++                if (['heal', 'buff', 'regen', 'blessing'].includes(effect.type)) { color = "#4ade80"; icon = "verified"; }
++                statusHtml += `
++                    <div class="flex justify-between items-center bg-surface border border-outline-variant rounded px-3 py-2 mb-2">
++                        <span style="color:${color}" class="font-bold uppercase flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">${icon}</span> ${effect.type}</span>
++                        <span class="text-on-surface-variant">${Math.ceil(effect.duration/1000)}s remaining</span>
++                    </div>
++                `;
++            });
++        }
++        
++        if (statusHtml === "") {
++            statusHtml = `<div class="text-on-surface-variant italic text-center py-2">No active effects</div>`;
++        }
++        document.getElementById('cs-status-effects').innerHTML = statusHtml;
++
++        // --- Party ---
++        let partyHtml = "";
+         if (this.partyMembers && this.partyMembers.length > 0) {
+-            partyContainer.innerHTML = this.partyMembers.map((member, idx) => {
++            partyHtml = this.partyMembers.map((member, idx) => {
+                 const memberMult = typeof member.getDamageMultiplier === 'function' ? member.getDamageMultiplier() : 1.0;
+                 const mBaseDmg = member.classData.id === 'wizard' ? (member.classData.stats.int*2) : (member.classData.stats.str*3);
+                 const mFinalDmg = Math.floor(mBaseDmg * memberMult);
+@@ -717,10 +948,13 @@ class GameScene extends Phaser.Scene {
+                     <div style="color:#f6be3b;font-size:13px;margin-bottom:12px;">≡ƒñ¥ Camaraderie: ${member.camaraderie || 0}</div>
+                     <button onclick="window._gameScene.startPartyChat(${idx})" style="width:100%; background:rgba(45,219,222,0.2); border:1px solid #2ddbde; color:#fff; border-radius:4px; padding:4px 0; cursor:pointer; font-size:12px; transition: background 0.2s;" onmouseover="this.style.background='rgba(45,219,222,0.5)'" onmouseout="this.style.background='rgba(45,219,222,0.2)'">≡ƒÆ¼ Chat</button>
+                 </div>
+-            `}).join('');
+-        } else {
+-            partyContainer.innerHTML = '<div style="color:#666;font-style:italic;">No party members currently.</div>';
++                `;
++            }).join('');
+         }
++        if (partyHtml === "") {
++            partyHtml = `<div class="text-on-surface-variant italic">No active party members</div>`;
++        }
++        document.getElementById('cs-party').innerHTML = partyHtml;
+     }
+     
+     dismissPartyMember(index) {
+@@ -960,17 +1194,32 @@ class GameScene extends Phaser.Scene {
+                 tile.setTint(loc.floorTint);
+             });
+ 
+-            // Create an invisible dedicated floor for the interior room
++            // Set indoor floor collision
+             if (!this.indoorFloor) {
+-                this.indoorFloor = this.physics.add.staticImage(640, 680, 'pixel');
+-                this.indoorFloor.setAlpha(0);
+-                this.indoorFloor.setScale(1280, 50).refreshBody();
+-                
+-                // Add colliders for this new floor
++                // Use a physics zone instead of an image to avoid missing texture issues
++                this.indoorFloor = this.add.zone(640, 696, 1280, 50);
++                this.physics.add.existing(this.indoorFloor, true); // true = static body
+                 this.physics.add.collider(this.player.sprite, this.indoorFloor);
++
++                // Add invisible walls to prevent walking off the floor into the void
++                this.indoorLeftWall = this.add.zone(32, 360, 64, 720);
++                this.physics.add.existing(this.indoorLeftWall, true);
++                this.physics.add.collider(this.player.sprite, this.indoorLeftWall);
++
++                this.indoorRightWall = this.add.zone(1248, 360, 64, 720);
++                this.physics.add.existing(this.indoorRightWall, true);
++                this.physics.add.collider(this.player.sprite, this.indoorRightWall);
+             } else {
+-                this.indoorFloor.setActive(true).setVisible(false);
++                this.indoorFloor.setActive(true);
+                 this.indoorFloor.body.enable = true;
++                if (this.indoorLeftWall) {
++                    this.indoorLeftWall.setActive(true);
++                    this.indoorLeftWall.body.enable = true;
++                }
++                if (this.indoorRightWall) {
++                    this.indoorRightWall.setActive(true);
++                    this.indoorRightWall.body.enable = true;
++                }
+             }
+ 
+             // Move player to center and scale up, spawned high enough to not clip into floor
+@@ -1051,11 +1300,13 @@ class GameScene extends Phaser.Scene {
+                 this.indoorWallBgGroup.getChildren().forEach(img => img.setVisible(false));
+             }
+ 
+-            // Disable the indoor floor
++            // Disable the indoor floor and walls
+             if (this.indoorFloor) {
+                 this.indoorFloor.setActive(false);
+                 this.indoorFloor.body.enable = false;
+             }
++            if (this.indoorLeftWall) this.indoorLeftWall.body.enable = false;
++            if (this.indoorRightWall) this.indoorRightWall.body.enable = false;
+ 
+             // Destroy indoor NPCs (Weapons Master, shopkeepers, etc.)
+             if (this.npcs) {
+@@ -1745,6 +1996,43 @@ class GameScene extends Phaser.Scene {
+         this.inputManager.update();
+         if (this.player) this.player.update(time, delta);
+         
++        // --- GM AI LOGIC ---
++        if (!this.lastGmPollTime) this.lastGmPollTime = time;
++        if (time - this.lastGmPollTime > 20000 && this.geminiService && this.geminiService.isReady && !this.isIndoors && !this.isCutscene && this.zoneData && this.zoneData.type === 'Dangerous') {
++            this.lastGmPollTime = time;
++            let activeEnemies = 0;
++            this.enemies.children.iterate(e => { if (e && e.active) activeEnemies++; });
++            const gameState = {
++                player: { level: this.player.level, hp: this.player.hp, maxHp: this.player.maxHp },
++                zone: { name: this.zoneData.name, biome: this.zoneData.biome },
++                activeEnemies: activeEnemies
++            };
++            this.geminiService.getGameMasterDecision(gameState).then(res => {
++                if (res && res.action !== 'NONE') {
++                    if (this.showAnnouncement) this.showAnnouncement("The Game Master", res.announcement);
++                    else if (this.showFloatingText) this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, `GM: ${res.announcement}`, 0xff00ff);
++                    
++                    if (res.action === 'AMBUSH') {
++                        // Spawn a rival
++                        this.spawnHeroAI('samurai_rival', this.player.sprite.x + (Math.random() > 0.5 ? 250 : -250), 600, 'hostile');
++                    } else if (res.action === 'HEAL') {
++                        this.player.hp = this.player.maxHp;
++                        if (this.updateHUD) this.updateHUD();
++                    } else if (res.action === 'GOLD_RUSH') {
++                        window.saveData.gold = (window.saveData.gold || 0) + 500;
++                        if (this.updateHUD) this.updateHUD();
++                    } else if (res.action === 'WEATHER_RAIN') {
++                        // Just as an example, this requires an environment manager but we don't have one globally.
++                        // For now we will just log it or apply a global tint
++                        this.cameras.main.setTint(0x888888);
++                    } else if (res.action === 'WEATHER_FOG') {
++                        this.cameras.main.setTint(0xaaddff);
++                    }
++                }
++            });
++        }
++        // --- END GM AI LOGIC ---
++        
+         // Handle Zone Transitions (disabled if indoors)
+         if (!this.isTransitioning && !this.isIndoors) {
+             if (this.player.sprite.x > 1200) {

@@ -1,0 +1,517 @@
+﻿diff --git a/src/PlayerController.js b/src/PlayerController.js
+index 2ec592f..4c18b62 100644
+--- a/src/PlayerController.js
++++ b/src/PlayerController.js
+@@ -30,10 +30,15 @@ class PlayerController {
+         this.aiInput = { left: false, right: false, up: false, attack: false, dashLeft: false, dashRight: false, superSpell: false };
+         this.lastAITick = 0;
+         this.currentAnimKey = null;
++        this.tempStats = { vit: 0, str: 0, dex: 0, int: 0 };
+ 
+         // Get the selected class from options (if AI) or window object
+         this.classData = this.isAI ? this._getAIClassData(options.classId) : (window.selectedClass || { id: 'knight', stats: { vit: 10, str: 10, dex: 10, int: 10 }, frameWidth: 80, frameHeight: 64, isSheet: true, idleRow: 0, idleFrames: 5 });
+         
++        if (!this.isAI) {
++            this.classId = this.classData.id;
++        }
++        
+         // Restore persisted stats from saveData (fixes stats resetting on reload)
+         if (!this.isAI && window.saveData && window.saveData.stats) {
+             this.classData.stats = { ...window.saveData.stats };
+@@ -41,74 +46,88 @@ class PlayerController {
+         const classData = this.classData;
+ 
+         // Create the physics sprite using the selected class ID
+-        this.sprite = this.scene.physics.add.sprite(x, y, this.classData.id);
++        const animPrefix = this.classId;
++        let texKey = this.classId;
++        if (!this.scene.textures.exists(texKey)) {
++            texKey = this.classData.id;
++            if (!this.scene.textures.exists(texKey)) texKey = 'player';
++        }
++        
++        this.sprite = this.scene.physics.add.sprite(x, y, texKey);
+         if (this.classData.flipX) this.sprite.setFlipX(true);
+         
+         if (this.classData.isSheet) {
+-            if (!this.scene.anims.exists(classData.id + '_idle')) {
+-                const tex = this.scene.textures.get(classData.id).getSourceImage();
++            if (!this.scene.anims.exists(animPrefix + '_idle')) {
++                const tex = this.scene.textures.get(texKey).getSourceImage();
+                 const cols = Math.floor(tex.width / classData.frameWidth);
++                const rows = Math.floor(tex.height / classData.frameHeight);
++                const maxFrame = Math.max(0, (cols * rows) - 1);
+                 const af = classData.animFrames || {};
+ 
+-                const row = (r) => ({ start: r * cols, end: r * cols + cols - 1 });
++                const safeFrames = (config) => {
++                    return {
++                        start: Math.min(config.start, maxFrame),
++                        end: Math.min(config.end, maxFrame)
++                    };
++                };
+ 
+                 // Row 0: Idle
+-                this.scene.anims.create({ key: classData.id + '_idle',
+-                    frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                        af.idle || { start: classData.idleRow * cols, end: classData.idleRow * cols + classData.idleFrames - 1 }),
++                this.scene.anims.create({ key: animPrefix + '_idle',
++                    frames: this.scene.anims.generateFrameNumbers(texKey,
++                        safeFrames(af.idle || { start: classData.idleRow * cols, end: classData.idleRow * cols + classData.idleFrames - 1 })),
+                     frameRate: 8, repeat: -1 });
+ 
+                 // Row idleRow+1: Walk/Run
+                 const walkRow = classData.walkRow !== undefined ? classData.walkRow : classData.idleRow + 1;
+-                this.scene.anims.create({ key: classData.id + '_walk',
+-                    frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                        af.walk || { start: walkRow * cols, end: walkRow * cols + Math.min(7, cols - 1) }),
++                this.scene.anims.create({ key: animPrefix + '_walk',
++                    frames: this.scene.anims.generateFrameNumbers(texKey,
++                        safeFrames(af.walk || { start: walkRow * cols, end: walkRow * cols + Math.min(7, cols - 1) })),
+                     frameRate: 12, repeat: -1 });
+ 
+                 // Attack row 14 = first combat row
+                 const attackRow = classData.attackRow !== undefined ? classData.attackRow : Math.min(14, Math.floor(tex.height / classData.frameHeight) - 1);
+-                this.scene.anims.create({ key: classData.id + '_attack',
+-                    frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                        af.attack || { start: attackRow * cols, end: attackRow * cols + Math.min(5, cols - 1) }),
++                this.scene.anims.create({ key: animPrefix + '_attack',
++                    frames: this.scene.anims.generateFrameNumbers(texKey,
++                        safeFrames(af.attack || { start: attackRow * cols, end: attackRow * cols + Math.min(5, cols - 1) })),
+                     frameRate: 16, repeat: 0 });
+ 
+                 // Duck row: default row 3, configurable per class
+                 const duckRow = classData.duckRow !== undefined ? classData.duckRow : Math.min(3, Math.floor(tex.height / classData.frameHeight) - 1);
+-                this.scene.anims.create({ key: classData.id + '_duck',
+-                    frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                        af.duck || { start: duckRow * cols, end: duckRow * cols + Math.min(3, cols - 1) }),
++                this.scene.anims.create({ key: animPrefix + '_duck',
++                    frames: this.scene.anims.generateFrameNumbers(texKey,
++                        safeFrames(af.duck || { start: duckRow * cols, end: duckRow * cols + Math.min(3, cols - 1) })),
+                     frameRate: 8, repeat: -1 });
+ 
+                 // Jump/Leap animation: row 4
+                 const jumpRow = classData.jumpRow !== undefined ? classData.jumpRow : Math.min(4, Math.floor(tex.height / classData.frameHeight) - 1);
+-                this.scene.anims.create({ key: classData.id + '_jump',
+-                    frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                        af.jump || { start: jumpRow * cols, end: jumpRow * cols + Math.min(cols - 1, cols - 1) }),
++                this.scene.anims.create({ key: animPrefix + '_jump',
++                    frames: this.scene.anims.generateFrameNumbers(texKey,
++                        safeFrames(af.jump || { start: jumpRow * cols, end: jumpRow * cols + Math.min(cols - 1, cols - 1) })),
+                     frameRate: 10, repeat: 0 });
+ 
+                 // Fall animation: row 5
+                 const fallRow = classData.fallRow !== undefined ? classData.fallRow : Math.min(5, Math.floor(tex.height / classData.frameHeight) - 1);
+-                this.scene.anims.create({ key: classData.id + '_fall',
+-                    frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                        af.fall || { start: fallRow * cols, end: fallRow * cols + Math.min(5, cols - 1) }),
++                this.scene.anims.create({ key: animPrefix + '_fall',
++                    frames: this.scene.anims.generateFrameNumbers(texKey,
++                        safeFrames(af.fall || { start: fallRow * cols, end: fallRow * cols + Math.min(5, cols - 1) })),
+                     frameRate: 10, repeat: -1 });
+ 
+-                if (af.hit) this.scene.anims.create({ key: classData.id + '_hit', frames: this.scene.anims.generateFrameNumbers(classData.id, af.hit), frameRate: 10, repeat: 0 });
+-                if (af.die) this.scene.anims.create({ key: classData.id + '_die', frames: this.scene.anims.generateFrameNumbers(classData.id, af.die), frameRate: 8, repeat: 0 });
++                if (af.hit) this.scene.anims.create({ key: animPrefix + '_hit', frames: this.scene.anims.generateFrameNumbers(texKey, safeFrames(af.hit)), frameRate: 10, repeat: 0 });
++                if (af.die) this.scene.anims.create({ key: animPrefix + '_die', frames: this.scene.anims.generateFrameNumbers(texKey, safeFrames(af.die)), frameRate: 8, repeat: 0 });
+ 
+                 // Combo animation
+                 if (classData.comboStartFrame !== undefined && classData.comboEndFrame !== undefined) {
+-                    this.scene.anims.create({ key: classData.id + '_combo',
+-                        frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                            { start: classData.comboStartFrame, end: classData.comboEndFrame }),
++                    this.scene.anims.create({ key: animPrefix + '_combo',
++                        frames: this.scene.anims.generateFrameNumbers(texKey,
++                            safeFrames({ start: classData.comboStartFrame, end: classData.comboEndFrame })),
+                         frameRate: 12, repeat: 0 });
+                 }
+ 
+                 // Dash animation
+                 if (classData.dashRow !== undefined) {
+-                    this.scene.anims.create({ key: classData.id + '_dash',
+-                        frames: this.scene.anims.generateFrameNumbers(classData.id,
+-                            { start: classData.dashRow * cols, end: classData.dashRow * cols + Math.min(5, cols - 1) }),
++                    this.scene.anims.create({ key: animPrefix + '_dash',
++                        frames: this.scene.anims.generateFrameNumbers(texKey,
++                            safeFrames({ start: classData.dashRow * cols, end: classData.dashRow * cols + Math.min(5, cols - 1) })),
+                         frameRate: 15, repeat: -1 });
+                 }
+             }
+@@ -249,16 +268,37 @@ class PlayerController {
+             this.quests = window.saveData.quests || [];
+             this.renderQuests();
+         } else {
+-            this.inventory = { weapon: { key: 'weapon-stick', damageBonus: 5 } }; // Basic fallback for AI damage calculations
++            this.inventory = { weapon: { key: 'weapon-stick', damageBonus: 5 }, potions: 2 }; // Basic fallback for AI damage calculations
+         }
+     }
+ 
+     _getAIClassData(classId) {
++        const originalClassId = classId;
+         // Strip _rival suffix if present
+         const baseClassId = classId.replace('_rival', '');
+         if (classId === 'megaboss_rival') {
+             // Megaboss uses knight animations but scaled up
+             classId = 'knight';
++        } else if (classId === 'knight_rival') {
++            return {
++                id: 'knight_rival',
++                stats: { vit: 15, str: 14, dex: 9, int: 8 },
++                isSheet: true,
++                frameWidth: 80,
++                frameHeight: 64,
++                flipX: true,
++                idleRow: 0,
++                idleFrames: 5,
++                walkRow: 1,
++                attackRow: 2,
++                jumpRow: 1, 
++                fallRow: 1, 
++                dashRow: 1, 
++                animFrames: {
++                    hit: { start: 30, end: 34 }, // Row 7
++                    die: { start: 50, end: 54 }  // Row 11
++                }
++            };
+         } else {
+             classId = baseClassId;
+         }
+@@ -326,12 +366,20 @@ class PlayerController {
+     }
+ 
+     recalculateStats() {
+-        const stats = this.classData.stats || { vit: 10, str: 10, dex: 10, int: 10 };
++        const baseStats = this.classData.stats || { vit: 10, str: 10, dex: 10, int: 10 };
+         // Sanitize stats against NaN corruption from older saves
+-        if (typeof stats.dex !== 'number' || isNaN(stats.dex)) stats.dex = 10;
+-        if (typeof stats.str !== 'number' || isNaN(stats.str)) stats.str = 10;
+-        if (typeof stats.vit !== 'number' || isNaN(stats.vit)) stats.vit = 10;
+-        if (typeof stats.int !== 'number' || isNaN(stats.int)) stats.int = 10;
++        if (typeof baseStats.dex !== 'number' || isNaN(baseStats.dex)) baseStats.dex = 10;
++        if (typeof baseStats.str !== 'number' || isNaN(baseStats.str)) baseStats.str = 10;
++        if (typeof baseStats.vit !== 'number' || isNaN(baseStats.vit)) baseStats.vit = 10;
++        if (typeof baseStats.int !== 'number' || isNaN(baseStats.int)) baseStats.int = 10;
++
++        const temp = this.tempStats || { vit: 0, str: 0, dex: 0, int: 0 };
++        const stats = {
++            vit: baseStats.vit + (temp.vit || 0),
++            str: baseStats.str + (temp.str || 0),
++            dex: baseStats.dex + (temp.dex || 0),
++            int: baseStats.int + (temp.int || 0)
++        };
+ 
+         this.speed = 200 + (stats.dex * 5);          // DEX ΓåÆ movement speed
+         this.jumpVelocity = -400 - (stats.str * 10);  // STR ΓåÆ jump height
+@@ -432,6 +480,12 @@ class PlayerController {
+         }
+     }
+ 
++    clearTempStats() {
++        this.tempStats = { vit: 0, str: 0, dex: 0, int: 0 };
++        this.recalculateStats();
++        if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
++    }
++
+     applyStatusEffect(type, duration, strength = 0) {
+         this.statusEffects.push({ type, duration, strength });
+     }
+@@ -1399,6 +1453,71 @@ class PlayerController {
+             const dx = target.x - this.sprite.x;
+             const dist = Math.abs(dx);
+             
++            // --- GEMINI AI OVERHAUL ---
++            if (this.scene.geminiService && this.scene.geminiService.isReady && this.aiState === 'hostile') {
++                if (time - (this.lastTacticTime || 0) > 3000) {
++                    this.lastTacticTime = time;
++                    let optimalDist = 40; // Melee
++                    if (this.classData.id === 'wizard' || this.classData.id === 'ranger') optimalDist = 150; // Ranged
++
++                    const battleState = {
++                        enemyType: this.classId || 'Rival',
++                        enemyClassType: (this.classId && (this.classId.includes('ranger') || this.classId.includes('wizard'))) ? 'RANGED' : 'MELEE',
++                        distance: dist,
++                        playerAction: p.isAttacking ? "Attacking" : "Idle",
++                        playerHp: p.hp,
++                        playerMaxHp: p.maxHp || 100,
++                        enemyHp: this.hp,
++                        enemyMaxHp: this.maxHp || 100,
++                        enemyMp: this.mp || 0,
++                        enemySp: this.sp || 0
++                    };
++                    this.scene.geminiService.getEnemyTactic(battleState).then(res => {
++                        this.currentTactic = res.tactic;
++                        if (res.dialogue && this.scene.showFloatingText) {
++                            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, res.dialogue, 0xffaa00);
++                        }
++                    });
++                }
++                
++                if (this.currentTactic) {
++                    if (this.currentTactic === 'MELEE_ATTACK') {
++                        if (dx > 0) this.aiInput.right = true; else this.aiInput.left = true;
++                        if (dist < 80) this.aiInput.attack = true;
++                    } else if (this.currentTactic === 'RANGED_ATTACK') {
++                        if (dist < 150) { if (dx > 0) this.aiInput.left = true; else this.aiInput.right = true; }
++                        else if (dist > 400) { if (dx > 0) this.aiInput.right = true; else this.aiInput.left = true; }
++                        this.aiInput.attack = true;
++                    } else if (this.currentTactic === 'SUPER_ATTACK') {
++                        this.superComboSpell();
++                        this.currentTactic = 'IDLE';
++                    } else if (this.currentTactic === 'BLOCK') {
++                        this.aiInput.down = true;
++                    } else if (this.currentTactic === 'DASH_EVADE') {
++                        if (dx > 0) this.aiInput.dashLeft = true; else this.aiInput.dashRight = true;
++                        this.currentTactic = 'IDLE';
++                    } else if (this.currentTactic === 'CHASE') {
++                        let optimalDist = 40; // Melee
++                        if (this.classData.id === 'wizard' || this.classData.id === 'ranger') optimalDist = 150; // Ranged
++                        if (dist > optimalDist - 20) {
++                            if (dx > 0) this.aiInput.right = true; else this.aiInput.left = true;
++                        }
++                    } else if (this.currentTactic === 'FLEE') {
++                        if (dx > 0) this.aiInput.left = true; else this.aiInput.right = true;
++                    } else if (this.currentTactic === 'HEAL') {
++                        if (this.inventory && this.inventory.potions > 0) {
++                            this.inventory.potions--;
++                            this.hp = Math.min(this.maxHp, this.hp + 50);
++                            if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, "Potion!", 0x00ff00);
++                        }
++                        this.currentTactic = 'IDLE';
++                    }
++                    this.aiTargetDx = dx;
++                    return; // Skip fallback AI logic
++                }
++            }
++            // --- END GEMINI AI ---
++            
+             let optimalDist = 40; // Melee
+             if (this.classData.id === 'wizard' || this.classData.id === 'ranger') optimalDist = 150; // Ranged
+             if (target === p.sprite && this.aiState === 'party') optimalDist = 80; // Follow distance
+@@ -1496,22 +1615,26 @@ class PlayerController {
+         if (!this.classData || !this.classData.isSheet || !this.sprite || !this.sprite.active) return;
+         
+         let targetKey = key;
++        const animPrefix = this.classId || this.classData.id;
+         if (!targetKey) {
+-            if (this.hp <= 0) targetKey = this.classData.id + '_die';
+-            else if (this.isAttacking) targetKey = this.classData.id + '_attack';
+-            else if (this.isDashing) targetKey = this.classData.id + '_dash';
+-            else if (this.wasDucking) targetKey = this.classData.id + '_duck';
+-            else if (this.isHit) targetKey = this.classData.id + '_hit';
+-            else if (this.sprite.body && !this.sprite.body.onFloor() && this.sprite.body.velocity.y < -10) targetKey = this.classData.id + '_jump';
+-            else if (this.sprite.body && !this.sprite.body.onFloor() && this.sprite.body.velocity.y > 10) targetKey = this.classData.id + '_fall';
+-            else if (this.sprite.body && Math.abs(this.sprite.body.velocity.x) > 10) targetKey = this.classData.id + '_walk';
+-            else targetKey = this.classData.id + '_idle';
++            if (this.hp <= 0) targetKey = animPrefix + '_die';
++            else if (this.isAttacking) targetKey = animPrefix + '_attack';
++            else if (this.isDashing) targetKey = animPrefix + '_dash';
++            else if (this.wasDucking) targetKey = animPrefix + '_duck';
++            else if (this.isHit) targetKey = animPrefix + '_hit';
++            else if (this.sprite.body && !this.sprite.body.onFloor() && this.sprite.body.velocity.y < -10) targetKey = animPrefix + '_jump';
++            else if (this.sprite.body && !this.sprite.body.onFloor() && this.sprite.body.velocity.y > 10) targetKey = animPrefix + '_fall';
++            else if (this.sprite.body && Math.abs(this.sprite.body.velocity.x) > 10) targetKey = animPrefix + '_walk';
++            else targetKey = animPrefix + '_idle';
+         }
+ 
+         // Fallback to idle if animation doesn't exist
+         if (!this.scene.anims.exists(targetKey)) {
+-            targetKey = this.classData.id + '_idle';
+-            if (!this.scene.anims.exists(targetKey)) return; // Emergency abort
++            targetKey = animPrefix + '_idle';
++            if (!this.scene.anims.exists(targetKey)) {
++                targetKey = this.classData.id + '_idle';
++                if (!this.scene.anims.exists(targetKey)) return; // Emergency abort
++            }
+         }
+ 
+         if (this.currentAnimKey === targetKey) return;
+@@ -1542,6 +1665,48 @@ class PlayerController {
+             return;
+         }
+ 
++        // Town Portal (Wizard only)
++        if (!this.isAI && this.classData && this.classData.id === 'wizard') {
++            if (Phaser.Input.Keyboard.JustDown(this.inputManager.keys.down)) {
++                if (time - (this.lastDownPressTime || 0) < 500) {
++                    this.downPressCount = (this.downPressCount || 0) + 1;
++                } else {
++                    this.downPressCount = 1;
++                }
++                this.lastDownPressTime = time;
++
++                if (this.downPressCount >= 3) {
++                    this.downPressCount = 0;
++                    if (this.mp >= 80) {
++                        let currentZone = this.scene.worldManager.currentZoneIndex || 0;
++                        let closestTown = Math.round(currentZone / 4) * 4;
++                        if (closestTown === currentZone) {
++                            if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, "Already in a town!", 0xff4444);
++                        } else {
++                            this.mp -= 80;
++                            if (this.updatePlayerUI) this.updatePlayerUI();
++                            if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, "Town Portal!", 0x4488ff);
++                            
++                            this.scene.isTransitioning = true;
++                            this.scene.cameras.main.fadeOut(500, 255, 255, 255);
++                            this.scene.time.delayedCall(500, () => {
++                                this.scene.worldManager.loadZone(closestTown, 'center').then(() => {
++                                    this.scene.isTransitioning = false;
++                                    this.scene.cameras.main.fadeIn(500, 255, 255, 255);
++                                }).catch(err => {
++                                    console.error("Town Portal failed:", err);
++                                    this.scene.isTransitioning = false;
++                                    this.scene.cameras.main.fadeIn(500, 255, 255, 255);
++                                });
++                            });
++                        }
++                    } else {
++                        if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, "Not enough Mana!", 0xff4444);
++                    }
++                }
++            }
++        }
++
+         if (this.isAI) {
+             this.updateAI(time, delta);
+         }
+@@ -1627,11 +1792,12 @@ class PlayerController {
+ 
+         // Horizontal movement
+         let movingX = false;
++        const spd = (typeof this.speed === 'number' && !isNaN(this.speed)) ? this.speed : 200;
+         if (this.isLeftDown()) {
+-            this.sprite.setVelocityX(-this.speed);
++            this.sprite.setVelocityX(-spd);
+             movingX = true;
+         } else if (this.isRightDown()) {
+-            this.sprite.setVelocityX(this.speed);
++            this.sprite.setVelocityX(spd);
+             movingX = true;
+         }
+ 
+@@ -1728,11 +1894,11 @@ class PlayerController {
+         }
+ 
+         // Branch logic based on class
+-        if (cd.id === 'wizard') {
++        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
+             // Mana check - single shot costs 2 MP
+             if (this.mp < 2) {
+                 this.isAttacking = false;
+-                if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, 'No Mana!', 0x4488ff);
++                if (!this.isAI && this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, 'No Mana!', 0x4488ff);
+                 return;
+             }
+             this.mp -= 2;
+@@ -1880,20 +2046,33 @@ class PlayerController {
+         const offsetX = this.facingDirection === 1 ? 20 : -20;
+         const proj = this.scene.physics.add.sprite(this.sprite.x + offsetX, this.sprite.y, 'projectile_blue');
+         
++        if (this.scene.anims.exists('projectile_blue_anim')) {
++            proj.play('projectile_blue_anim');
++        }
++        
+         proj.body.setAllowGravity(false);
+         proj.setVelocityX(this.facingDirection * 400);
+         if (this.facingDirection === -1) proj.setFlipX(true);
+         
+         // Setup collision
+-        const overlap = this.scene.physics.add.overlap(proj, this.scene.enemies, (p, enemySprite) => {
+-            if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
+-                enemySprite.controller.takeDamage(damage, this.facingDirection);
+-                this.applyLifesteal(damage);
+-                if (Math.random() < 0.50 && enemySprite.controller.applyStatusEffect) {
+-                    enemySprite.controller.applyStatusEffect('burn', 3000, 10); // 10 damage/0.5s for 3s
++        const targetGroup = this.isAI ? proj.scene.player.sprite : this.scene.enemies;
++        const overlap = this.scene.physics.add.overlap(proj, targetGroup, (p, targetSprite) => {
++            if (this.isAI) {
++                if (this.scene.player && typeof this.scene.player.takeDamage === 'function') {
++                    this.scene.player.takeDamage(damage, this.facingDirection);
++                    p.destroy();
++                    this.scene.physics.world.removeCollider(overlap);
++                }
++            } else {
++                if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
++                    targetSprite.controller.takeDamage(damage, this.facingDirection);
++                    this.applyLifesteal(damage);
++                    if (Math.random() < 0.50 && targetSprite.controller.applyStatusEffect) {
++                        targetSprite.controller.applyStatusEffect('burn', 3000, 10);
++                    }
++                    p.destroy();
++                    this.scene.physics.world.removeCollider(overlap);
+                 }
+-                p.destroy();
+-                this.scene.physics.world.removeCollider(overlap);
+             }
+         });
+         
+@@ -1906,10 +2085,10 @@ class PlayerController {
+     superComboSpell() {
+         const cd = this.classData;
+         
+-        if (cd.id === 'wizard') {
++        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
+             // Mana check - burst costs 4 MP
+             if (this.mp < 4) {
+-                if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, 'No Mana!', 0x4488ff);
++                if (!this.isAI && this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, 'No Mana!', 0x4488ff);
+                 return;
+             }
+             this.mp -= 4;
+@@ -1980,7 +2159,7 @@ class PlayerController {
+             }
+         }
+ 
+-        if (cd.id === 'wizard') {
++        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
+             // Trigger 3-orb burst after a short delay (approx when wand is raised)
+             this.scene.time.delayedCall(400, () => {
+                 const weaponBonus = this.inventory && this.inventory.weapon ? this.inventory.weapon.damageBonus : 0;
+@@ -1997,16 +2176,29 @@ class PlayerController {
+                     this.scene.time.delayedCall(i * 100, () => {
+                         if (!this.sprite || !this.sprite.active) return;
+                         const p = this.scene.physics.add.sprite(this.sprite.x + (dir * 20), this.sprite.y - 10, 'projectile_blue');
++                        if (this.scene.anims.exists('projectile_blue_anim')) {
++                            p.play('projectile_blue_anim');
++                        }
+                         p.body.setAllowGravity(false);
+                         p.setScale(1.5);
+                         p.setVelocity(dir * orbSpeed, 0); // All straight
+                         
+-                        const overlap = this.scene.physics.add.overlap(p, this.scene.enemies, (proj, enemySprite) => {
+-                            if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
+-                                enemySprite.controller.takeDamage(damage, dir);
+-                                this.applyLifesteal(damage);
+-                                proj.destroy();
+-                                this.scene.physics.world.removeCollider(overlap);
++                        const targetGroup = this.isAI ? p.scene.player.sprite : this.scene.enemies;
++                        const overlap = this.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
++                            // If hitting player, structure is slightly different
++                            if (this.isAI) {
++                                if (this.scene.player && typeof this.scene.player.takeDamage === 'function') {
++                                    this.scene.player.takeDamage(damage, dir);
++                                    proj.destroy();
++                                    this.scene.physics.world.removeCollider(overlap);
++                                }
++                            } else {
++                                if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
++                                    targetSprite.controller.takeDamage(damage, dir);
++                                    this.applyLifesteal(damage);
++                                    proj.destroy();
++                                    this.scene.physics.world.removeCollider(overlap);
++                                }
+                             }
+                         });
+                         
+@@ -2462,9 +2654,9 @@ class PlayerController {
+ 
+                 // Respawn at nearest town backwards
+                 let respawnZone = 0;
+-                if (window.saveData.worldMap) {
++                if (window.saveData.zones) {
+                     for (let i = window.saveData.currentZone || 0; i >= 0; i--) {
+-                        if (window.saveData.worldMap[i] && window.saveData.worldMap[i].type === 'Safe') {
++                        if (window.saveData.zones[i] && window.saveData.zones[i].type === 'Safe') {
+                             respawnZone = i;
+                             break;
+                         }

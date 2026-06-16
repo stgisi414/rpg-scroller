@@ -129,21 +129,23 @@ const classesData = {
         name: 'Heavy Knight',
         tagline: 'Unstoppable Juggernaut',
         desc: 'A colossal knight with devastating power.',
-        image: 'src/assets/Heavy Knight 2/Heavy Knight 2/Heavy Knighty sheet2 red.png',
+        image: 'src/assets/Heavy Knight/Heavy Knight/Black heavy.png',
         isSheet: true,
-        frameWidth: 80, frameHeight: 64,
+        frameWidth: 91, frameHeight: 64,
         idleFrames: 5, idleRow: 0,
         walkRow: 1,
         attackRow: 2,
-        dashRow: 5, // Shield Bash
+        jumpRow: 1,
+        fallRow: 1,
+        dashRow: 1,
         flipX: true,
         animFrames: {
-            jump: { start: 20, end: 24 }, // Block/Ready
-            fall: { start: 20, end: 24 }, // Block/Ready
-            hit: { start: 30, end: 34 },  // Hit/Impact (Row 7, idx 6)
-            die: { start: 50, end: 54 }   // Death Sequence (Row 11, idx 10)
+            jump: { start: 5, end: 9 },
+            fall: { start: 5, end: 9 },
+            hit: { start: 30, end: 34 },
+            die: { start: 50, end: 54 }
         },
-        comboStartFrame: 40, comboEndFrame: 44, // Projectile/Thrust (Row 9, idx 8)
+        comboStartFrame: 40, comboEndFrame: 44,
         slotPortraitX: -17, slotPortraitY: -18,
         stats: { vit: 15, str: 14, dex: 9, int: 8 }
     },
@@ -219,11 +221,16 @@ const classesData = {
 };
 
 // Derived rival and boss classes
-classesData.knight_rival = { ...classesData.heavy_knight, id: 'knight_rival' };
-classesData.wizard_rival = { ...classesData.wizard, id: 'wizard_rival' };
-classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival' };
-classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival' };
+classesData.knight_rival = { ...classesData.heavy_knight, id: 'knight_rival', stats: { vit: 30, str: 25, dex: 15, int: 8 } };
+classesData.knight_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
+classesData.wizard_rival = { ...classesData.wizard, id: 'wizard_rival', stats: { vit: 20, str: 10, dex: 15, int: 30 } };
+classesData.wizard_rival.image = 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Red Wizard sheet.png';
+classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival', stats: { vit: 25, str: 20, dex: 30, int: 5 } };
+classesData.samurai_rival.image = 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png';
+classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival', stats: { vit: 25, str: 15, dex: 25, int: 15 } };
+classesData.ranger_rival.image = 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png';
 classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 } };
+classesData.megaboss_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
 
 function showTitleScreen() {
     document.getElementById('ui-create').style.display = 'none';

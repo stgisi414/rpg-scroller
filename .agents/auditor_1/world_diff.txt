@@ -1,0 +1,26 @@
+﻿diff --git a/src/WorldManager.js b/src/WorldManager.js
+index 5facb8b..a8726b5 100644
+--- a/src/WorldManager.js
++++ b/src/WorldManager.js
+@@ -26,6 +26,10 @@ class WorldManager {
+         // Show loading screen
+         this.scene.showLoading(true);
+ 
++        if (this.scene && this.scene.player && typeof this.scene.player.clearTempStats === 'function') {
++            this.scene.player.clearTempStats();
++        }
++
+         window.saveData.currentZone = zoneIndex;
+         let zoneData = window.saveData.zones[zoneIndex];
+ 
+@@ -155,8 +159,8 @@ class WorldManager {
+                 ];
+                 // Update cache
+                 const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
+-                if (window.saveData && window.saveData.worldMap) {
+-                    window.saveData.worldMap[this.currentZoneIndex] = zoneData;
++                if (window.saveData && window.saveData.zones) {
++                    window.saveData.zones[this.currentZoneIndex] = zoneData;
+                     const idx = saves.findIndex(s => s.id === window.saveData.id);
+                     if (idx > -1) saves[idx] = window.saveData; else saves.push(window.saveData);
+                     localStorage.setItem('elden_soul_saves', JSON.stringify(saves));

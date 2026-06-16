@@ -26,6 +26,10 @@ class WorldManager {
         // Show loading screen
         this.scene.showLoading(true);
 
+        if (this.scene && this.scene.player && typeof this.scene.player.clearTempStats === 'function') {
+            this.scene.player.clearTempStats();
+        }
+
         window.saveData.currentZone = zoneIndex;
         let zoneData = window.saveData.zones[zoneIndex];
 
@@ -80,7 +84,7 @@ class WorldManager {
         let forceTown = zoneIndex === 0 || (absIdx > 0 && absIdx % 4 === 0);
 
         // Biome Chunking: Every 4 zones (3 wilderness + 1 town) share a biome.
-        const biomes = ['Forest', 'Plains', 'Desert', 'Winter', 'Coastal', 'Dungeon', 'Deadwoods', 'Hell'];
+        const biomes = ['Forest', 'Plains', 'Cave', 'Desert', 'Winter', 'Coastal', 'Dungeon', 'Deadwoods', 'Hell'];
         let chunkIndex = absIdx === 0 ? 0 : Math.floor((absIdx - 1) / 4);
         let selectedBiome = biomes[chunkIndex % biomes.length];
 
@@ -119,10 +123,10 @@ class WorldManager {
                 });
             }
         } else if (spawnSide === 'right') {
-            this.scene.player.sprite.setX(1180);
+            this.scene.player.sprite.setX(3740);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
-                    hero.sprite.setX(1180 + 60 + (i * 60));
+                    hero.sprite.setX(3740 + 60 + (i * 60));
                     hero.sprite.setY(600);
                     hero.sprite.setVelocity(0, 0);
                 });
@@ -135,7 +139,7 @@ class WorldManager {
         if (zoneData.type === 'Safe' && visualBiome === 'Dungeon') {
             visualBiome = 'Plains';
         }
-        this.scene.setBiomeVisuals(visualBiome);
+        this.scene.setBiomeVisuals(visualBiome, zoneData.type);
 
         // Spawn Decor
         if (this.scene.decorGroup) {
@@ -155,8 +159,8 @@ class WorldManager {
                 ];
                 // Update cache
                 const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                if (window.saveData && window.saveData.worldMap) {
-                    window.saveData.worldMap[this.currentZoneIndex] = zoneData;
+                if (window.saveData && window.saveData.zones) {
+                    window.saveData.zones[this.currentZoneIndex] = zoneData;
                     const idx = saves.findIndex(s => s.id === window.saveData.id);
                     if (idx > -1) saves[idx] = window.saveData; else saves.push(window.saveData);
                     localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
@@ -584,11 +588,12 @@ class WorldManager {
                 }
                 
                 // Sanitize AI outputs which could be strings, undefined, or NaN
-                const spawnX = (eData.x !== undefined && !isNaN(Number(eData.x))) ? Number(eData.x) : 200 + Math.random() * 800;
+                const spawnX = (eData.x !== undefined && !isNaN(Number(eData.x))) ? Number(eData.x) : 200 + Math.random() * 3400;
                 const hp = (eData.hp !== undefined && !isNaN(Number(eData.hp))) ? Number(eData.hp) : 100;
                 const speed = (eData.speed !== undefined && !isNaN(Number(eData.speed))) ? Number(eData.speed) : 100;
 
-                const enemy = new EnemyController(this.scene, spawnX, 600, this.scene.player, this.geminiService, type);
+                // Spawn from above so they don't fall through the floor!
+                const enemy = new EnemyController(this.scene, spawnX, 300, this.scene.player, this.geminiService, type);
                 enemy.maxHp = hp;
                 enemy.hp = hp;
                 enemy.speed = speed;

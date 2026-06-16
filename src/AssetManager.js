@@ -13,16 +13,17 @@ class AssetManager {
         // Load Class Assets (Temporarily as static images until we slice the sprite sheets)
         // Load Class Assets as SpriteSheets
         this.scene.load.spritesheet('knight', 'src/assets/GandalfHardcore FREE Warrior/GandalfHardcore Warrior.png', { frameWidth: 80, frameHeight: 64 });
+        this.scene.load.spritesheet('heavy_knight', 'src/assets/Heavy Knight/Heavy Knight/Black heavy.png', { frameWidth: 91, frameHeight: 64 });
         this.scene.load.spritesheet('wizard', 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Black Wizard sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('samurai', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet black.png', { frameWidth: 96, frameHeight: 64 });
         this.scene.load.spritesheet('ranger', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png', { frameWidth: 64, frameHeight: 64 });
 
         // Rival Hero Sprites (Red recolors)
-        this.scene.load.spritesheet('knight_rival', 'src/assets/Heavy Knight 2/Heavy Knight 2/Heavy Knighty sheet2 red.png', { frameWidth: 80, frameHeight: 64 }); // Assuming 80x64
+        this.scene.load.spritesheet('knight_rival', 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png', { frameWidth: 91, frameHeight: 64 }); // Assuming 80x64
         this.scene.load.spritesheet('wizard_rival', 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Red Wizard sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('samurai_rival', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png', { frameWidth: 96, frameHeight: 64 });
         this.scene.load.spritesheet('ranger_rival', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png', { frameWidth: 64, frameHeight: 64 });
-        this.scene.load.spritesheet('megaboss_rival', 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png', { frameWidth: 80, frameHeight: 64 });
+        this.scene.load.spritesheet('megaboss_rival', 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png', { frameWidth: 91, frameHeight: 64 });
         
         // Damned Enemies
         const damnedPath = 'src/assets/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore The Damned Enemies and NPCs/';
@@ -32,7 +33,7 @@ class AssetManager {
         this.scene.load.image('lich_lord', 'src/assets/lich_lord.png');
         this.scene.load.image('skeleton', 'src/assets/skeleton.png');
         this.scene.load.spritesheet('bandit', 'src/assets/bandit.png', { frameWidth: 102, frameHeight: 128 });
-        this.scene.load.spritesheet('frost_giant', 'src/assets/frost_giant.png', { frameWidth: 102, frameHeight: 128 });
+        this.scene.load.image('frost_giant', 'src/assets/frost_giant.png');
         const damned64 = ['Bloated Damned', 'Burning Damned', 'Female Damned', 'Imp', 'Male Damned', 'Cheeky Devil', 'Twisted Damned', 'Burning Skull blue', 'Burning Skull'];
         for (const name of damned64) {
             let key = name.toLowerCase().replace(/\s+/g, '_');
@@ -71,7 +72,6 @@ class AssetManager {
 
         this.scene.load.spritesheet('floor', 'src/assets/GandalfHardcore FREE Platformer Assets/GandalfHardcore FREE Platformer Assets/Floor Tiles1.png', { frameWidth: 32, frameHeight: 32 });
         this.scene.load.spritesheet('floor_snow', 'src/assets/GandalfHardcore FREE Platformer Assets/GandalfHardcore FREE Platformer Assets/Floor Tiles2.png', { frameWidth: 32, frameHeight: 32 });
-        this.scene.load.spritesheet('floor_dungeon', 'src/assets/tile castle dungeon.png', { frameWidth: 16, frameHeight: 16 });
         this.scene.load.image('dungeon_wall', 'src/assets/dungeon_wall_tile.png');
         
         // Dungeon Props
@@ -155,15 +155,6 @@ class AssetManager {
         this.scene.load.image('bg_dark_forest_1', 'src/assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/Dark Forest Background/Dark Forest Background.png');
         this.scene.load.image('bg_dark_forest_2', 'src/assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/Dark Forest Background/Dark Forest Background Top.png');
 
-        // Indoor Town Backgrounds
-        this.scene.load.image('bg_tavern', 'src/assets/bg_tavern.jpg');
-        this.scene.load.image('bg_blacksmith', 'src/assets/bg_blacksmith.jpg');
-        this.scene.load.image('bg_apothecary', 'src/assets/bg_apothecary.jpg');
-        this.scene.load.image('bg_guild_hall', 'src/assets/bg_guild_hall.jpg');
-        this.scene.load.image('bg_temple', 'src/assets/bg_temple.jpg');
-        this.scene.load.image('bg_library', 'src/assets/bg_library.jpg');
-        this.scene.load.image('bg_training', 'src/assets/bg_training_grounds.jpg');
-
         // Load Enemy Assets
         this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 128, frameHeight: 279 });
         this.scene.load.spritesheet('slime', 'src/assets/GandalfHardcore Slime Enemy/GandalfHardcore Slime Enemy/Slime green.png', { frameWidth: 32, frameHeight: 32 });
@@ -172,8 +163,6 @@ class AssetManager {
         this.scene.load.spritesheet('mushroom', 'src/assets/GandalfHardcore Pixel Art Enemies/GandalfHardcore Pixel Art Enemies/Mushroom sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('orc', 'src/assets/GandalfHardcore Pixel Art Enemies/GandalfHardcore Pixel Art Enemies/Orc sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('spider', 'src/assets/GandalfHardcore Pixel Art Spider/GandalfHardcore Pixel Art Spider/GandalfHardcore Pixel Art Spider.png', { frameWidth: 192, frameHeight: 96 });
-        this.scene.load.spritesheet('bandit', 'src/assets/bandit.png', { frameWidth: 64, frameHeight: 64 });
-        this.scene.load.spritesheet('frost_giant', 'src/assets/frost_giant.png', { frameWidth: 64, frameHeight: 64 });
         
         // Load Desert Enemies
         this.scene.load.spritesheet('mummy', 'src/assets/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Enemies/Mummy.png', { frameWidth: 64, frameHeight: 64 });

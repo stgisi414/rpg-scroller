@@ -202,7 +202,9 @@ class EnemyController {
                         // AOE damage
                         this.scene.time.delayedCall(400, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 100) this.player.takeDamage(15);
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 100 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                                this.player.takeDamage(15);
+                            }
                         });
                         break;
                     } else if (distanceX > 150 && Math.random() < 0.015) {
@@ -228,7 +230,7 @@ class EnemyController {
                         this._playAnim(`${this.type}-attack`);
                         this.scene.time.delayedCall(300, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 90) {
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 90 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
                                 this.player.takeDamage(20);
                             }
                         });
@@ -247,20 +249,43 @@ class EnemyController {
                     this.sprite.setVelocityX(0);
                     this.sprite.setFlipX(shouldFlip);
                     this.isAttacking = true;
-                    this._playAnim(`${this.type}-attack`);
-                    this.scene.time.delayedCall(300, () => {
-                        if (!this.sprite || !this.sprite.active) return;
-                        if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75) {
-                            this.player.takeDamage(this.type === 'slime' ? 3 : 5);
-                            if (this.player.applyStatusEffect) {
-                                if (this.type === 'frost_giant' && Math.random() < 0.40) {
-                                    this.player.applyStatusEffect('freeze', 3000, 50); // 50% slow for 3s
-                                } else if (this.type === 'slime' && Math.random() < 0.30) {
+                    
+                    if (this.type === 'slime') {
+                        // Physical jump attack for slime
+                        this.sprite.setVelocityX(isPlayerLeft ? -200 : 200);
+                        this.sprite.setVelocityY(-250);
+                        this.scene.time.delayedCall(300, () => {
+                            if (!this.sprite || !this.sprite.active) return;
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                                this.player.takeDamage(3);
+                                if (this.player.applyStatusEffect && Math.random() < 0.30) {
                                     this.player.applyStatusEffect('poison', 5000, 5); // 5 damage/sec for 5s
                                 }
                             }
-                        }
-                    });
+                        });
+                        this.scene.time.delayedCall(600, () => {
+                            if (!this.sprite || !this.sprite.active) return;
+                            this.sprite.setVelocityX(isPlayerLeft ? 150 : -150);
+                            this.sprite.setVelocityY(-150);
+                        });
+                        this.scene.time.delayedCall(1000, () => {
+                            if (this.sprite && this.sprite.active) this.isAttacking = false;
+                        });
+                    } else {
+                        // Standard animation attack
+                        this._playAnim(`${this.type}-attack`);
+                        this.scene.time.delayedCall(300, () => {
+                            if (!this.sprite || !this.sprite.active) return;
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                                this.player.takeDamage(5);
+                                if (this.player.applyStatusEffect) {
+                                    if (this.type === 'frost_giant' && Math.random() < 0.40) {
+                                        this.player.applyStatusEffect('freeze', 3000, 50); // 50% slow for 3s
+                                    }
+                                }
+                            }
+                        });
+                    }
                     break;
                 }
 

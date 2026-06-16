@@ -1,0 +1,14 @@
+﻿diff --git a/src/InputManager.js b/src/InputManager.js
+index a3cba3a..7fb1d5e 100644
+--- a/src/InputManager.js
++++ b/src/InputManager.js
+@@ -19,7 +19,8 @@ class InputManager {
+             skill4: Phaser.Input.Keyboard.KeyCodes.FOUR,
+             skill5: Phaser.Input.Keyboard.KeyCodes.FIVE,
+             skill6: Phaser.Input.Keyboard.KeyCodes.SIX,
+-            superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA
++            superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA,
++            space: Phaser.Input.Keyboard.KeyCodes.SPACE
+         });
+ 
+         // Mouse pointer for aiming
