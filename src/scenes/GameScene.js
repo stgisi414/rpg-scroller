@@ -258,9 +258,17 @@ class GameScene extends Phaser.Scene {
                 const knockbackDir = projectile.x > heroSprite.x ? -1 : 1;
                 if (heroSprite === this.player.sprite) {
                     this.player.takeDamage(15, knockbackDir);
+                    if (projectile.texture.key === 'burning_skull' && this.player.applyStatusEffect) {
+                        this.player.applyStatusEffect('burn', 3000, 10);
+                    }
                 } else {
                     const member = this.partyMembers.find(m => m.sprite === heroSprite);
-                    if (member && typeof member.takeDamage === 'function') member.takeDamage(15, knockbackDir);
+                    if (member && typeof member.takeDamage === 'function') {
+                        member.takeDamage(15, knockbackDir);
+                        if (projectile.texture.key === 'burning_skull' && member.applyStatusEffect) {
+                            member.applyStatusEffect('burn', 3000, 10);
+                        }
+                    }
                 }
                 projectile.destroy();
             }

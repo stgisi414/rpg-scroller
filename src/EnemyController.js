@@ -240,7 +240,7 @@ class EnemyController {
                     }
                 }
 
-                if ((this.type === 'skeleton' || this.type === 'bandit' || this.type === 'frost_giant') && distanceX <= 65) {
+                if ((this.type === 'skeleton' || this.type === 'bandit' || this.type === 'frost_giant' || this.type === 'slime') && distanceX <= 65) {
                     this.sprite.setVelocityX(0);
                     this.sprite.setFlipX(shouldFlip);
                     this.isAttacking = true;
@@ -248,7 +248,14 @@ class EnemyController {
                     this.scene.time.delayedCall(300, () => {
                         if (!this.sprite || !this.sprite.active) return;
                         if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75) {
-                            this.player.takeDamage(5);
+                            this.player.takeDamage(this.type === 'slime' ? 3 : 5);
+                            if (this.player.applyStatusEffect) {
+                                if (this.type === 'frost_giant' && Math.random() < 0.40) {
+                                    this.player.applyStatusEffect('freeze', 3000, 50); // 50% slow for 3s
+                                } else if (this.type === 'slime' && Math.random() < 0.30) {
+                                    this.player.applyStatusEffect('poison', 5000, 5); // 5 damage/sec for 5s
+                                }
+                            }
                         }
                     });
                     break;

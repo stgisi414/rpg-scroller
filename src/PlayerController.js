@@ -1348,7 +1348,7 @@ class PlayerController {
         }
 
         // Super Spell
-        if (this.consumeSuperSpell() && !this.isAttacking && onGround && (this.classData.id === 'wizard' || this.classData.id === 'samurai' || this.classData.id === 'ranger')) {
+        if (this.consumeSuperSpell() && !this.isAttacking && onGround) {
             this.sprite.setVelocityX(0);
             this.superComboSpell();
         }
@@ -1593,6 +1593,9 @@ class PlayerController {
                 }
 
                 enemySprite.controller.takeDamage(finalDamage, this.facingDirection);
+                if (Math.random() < 0.20 && enemySprite.controller.applyStatusEffect) {
+                    enemySprite.controller.applyStatusEffect('poison', 5000, 5); // 5 damage/sec for 5 sec
+                }
                 if (isCrit && this.scene.showFloatingText) {
                     this.scene.showFloatingText(enemySprite.x, enemySprite.y - 60, 'CRIT!', 0xffff00);
                 }
@@ -1634,6 +1637,9 @@ class PlayerController {
         const overlap = this.scene.physics.add.overlap(proj, this.scene.enemies, (p, enemySprite) => {
             if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
                 enemySprite.controller.takeDamage(damage, this.facingDirection);
+                if (Math.random() < 0.50 && enemySprite.controller.applyStatusEffect) {
+                    enemySprite.controller.applyStatusEffect('burn', 3000, 10); // 10 damage/0.5s for 3s
+                }
                 p.destroy();
                 this.scene.physics.world.removeCollider(overlap);
             }
@@ -1703,20 +1709,22 @@ class PlayerController {
         this.sprite.on('animationupdate', onFrameChange);
         // === END LOGGER SETUP ===
 
-        if (cd.isSheet && this.scene.anims.exists(cd.id + '_combo')) {
-            this._playAnim(cd.id + '_combo');
-            // Log the first frame too
-            const curFrame = this.sprite.anims.currentFrame;
-            if (curFrame) {
-                frameLog.push({
-                    time: 0,
-                    frameIndex: curFrame.index,
-                    frameName: curFrame.textureFrame,
-                    w: curFrame.frame ? curFrame.frame.width : '?',
-                    h: curFrame.frame ? curFrame.frame.height : '?',
-                    x: curFrame.frame ? curFrame.frame.cutX : '?',
-                    y: curFrame.frame ? curFrame.frame.cutY : '?'
-                });
+        if (cd.id !== 'knight' && cd.id !== 'warrior') {
+            if (cd.isSheet && this.scene.anims.exists(cd.id + '_combo')) {
+                this._playAnim(cd.id + '_combo');
+                // Log the first frame too
+                const curFrame = this.sprite.anims.currentFrame;
+                if (curFrame) {
+                    frameLog.push({
+                        time: 0,
+                        frameIndex: curFrame.index,
+                        frameName: curFrame.textureFrame,
+                        w: curFrame.frame ? curFrame.frame.width : '?',
+                        h: curFrame.frame ? curFrame.frame.height : '?',
+                        x: curFrame.frame ? curFrame.frame.cutX : '?',
+                        y: curFrame.frame ? curFrame.frame.cutY : '?'
+                    });
+                }
             }
         }
 
@@ -1777,6 +1785,10 @@ class PlayerController {
                         if (enemySprite && enemySprite.active && enemySprite.controller && enemySprite.controller.hp > 0) {
                             if (Phaser.Geom.Intersects.RectangleToRectangle(hitBox, enemySprite.getBounds())) {
                                 enemySprite.controller.takeDamage(damage, dir);
+                                // 100% chance to stun
+                                if (enemySprite.controller.applyStatusEffect) {
+                                    enemySprite.controller.applyStatusEffect('stun', 1500, 0);
+                                }
                                 hitCount++;
                             }
                         }
