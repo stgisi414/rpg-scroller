@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RPG Inventory &amp; Equipment Menu</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;family=Space+Grotesk:wght@600;700&amp;family=Courier+Prime:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#f6be3b",
+                        "surface-container-highest": "#353535",
+                        "on-secondary-fixed-variant": "#5c4300",
+                        "tertiary-fixed": "#5af8fb",
+                        "tertiary-container": "#004b4c",
+                        "on-surface-variant": "#e3beb8",
+                        "outline-variant": "#5a403c",
+                        "on-background": "#e4e2e1",
+                        "primary-fixed-dim": "#ffb4a8",
+                        "on-tertiary-container": "#00c3c6",
+                        "on-error": "#690005",
+                        "primary-fixed": "#ffdad4",
+                        "surface-container-lowest": "#0e0e0e",
+                        "primary": "#ffb4a8",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed": "#410000",
+                        "on-tertiary": "#003738",
+                        "surface": "#131313",
+                        "surface-container-low": "#1b1c1c",
+                        "background": "#131313",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-tint": "#ffb4a8",
+                        "on-secondary-container": "#433000",
+                        "surface-container": "#1f2020",
+                        "on-tertiary-fixed-variant": "#004f51",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#920703",
+                        "on-primary-container": "#ff907f",
+                        "surface-dim": "#131313",
+                        "on-primary": "#690000",
+                        "inverse-on-surface": "#303030",
+                        "secondary-fixed": "#ffdea0",
+                        "tertiary": "#2ddbde",
+                        "secondary-fixed-dim": "#f6be3b",
+                        "tertiary-fixed-dim": "#2ddbde",
+                        "primary-container": "#8b0000",
+                        "secondary-container": "#c69302",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed": "#261900",
+                        "on-surface": "#e4e2e1",
+                        "inverse-primary": "#b52619",
+                        "inverse-surface": "#e4e2e1",
+                        "surface-bright": "#393939",
+                        "surface-variant": "#353535",
+                        "error-container": "#93000a",
+                        "outline": "#aa8984",
+                        "on-secondary": "#402d00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "panel-padding": "12px",
+                        "margin-edge": "32px",
+                        "pixel-unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["JetBrains Mono"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"],
+                        "body-sm": ["JetBrains Mono"],
+                        "label-caps": ["Courier Prime"],
+                        "headline-lg-mobile": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-caps": ["10px", { "lineHeight": "12px", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .pixel-border {
+            box-shadow: 
+                inset 0 0 0 2px theme('colors.outline-variant'),
+                inset 0 0 0 4px theme('colors.surface-container-highest');
+        }
+        .pixel-border-gold {
+            box-shadow: 
+                inset 0 0 0 2px theme('colors.secondary'),
+                inset 0 0 0 4px theme('colors.surface-container-highest'),
+                0 0 10px theme('colors.secondary');
+        }
+        .crosshatch-bg {
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px), repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px);
+        }
+        .veil-overlay {
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), rgba(0,0,0,0.9));
+        }
+        /* Hide scrollbar for grid */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-lg min-h-screen relative overflow-hidden antialiased selection:bg-tertiary selection:text-on-tertiary">
+<!-- Background Image / Game World Context -->
+<div class="absolute inset-0 z-0">
+<img alt="Background" class="w-full h-full object-cover opacity-30 blur-sm" data-alt="A dark, atmospheric pixel art background of a ruined gothic castle at night. The scene is rendered in a desaturated, grim color palette with subtle hints of cyan moonlight breaking through cracked stone walls. The overall mood is oppressive and mysterious, setting a grim fantasy Metroidvania scene." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvctx6A0RKGtpq6Rr-K5zv3kBXgTNbSye-1VQuXMSYlM83arP3q9P8teEs6WfoorbTgStrIokguLzYCG6GijKAFwRuL4gZEQXBKaOH1a5SR_k7lf2ZWIjW3aMf9w_ty57-fVafbUqvoB04gpNIoD8gSu9r6hkSa9Pi14w4ddkUFbnjNUQc36CGFKZVWweeKjxn2u_hkHOOHALDc_sHPhTzT_8ay1zZWMhOTw28iMjrORPyf8PS8Z8kkm_aXELftkXXjYgDHKmZ8uNw"/>
+</div>
+<!-- The Veil (Level 1) -->
+<div class="absolute inset-0 z-10 veil-overlay backdrop-blur-[2px]"></div>
+<!-- Top Navigation App Bar (Shared Component) -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-edge h-20 bg-background/80 bg-surface/60 backdrop-blur-sm shadow-lg shadow-black/50 border-b-2 border-outline-variant transition-transform transform translate-y-0 duration-300">
+<div class="flex items-center gap-6">
+<span class="font-headline-lg text-headline-lg font-bold text-primary tracking-widest uppercase">ELDEN SOUL</span>
+<div class="hidden md:flex gap-8 ml-8">
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest hover:text-secondary-fixed transition-all duration-300 px-4 py-2 rounded" href="#">Status</a>
+<a class="font-headline-md text-headline-md text-tertiary-fixed border-b-2 border-tertiary shadow-[0_0_10px_rgba(45,219,222,0.5)] px-4 py-2" href="#">Inventory</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest hover:text-secondary-fixed transition-all duration-300 px-4 py-2 rounded" href="#">Map</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest hover:text-secondary-fixed transition-all duration-300 px-4 py-2 rounded" href="#">Grimoire</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-primary hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+</button>
+<button class="text-primary hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">help</span>
+</button>
+</div>
+</nav>
+<!-- Side Navigation (Shared Component) - Hidden on smaller screens to prioritize canvas -->
+<aside class="hidden xl:flex fixed left-0 top-0 h-screen flex-col py-8 z-40 bg-surface-container-lowest/95 bg-surface-container-lowest border-r-4 border-outline-variant shadow-[10px_0_30px_rgba(0,0,0,0.8)] w-72 mt-20">
+<div class="px-6 mb-8 flex flex-col items-center">
+<div class="w-24 h-24 rounded-full border-4 border-outline-variant overflow-hidden mb-4 relative">
+<img alt="Crest of the Fallen" class="w-full h-full object-cover" data-alt="A gritty, pixelated portrait of a grim fantasy hero wearing a tarnished iron helm. The lighting is harsh and dramatic, casting deep shadows across the visored face. The color palette emphasizes worn metals and dark slate, matching a dark fantasy aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtOvOZqky7h8NJ0p4JqgnuQLXwXTrDatByEdgAJ6k7ULvsnQPC4kLKnsuDPHjJwWvTdHnwZhHx-a2T2AZGsk3DHSq0v4WKdFLLqgh0pIntBD8Vw3M3edx87hFmGX-1Sa1c2lg59f6xGOsYsT6UUuQ-GsjUf94So2HUClkWdaH45OfCJChP2TpFUriK4h5LzTbA5_w5txK5PYuuodXFdVmG0Q_Uaqa7TxF7i3NSV2GF8tQc1H2AK6arRUehAGjhEoFuX1iUdnkVwa6O"/>
+</div>
+<h2 class="font-headline-md text-headline-md text-secondary text-center">HERO OF ASH</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Level 42 Soul-Wanderer</p>
+</div>
+<nav class="flex-1 flex flex-col gap-2 px-4">
+<a class="flex items-center gap-4 px-4 py-3 bg-primary-container/30 text-primary-fixed border-l-4 border-primary shadow-[inset_0_0_15px_rgba(255,180,168,0.2)] font-body-lg text-body-lg uppercase tracking-tighter hover:bg-surface-container-high hover:text-tertiary-fixed transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">shield</span> Equipment
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant/70 border-l-4 border-transparent font-body-lg text-body-lg uppercase tracking-tighter hover:bg-surface-container-high hover:text-tertiary-fixed transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">magic_button</span> Abilities
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant/70 border-l-4 border-transparent font-body-lg text-body-lg uppercase tracking-tighter hover:bg-surface-container-high hover:text-tertiary-fixed transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">menu_book</span> Journal
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant/70 border-l-4 border-transparent font-body-lg text-body-lg uppercase tracking-tighter hover:bg-surface-container-high hover:text-tertiary-fixed transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">skull</span> Bestiary
+            </a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant/70 border-l-4 border-transparent font-body-lg text-body-lg uppercase tracking-tighter hover:bg-surface-container-high hover:text-tertiary-fixed transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">diamond</span> Artifacts
+            </a>
+</nav>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full py-3 border-2 border-outline-variant bg-surface text-secondary font-headline-md text-headline-md uppercase tracking-wider hover:border-error hover:text-error transition-colors duration-200 shadow-md flex justify-center items-center gap-2">
+                QUICK SAVE
+            </button>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant/70 font-body-lg text-body-lg uppercase tracking-tighter hover:bg-surface-container-high hover:text-error transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">exit_to_app</span> Quit to Title
+            </a>
+</div>
+</aside>
+<!-- Main Content Area (Level 2) -->
+<main class="relative z-20 pt-28 pb-32 xl:pl-[320px] px-margin-edge min-h-screen flex items-center justify-center">
+<div class="w-full max-w-7xl flex flex-col lg:flex-row gap-8">
+<!-- Left Panel: Paper-Doll Equipment (Level 2) -->
+<section class="flex-1 bg-surface-container-low/90 border-4 border-outline-variant p-panel-padding relative pixel-border shadow-2xl backdrop-blur-md">
+<div class="absolute inset-0 bg-surface-container-lowest opacity-50 z-0 mix-blend-multiply"></div>
+<header class="relative z-10 flex justify-between items-end border-b-2 border-outline-variant pb-2 mb-6">
+<h2 class="font-headline-lg text-headline-lg text-secondary uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">person</span> Character
+                    </h2>
+<div class="text-right">
+<span class="font-label-caps text-label-caps text-tertiary uppercase">Weight Load</span>
+<div class="font-body-lg text-body-lg text-on-surface">42.5 / 60.0</div>
+</div>
+</header>
+<div class="relative z-10 flex flex-col items-center justify-center h-[500px] w-full">
+<!-- Character Silhouette/Base -->
+<div class="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+<span class="material-symbols-outlined text-[300px] text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">accessibility_new</span>
+</div>
+<!-- Equipment Slots Layout -->
+<div class="grid grid-cols-3 gap-8 w-full max-w-md relative">
+<!-- Left Column (Accessories/Shield) -->
+<div class="flex flex-col gap-6 items-end justify-center">
+<!-- Ring 1 -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">radio_button_unchecked</span>
+<!-- Tooltip -->
+<div class="absolute right-full mr-2 top-0 bg-surface-container-highest border border-tertiary p-2 w-48 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+<h4 class="font-headline-md text-headline-md text-tertiary text-sm">Empty Ring Slot</h4>
+</div>
+</div>
+<!-- Shield/Offhand -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">shield</span>
+</div>
+<!-- Ring 2 -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">radio_button_unchecked</span>
+</div>
+</div>
+<!-- Center Column (Main Armor) -->
+<div class="flex flex-col gap-4 items-center">
+<!-- Head -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">face</span>
+</div>
+<!-- Chest -->
+<div class="w-16 h-16 bg-surface-container-highest pixel-border-gold flex justify-center items-center cursor-pointer relative group">
+<img alt="Tarnished Iron Plate" class="w-12 h-12 object-contain" data-alt="A pixel art rendering of a tarnished iron breastplate with deep crimson cloth accents. It looks heavy and battle-worn, fitting a dark fantasy RPG aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMM9Mg1iKnH4QTRBCs33JJnUYyfOiO8PU23VsQWhaE3a_MSlF6aou_nyGlCKrzH4MUoCmYyXDIadIgVUCNcPfzlstrcRNsUez9Ygp41HJXfgsMc_8hWTIqolj19IZOSakXGAlR2BUMgf5sP29JPuoD4ftCScPm2nsZysqokQJamC30VKUQEhZdqFrdau9AWw4yS5eRjZUnYh5Qs94OXN7yUyWH2-0vrZKelxaTGBEjOwTAOcJhg2N_y2J390kb5LSgxQgxgh-dUdI8"/>
+<!-- Tooltip -->
+<div class="absolute left-full ml-2 top-0 bg-surface-container-highest/90 border border-secondary p-3 w-64 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg backdrop-blur-sm">
+<h4 class="font-headline-md text-headline-md text-secondary text-sm mb-1">Tarnished Iron Plate</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Heavy armor worn by the forgotten guard.</p>
+<div class="flex justify-between font-label-caps text-label-caps text-tertiary">
+<span>DEF: 45</span>
+<span>WGT: 18.5</span>
+</div>
+</div>
+</div>
+<!-- Legs -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">directions_walk</span>
+</div>
+</div>
+<!-- Right Column (Weapon/Hands) -->
+<div class="flex flex-col gap-6 items-start justify-center">
+<!-- Hands/Gloves -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">front_hand</span>
+</div>
+<!-- Main Weapon -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-tertiary flex justify-center items-center cursor-pointer relative group shadow-[0_0_8px_rgba(45,219,222,0.4)]">
+<img alt="Rusted Longsword" class="w-12 h-12 object-contain rotate-45" data-alt="A pixel art rendering of a long, chipped iron sword wrapped in dark leather. A faint cyan glow emanates from the blade, suggesting magical properties." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLfNnwm6nd9P3RvErlI-6qSiU4kM6BvmSqTNLtb88LUH6TNp9KjNuffJmIkhqXDFIQXniCFb_yS7GzJjwttm4i2rm6-kfNkSugmWlvMCwUKydZ73cCGhIk8pObKDawVXCJxJD2twvwR44q7g6FF2kXjTSWrKFEiWUvCs8i2ZOqRPZMxot6aJYtU-DxwB9WMQrMBnR3teo49eJ9UH9HsWL5hvBfSVjwQkPFvvnWPSy3vSD3nAHWZdmkyH5XIFe_OivUss9z2e9YU00Z"/>
+<!-- Tooltip -->
+<div class="absolute left-full ml-2 top-0 bg-surface-container-highest/90 border border-tertiary p-3 w-64 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg backdrop-blur-sm">
+<h4 class="font-headline-md text-headline-md text-tertiary text-sm mb-1">Rusted Longsword</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">A basic blade, barely holding its edge.</p>
+<div class="flex justify-between font-label-caps text-label-caps text-secondary">
+<span>ATK: 12</span>
+<span>DUR: 45/100</span>
+</div>
+</div>
+</div>
+<!-- Relic/Item -->
+<div class="w-16 h-16 bg-surface-container-highest border-2 border-outline-variant crosshatch-bg flex justify-center items-center hover:border-tertiary cursor-pointer transition-colors relative group">
+<span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-tertiary/70 text-3xl pointer-events-none absolute">auto_awesome</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: Inventory Grid (Level 2) -->
+<section class="flex-[1.5] bg-surface-container-low/90 border-4 border-outline-variant p-panel-padding relative pixel-border shadow-2xl backdrop-blur-md flex flex-col h-[650px]">
+<div class="absolute inset-0 bg-surface-container-lowest opacity-50 z-0 mix-blend-multiply pointer-events-none"></div>
+<header class="relative z-10 flex justify-between items-end border-b-2 border-outline-variant pb-2 mb-4">
+<h2 class="font-headline-lg text-headline-lg text-tertiary uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">backpack</span> Inventory
+                    </h2>
+<!-- Sorting/Filtering Tabs -->
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-surface border-2 border-secondary text-secondary font-label-caps text-label-caps uppercase hover:bg-secondary hover:text-surface transition-colors">All</button>
+<button class="px-3 py-1 bg-surface-container-highest border-2 border-outline-variant text-on-surface-variant font-label-caps text-label-caps uppercase hover:border-tertiary hover:text-tertiary transition-colors">Wep</button>
+<button class="px-3 py-1 bg-surface-container-highest border-2 border-outline-variant text-on-surface-variant font-label-caps text-label-caps uppercase hover:border-tertiary hover:text-tertiary transition-colors">Arm</button>
+<button class="px-3 py-1 bg-surface-container-highest border-2 border-outline-variant text-on-surface-variant font-label-caps text-label-caps uppercase hover:border-tertiary hover:text-tertiary transition-colors">Itm</button>
+</div>
+</header>
+<!-- 5x8 Grid -->
+<div class="relative z-10 flex-1 overflow-y-auto no-scrollbar pr-2">
+<div class="grid grid-cols-5 gap-3 auto-rows-max">
+<!-- Item 1 (Selected) -->
+<div class="aspect-square w-full bg-surface-container-highest pixel-border-gold flex justify-center items-center cursor-pointer relative group">
+<img alt="Health Potion" class="w-3/4 h-3/4 object-contain" data-alt="A glowing red potion vial in a dark pixel art style. The liquid appears volatile and magical." src="https://lh3.googleusercontent.com/aida-public/AB6AXuARKUdcaB4jKAf9Mr5jUL4Rj13-2KZ2UJhZegEgnTGK0Iz_z0mydUE3dPpatR7YK54wJeF_52A3B00KMFP372xNJGlp6gRpH3u7I_1No_YF40UxMf5ITqs_feCK5tMJOvGOeE9oY0_aWZYi3pz1tHfhY_RtkqVbM8K_loD0yDxdupIvdR-qH4yf9lwzCH8OqWGhlhNJ_4sX2PvqGYXbUPUiS0rYZWkyK6K47dduDwReHM5LjRxXWLVDgNrrt0WaZ2PKjAGzRE1xkWGL"/>
+<span class="absolute bottom-1 right-1 font-label-caps text-label-caps text-on-surface bg-surface/80 px-1 rounded-sm">x5</span>
+</div>
+<!-- Item 2 -->
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant flex justify-center items-center cursor-pointer relative group hover:border-tertiary transition-colors">
+<img alt="Mana Potion" class="w-3/4 h-3/4 object-contain" data-alt="A glowing cyan mana potion vial in a dark pixel art style. The liquid sparkles with magical energy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpF7U9hhYrwYvPYt3UlQYJYCqpp6Bm-EpmHJfzM_HbANhVn9SEvDruMG3dzsVrgx-Vquljx4XRjQWkA3LDb74dTzIYFWY16xCQLUArM98CtlRBQySZfkZBEPgR1rlALkTVWIkVxQ2gJPeSME3JF_wHN2g6rWKY70rWiXErHVXyY1lhkXp8titlrrGGCaDtonagNl1sDN_LcGvqqoTr1x6UZ82MAs2vjwd1T9co355EBH4grdWVpkyP11tqls-AR34XqCH5t5uDyER1"/>
+<span class="absolute bottom-1 right-1 font-label-caps text-label-caps text-on-surface bg-surface/80 px-1 rounded-sm">x2</span>
+</div>
+<!-- Item 3 -->
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant flex justify-center items-center cursor-pointer relative group hover:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-primary text-4xl">key</span>
+</div>
+<!-- Item 4 -->
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant flex justify-center items-center cursor-pointer relative group hover:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-on-surface text-4xl">diamond</span>
+</div>
+<!-- Empty Slots (Generated to fill grid) -->
+<!-- Repeat pattern for empty slots to make a 5x8 grid roughly -->
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+<div class="aspect-square w-full bg-surface-container-highest border-2 border-outline-variant crosshatch-bg hover:border-tertiary cursor-pointer transition-colors"></div>
+</div>
+</div>
+<!-- Item Description Area (Bottom of Inventory) -->
+<div class="relative z-10 mt-4 border-t-2 border-outline-variant pt-4 flex gap-4 min-h-[120px]">
+<div class="w-24 h-24 bg-surface-container-highest border-2 border-secondary flex-shrink-0 flex justify-center items-center">
+<img alt="Selected Item" class="w-16 h-16 object-contain" data-alt="A glowing red potion vial in a dark pixel art style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPqYlaHp3y4T--PDSDBHeGlAlji2X5Sle_YryJ1XAZLBizwP3PWx8c0oV1qg7BmXSLXVAJ-ry9P_Gy_kjeWEf88YHf49z3cpN7I7QdvdvF9yu7pu7iahpvy-8X7MD_dCXScdjBzd8NShB7pEBp6vCtzzA8eJl_mR2y8fQBAvtf1E0ItZH7tFH5yTE2cKTmtd2_NKGNjCcVqs6GcwGw7UYoSeEg7FlOYHqg4Krg6PUDL2q8zNrSIVJoQy_70kRWCmjsrRvBE_En94GB"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<h3 class="font-headline-md text-headline-md text-secondary">Crimson Flask</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">A fragile glass vial containing a viscous, glowing red fluid. Restores 50 HP over 3 seconds upon consumption. Smells of ash and iron.</p>
+</div>
+<div class="flex justify-end gap-2 mt-2">
+<button class="px-4 py-2 bg-surface-container-highest border-2 border-outline-variant text-on-surface hover:border-tertiary hover:text-tertiary font-label-caps text-label-caps uppercase transition-colors">Drop</button>
+<button class="px-4 py-2 bg-secondary/20 border-2 border-secondary text-secondary hover:bg-secondary hover:text-surface font-label-caps text-label-caps uppercase transition-colors">Equip</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Shared Component - Visible on Mobile) -->
+<nav class="md:hidden fixed bottom-gutter left-0 w-full z-50 flex justify-center gap-gutter px-margin-edge bg-transparent bg-transparent">
+<a class="flex flex-col items-center justify-center bg-surface-container/80 text-on-surface-variant border-2 border-outline-variant p-4 font-label-caps text-label-caps hover:border-tertiary hover:shadow-[0_0_15px_#2ddbde] scale-105 active:scale-95 transition-all duration-75" href="#">
+<span class="material-symbols-outlined mb-1">favorite</span>
+            Heal
+        </a>
+<a class="flex flex-col items-center justify-center bg-surface-container/80 text-on-surface-variant border-2 border-outline-variant p-4 font-label-caps text-label-caps hover:border-tertiary hover:shadow-[0_0_15px_#2ddbde] scale-105 active:scale-95 transition-all duration-75" href="#">
+<span class="material-symbols-outlined mb-1">bolt</span>
+            Mana
+        </a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container border-2 border-secondary p-4 scale-110 shadow-[0_0_20px_#f6be3b] font-label-caps text-label-caps scale-105 active:scale-95 transition-all duration-75" href="#">
+<span class="material-symbols-outlined mb-1">directions_run</span>
+            Dodge
+        </a>
+<a class="flex flex-col items-center justify-center bg-surface-container/80 text-on-surface-variant border-2 border-outline-variant p-4 font-label-caps text-label-caps hover:border-tertiary hover:shadow-[0_0_15px_#2ddbde] scale-105 active:scale-95 transition-all duration-75" href="#">
+<span class="material-symbols-outlined mb-1">colorize</span>
+            Attack
+        </a>
+</nav>
+<script>
+        // Simple ambient subtle floating animation for equipped items
+        document.addEventListener('DOMContentLoaded', () => {
+            const equippedItems = document.querySelectorAll('.pixel-border-gold img, .border-tertiary img');
+            equippedItems.forEach((img, index) => {
+                img.style.animation = `float 3s ease-in-out infinite ${index * 0.5}s`;
+            });
+
+            // Add simple keyframe for float
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes float {
+                    0% { transform: translateY(0px) rotate(45deg); }
+                    50% { transform: translateY(-3px) rotate(45deg); }
+                    100% { transform: translateY(0px) rotate(45deg); }
+                }
+                .rotate-45 { transform: rotate(45deg); }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+</body></html>

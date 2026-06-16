@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elden Soul</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <link href="src/output.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0e0e0e;
+            color: #e4e2e1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        canvas {
+            display: block;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            image-rendering: pixelated; /* good for pixel art assets */
+        }
+        .glow-text {
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.6), 0 0 30px rgba(255, 0, 0, 0.4);
+        }
+        .menu-item {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .menu-item:hover {
+            color: #ffb4a8; /* primary */
+            transform: translateX(10px);
+        }
+        .menu-item::before {
+            content: 'sword_rose';
+            font-family: 'Material Symbols Outlined';
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            color: #2ddbde; /* tertiary */
+            transition: all 0.2s ease;
+            text-shadow: 0 0 10px rgba(45,219,222,0.8);
+        }
+        .menu-item:hover::before {
+            opacity: 1;
+            left: -30px;
+        }
+        .crt-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #chat-ui {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+            z-index: 20;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #chat-history {
+            height: 150px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        #chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        #chat-input {
+            flex-grow: 1;
+            padding: 10px;
+            background: #222;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        #chat-submit {
+            padding: 10px 20px;
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        #chat-submit:hover {
+            background: #555;
+        }
+
+        /* Stitch HUD Specific Styles */
+        .pixel-art-rendering {
+            image-rendering: pixelated;
+        }
+        
+        .hud-border {
+            border: 2px solid theme('colors.outline-variant');
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 0 15px rgba(0,0,0,0.5);
+            background: rgba(14, 14, 14, 0.85); /* surface-container-lowest */
+            backdrop-filter: blur(4px);
+        }
+
+        .bar-frame {
+            clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
+        }
+
+        .animate-health-shimmer {
+            background: linear-gradient(90deg, #7f1d1d, #ef4444);
+        }
+
+        @keyframes manaPulse {
+            0%, 100% { opacity: 0.85; box-shadow: 0 0 6px #3b82f6; }
+            50% { opacity: 1; box-shadow: 0 0 18px #60a5fa; }
+        }
+        .animate-mana-pulse {
+            animation: manaPulse 2s infinite ease-in-out;
+            background: linear-gradient(90deg, #1d4ed8, #3b82f6);
+        }
+        
+        .stamina-fill {
+            background: linear-gradient(90deg, #004b23, #00a86b);
+        }
+
+        .scanline {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+        }
+
+        .hotbar-slot {
+            transition: all 0.2s ease;
+        }
+        .hotbar-slot:hover {
+            transform: scale(1.05);
+            border-color: theme('colors.primary');
+            box-shadow: inset 0 0 10px rgba(255,180,168,0.2), 0 0 10px rgba(255,180,168,0.3);
+        }
+    </style>
+</head>
+<body>
+    <style>
+        /* === Title Glow Pulse === */
+        @keyframes title-pulse {
+            0%, 100% { filter: drop-shadow(0 0 16px rgba(139,0,0,0.6)); }
+            50%      { filter: drop-shadow(0 0 30px rgba(200,30,20,0.9)); }
+        }
+        .title-glow-pulse { animation: title-pulse 3s ease-in-out infinite; }
+
+        /* === Subtitle Glow Frame === */
+        @keyframes sub-glow {
+            0%, 100% { box-shadow: 0 0 8px rgba(45,219,222,0.3), inset 0 0 6px rgba(45,219,222,0.1); }
+            50%      { box-shadow: 0 0 18px rgba(45,219,222,0.7), inset 0 0 12px rgba(45,219,222,0.2); }
+        }
+        .subtitle-frame {
+            border: 2px solid rgba(45,219,222,0.5);
+            padding: 8px 28px;
+            animation: sub-glow 2.5s ease-in-out infinite;
+        }
+
+        /* === Title Canvas (Phaser renders behind menu) === */
+        #title-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+        }
+    </style>
+
+    <!-- Title Screen UI -->
+    <div id="ui-title" class="absolute inset-0 z-50 flex items-center justify-center overflow-hidden">
+        <!-- Background -->
+        <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-60" style="background-image: url('src/assets/GandalfHardcore%20FREE%20Platformer%20Assets/GandalfHardcore%20FREE%20Platformer%20Assets/GandalfHardcore%20Background%20layers/Normal%20BG/GandalfHardcore%20Background%20layers_layer%201.png'); image-rendering: pixelated;"></div>
+
+        <!-- Phaser Canvas (animated sprites render here) -->
+        <div id="title-canvas"></div>
+
+        <!-- Dark Tint -->
+        <div class="absolute inset-0 z-10 bg-black/30 pointer-events-none"></div>
+        <!-- CRT Scanlines -->
+        <div class="absolute inset-0 z-20 crt-overlay mix-blend-overlay pointer-events-none"></div>
+
+        <!-- Main Content (HTML menu on top of canvas) -->
+        <main class="relative z-30 flex flex-col items-center justify-center w-full max-w-5xl mx-auto">
+            <!-- Title -->
+            <h1 class="title-glow-pulse font-headline-lg text-[64px] font-bold uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-b from-red-400 via-red-600 to-red-900 mb-4">
+                ELDEN SOUL
+            </h1>
+
+            <!-- Subtitle -->
+            <div class="subtitle-frame mb-14">
+                <p class="font-label-caps text-[14px] text-tertiary tracking-widest uppercase">
+                    Press Start to Awaken
+                </p>
+            </div>
+
+            <!-- Menu -->
+            <nav class="flex flex-col items-center gap-6">
+                <button id="btn-new-game" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                    New Game
+                </button>
+                <button id="btn-continue" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                    Continue
+                </button>
+                <button class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                    Settings
+                </button>
+                <button class="menu-item font-body-lg text-[18px] text-on-surface-variant uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none hover:text-error transition-colors">
+                    Quit
+                </button>
+            </nav>
+        </main>
+    </div>
+
+
+
+    <!-- Character Select Menu (Continue) -->
+    <div id="ui-select" style="display: none;" class="absolute inset-0 z-40 bg-background text-on-background overflow-hidden font-body-lg flex items-center justify-center">
+        <!-- Ambient CRT/Vignette Overlay -->
+        <div class="absolute inset-0 crt-overlay z-50 pointer-events-none"></div>
+        <div class="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] z-40 pointer-events-none"></div>
+        <!-- Background Layer -->
+        <div class="absolute inset-0 w-full h-full bg-surface-container-lowest" style="background-image: radial-gradient(var(--tw-colors-surface-container-high) 1px, transparent 1px); background-size: 4px 4px;">
+            <div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/80"></div>
+        </div>
+
+        <main class="relative z-10 w-full max-w-2xl mx-auto flex flex-col gap-6 p-8">
+            <div class="bg-surface-container/90 backdrop-blur-md border-2 border-outline-variant p-8 flex flex-col gap-6 shadow-[10px_10px_30px_rgba(0,0,0,0.8)] relative">
+                <div class="border-b border-outline-variant pb-4 mb-2 flex justify-between items-center">
+                    <h3 class="font-headline-md text-[24px] font-bold text-on-surface tracking-wide uppercase">Select Character</h3>
+                    <button id="btn-select-back" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[12px]">Back</button>
+                </div>
+                
+                <!-- Character Slots Container (Populated by JS) -->
+                <div id="save-slots-container" class="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-2">
+                    <!-- Javascript will insert slots here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Character Creation UI -->
+    <div id="ui-create" style="display: none;" class="absolute inset-0 z-40 bg-background text-on-background overflow-hidden font-body-lg">
+        <!-- Ambient CRT/Vignette Overlay -->
+        <div class="absolute inset-0 crt-overlay z-50 pointer-events-none"></div>
+        <div class="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] z-40 pointer-events-none"></div>
+        <!-- Background Layer -->
+        <div class="absolute inset-0 w-full h-full bg-surface-container-lowest" style="background-image: radial-gradient(var(--tw-colors-surface-container-high) 1px, transparent 1px); background-size: 4px 4px;">
+            <div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/80"></div>
+        </div>
+
+        <main class="relative z-10 w-full h-full flex flex-col md:flex-row p-8 gap-8">
+            <!-- Left Panel: Character Preview -->
+            <section class="flex-1 h-full flex flex-col items-center justify-center relative">
+                <!-- Pedestal -->
+                <div class="absolute bottom-1/4 w-[400px] h-[100px] bg-gradient-to-t from-surface-container-lowest to-transparent rounded-full blur-xl"></div>
+                <div class="absolute bottom-[28%] w-[300px] h-2 bg-outline-variant/30 rounded-full blur-sm"></div>
+                
+                <!-- Character Sprite Container with Background -->
+                <div class="relative w-64 h-64 flex items-center justify-center transform scale-150 mb-12 rounded-xl overflow-hidden border-2 border-outline-variant/30 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]">
+                    <!-- Environment Background -->
+                    <div class="absolute inset-0" style="background-image: url('src/assets/GandalfHardcore%20FREE%20Platformer%20Assets/GandalfHardcore%20FREE%20Platformer%20Assets/GandalfHardcore%20Background%20layers/Normal%20BG/GandalfHardcore%20Background%20layers_layer%201.png'); background-size: cover; background-position: bottom center; filter: brightness(0.6) saturate(0.8);"></div>
+                    <!-- Pixel Grid Overlay for retro feel -->
+                    <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJub25lIi8+Cjxwb2x5Z29uIHBvaW50cz0iNCwwIDQsNCAwLDQiIGZpbGw9InJnYmEoMCwwLDAsMC4xNSkiLz4KPC9zdmc+')] mix-blend-overlay"></div>
+                    
+                    <!-- The actual sprite -->
+                    <div id="create-class-image" class="relative z-10" style="width: 100%; height: 100%; image-rendering: pixelated; overflow: hidden;"><img src="src/assets/Heavy%20Knight/Heavy%20Knight/Heavy%20Knight%20prev/Heavy%20Knight%20idle.gif" alt="Class Sprite" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" /></div>
+                    
+                    <!-- Inner Glow -->
+                    <div class="absolute inset-0 shadow-[inset_0_0_30px_rgba(45,219,222,0.2)] pointer-events-none rounded-xl z-20"></div>
+                </div>
+                
+                <!-- Character Name & Tagline -->
+                <div class="text-center z-10 mt-8">
+                    <h2 id="create-class-name" class="font-headline-lg text-[32px] text-primary tracking-widest uppercase text-shadow-sm font-bold">The Knight</h2>
+                    <p id="create-class-tagline" class="font-body-sm text-[12px] text-on-surface-variant mt-2 uppercase tracking-widest opacity-80">Forged in Ash, Bound by Iron</p>
+                </div>
+            </section>
+
+            <!-- Right Panel: UI / Stats -->
+            <section class="w-full md:w-[450px] lg:w-[500px] h-full flex flex-col pt-8 pb-8 z-20">
+                <div class="flex-1 bg-surface-container/90 backdrop-blur-md border-2 border-outline-variant p-4 md:p-6 flex flex-col gap-4 shadow-[10px_10px_30px_rgba(0,0,0,0.8)] relative overflow-hidden min-h-0">
+                    <div class="border-b border-outline-variant pb-2 mb-2 flex justify-between items-end gap-4">
+                        <h3 class="font-headline-md text-[20px] font-bold text-on-surface tracking-wide">CHOOSE ORIGIN</h3>
+                        <div class="flex-1">
+                            <input type="text" id="character-name-input" placeholder="Enter Name..." class="w-full bg-surface-container-highest border-b-2 border-outline-variant text-on-surface font-body-lg px-2 py-1 focus:outline-none focus:border-primary transition-colors uppercase tracking-widest text-right" maxlength="16" autocomplete="off">
+                        </div>
+                    </div>
+                    
+                    <!-- Class Selection Grid -->
+                    <div class="grid grid-cols-4 gap-2 md:gap-4 shrink-0" id="class-select-grid">
+                        <button data-class="knight" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-highest border-2 border-secondary shadow-[0_0_8px_rgba(246,190,59,0.4)] transition-all">
+                            <span class="material-symbols-outlined text-3xl md:text-4xl text-secondary" style="font-variation-settings: 'FILL' 1;">shield</span>
+                            <span class="font-label-caps text-[10px] text-secondary">Knight</span>
+                        </button>
+                        <button data-class="wizard" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-tertiary hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-3xl md:text-4xl text-on-surface-variant group-hover:text-tertiary">magic_button</span>
+                            <span class="font-label-caps text-[10px] text-on-surface-variant group-hover:text-on-surface">Wizard</span>
+                        </button>
+                        <button data-class="samurai" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-error hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-3xl md:text-4xl text-on-surface-variant group-hover:text-error">colorize</span>
+                            <span class="font-label-caps text-[10px] text-on-surface-variant group-hover:text-on-surface">Samurai</span>
+                        </button>
+                        <button data-class="ranger" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-primary hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-3xl md:text-4xl text-on-surface-variant group-hover:text-primary">my_location</span>
+                            <span class="font-label-caps text-[10px] text-on-surface-variant group-hover:text-on-surface">Ranger</span>
+                        </button>
+                    </div>
+
+                    <!-- Stat Details Area -->
+                    <div class="flex-1 flex flex-col mt-2 bg-surface-container-lowest/50 p-4 border border-outline-variant/50 overflow-y-auto min-h-0">
+                        <p id="create-class-desc" class="font-body-sm text-[12px] text-on-surface-variant mb-4 leading-relaxed shrink-0">
+                            A sturdy warrior clad in heavy iron. Excels in close combat and absorbs significant physical damage.
+                        </p>
+                        
+                        <!-- Linear Stat Bars -->
+                        <div class="flex flex-col gap-3 w-full shrink-0">
+                            <!-- VIT -->
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between items-end"><span class="font-label-caps text-[10px]">VIT</span><span id="stat-vit-val" class="text-[12px] text-primary">15</span></div>
+                                <div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+                                    <div id="stat-vit-bar" class="h-full bg-primary transition-all duration-500" style="width: 75%;"></div>
+                                </div>
+                            </div>
+                            <!-- STR -->
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between items-end"><span class="font-label-caps text-[10px]">STR</span><span id="stat-str-val" class="text-[12px] text-secondary">14</span></div>
+                                <div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+                                    <div id="stat-str-bar" class="h-full bg-secondary transition-all duration-500" style="width: 70%;"></div>
+                                </div>
+                            </div>
+                            <!-- DEX -->
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between items-end"><span class="font-label-caps text-[10px]">DEX</span><span id="stat-dex-val" class="text-[12px] text-on-surface-variant">9</span></div>
+                                <div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+                                    <div id="stat-dex-bar" class="h-full bg-tertiary transition-all duration-500" style="width: 45%;"></div>
+                                </div>
+                            </div>
+                            <!-- INT -->
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between items-end"><span class="font-label-caps text-[10px]">INT</span><span id="stat-int-val" class="text-[12px] text-on-surface-variant">8</span></div>
+                                <div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+                                    <div id="stat-int-bar" class="h-full bg-blue-400 transition-all duration-500" style="width: 40%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Actions -->
+                    <div class="mt-auto pt-4 flex justify-between items-center">
+                        <button id="btn-create-back" class="group relative px-6 py-3 bg-surface-container border-2 border-outline-variant hover:border-on-surface-variant transition-all duration-150 cursor-pointer">
+                            <span class="font-label-caps text-[12px] text-on-surface-variant group-hover:text-on-surface uppercase tracking-wider flex items-center gap-2">
+                                <span class="material-symbols-outlined text-base">arrow_back</span>
+                                Back
+                            </span>
+                        </button>
+                        <button id="btn-awaken" class="group relative px-8 py-4 bg-surface-container border-2 border-secondary shadow-[0_0_12px_rgba(246,190,59,0.3)] hover:shadow-[0_0_24px_rgba(246,190,59,0.6)] hover:border-secondary transition-all duration-150 cursor-pointer">
+                            <span class="font-headline-md text-[24px] font-bold text-secondary group-hover:text-on-surface uppercase tracking-wider relative z-10">AWAKEN</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Game HUD Layer -->
+    <div id="game-hud" style="display: none;" class="absolute inset-0 z-10 p-margin-edge pointer-events-none flex flex-col justify-between font-body-lg">
+        <!-- Top Row: Vitals & Minimap -->
+        <div class="flex justify-between items-start">
+            <!-- Vitals Cluster (Top Left) -->
+            <div class="flex flex-col gap-2 w-72 pointer-events-auto">
+                <div class="text-on-surface font-headline-md tracking-wider uppercase ml-4 px-2 py-0.5 w-fit" id="hud-name-level" style="color:#1a1a1a; text-shadow: 0 1px 3px rgba(255,255,255,0.6); background: rgba(0,0,0,0.35); border-radius: 4px;">Name (Lv.1)</div>
+                <!-- HP Bar -->
+                <div class="relative h-8 w-full hud-border bar-frame flex items-center px-4">
+                    <div class="absolute top-1 bottom-1 right-1 bar-frame bg-surface-container-highest overflow-hidden left-1">
+                        <div id="hud-hp-fill" class="h-full w-[100%] animate-health-shimmer shadow-[0_0_10px_rgba(255,180,168,0.5)]"></div>
+                    </div>
+                    <span id="hud-hp-text" class="absolute right-4 font-body-sm text-body-sm text-on-surface z-10 drop-shadow-md">100/100</span>
+                </div>
+                <!-- MP Bar -->
+                <div class="relative h-7 w-[90%] hud-border bar-frame flex items-center px-4">
+                    <div class="absolute top-1 bottom-1 right-1 bar-frame bg-surface-container-highest overflow-hidden left-1">
+                        <div id="hud-mp-fill" class="h-full w-[100%] animate-mana-pulse"></div>
+                    </div>
+                    <span id="hud-mp-text" class="absolute right-4 font-body-sm text-body-sm text-on-surface z-10 drop-shadow-md">100/100</span>
+                </div>
+                <!-- SP Bar -->
+                <div class="relative h-6 w-[80%] hud-border bar-frame flex items-center px-4">
+                    <div class="absolute top-1 bottom-1 right-1 bar-frame bg-surface-container-highest overflow-hidden left-1">
+                        <div id="hud-sp-fill" class="h-full stamina-fill" style="width: 100%;"></div>
+                    </div>
+                    <span class="absolute left-3 font-label-caps text-[9px] text-on-surface z-10 opacity-70 uppercase tracking-widest">SP</span>
+                </div>
+                <!-- XP Bar -->
+                <div class="relative h-7 w-[90%] hud-border bar-frame flex items-center px-4">
+                    <div class="absolute top-1 bottom-1 right-1 bar-frame overflow-hidden left-1" style="background:rgba(0,0,0,0.5);">
+                        <div id="hud-xp-fill" class="h-full w-[0%] transition-all duration-500" style="background: linear-gradient(90deg, #92400e, #f59e0b, #fde68a); box-shadow: 0 0 8px rgba(245,158,11,0.6);"></div>
+                    </div>
+                    <span class="absolute left-3 font-label-caps text-[9px] text-amber-200 z-10 uppercase tracking-widest">XP</span>
+                    <span id="hud-xp-text" class="absolute right-3 font-body-sm text-body-sm z-10 drop-shadow-md" style="color:#fde68a; font-size:10px;">0/100</span>
+                </div>
+                <!-- Alignment -->
+                <div class="mt-2 px-3 py-1 bg-surface-container-lowest/90 border border-outline-variant rounded-full w-fit flex items-center gap-2 shadow-md">
+                    <span class="w-2 h-2 rounded-full bg-on-surface-variant"></span>
+                    <span id="alignment-display" class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Alignment: Neutral</span>
+                </div>
+                <!-- Gold -->
+                <div class="mt-2 px-3 py-1 bg-surface-container-lowest/90 border border-secondary rounded-full w-fit flex items-center gap-2 shadow-md">
+                    <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                    <span id="hud-gold" class="font-label-caps text-label-caps text-secondary uppercase tracking-wider">Gold: 0</span>
+                </div>
+            </div>
+            
+            <!-- Minimap (Top Right) -->
+            <div class="pointer-events-auto relative flex flex-col items-end gap-2">
+                <button id="btn-return-menu" class="px-3 py-1 bg-surface-container-highest border border-outline hover:border-secondary hover:text-secondary text-on-surface-variant text-[10px] uppercase tracking-wider rounded transition-colors font-label-caps" onclick="if(window.returnToMainMenu) window.returnToMainMenu()">Main Menu</button>
+                <div class="w-40 h-40 rounded-full border-4 border-secondary bg-surface-container-lowest/90 overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.8)] relative">
+                    <!-- Map Image -->
+                    <img id="hud-minimap-img" alt="Minimap" class="w-full h-full object-cover opacity-60 mix-blend-luminosity filter contrast-125 brightness-75" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4WJ1WjIh1_qtQAF0GUo9xNZYTgzUDIgBMsU15MKk1_ZCuhxtZLGjPQIJhg3RF-55sl8DRmKx3qSqWWi5TVRyRCz6OyTwQEB9SGGmxobGoRD7Z5TGeMRvfqm41EMXkwBR6ktAEzgEV8GP_RAuZAq81DroaIrzZrmUIjlVDWm_F7V3gITO_yH7eB5JLZcDGIB1yg8BRL3XSrCJrkyUp2v7R4cRYrJL7ozIGcdUP_7hYW6Vl3H7uP3TncpkM49NNEDPU3PlmOmXK0x5L">
+                    <!-- Player Marker -->
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-tertiary rounded-full shadow-[0_0_10px_rgba(45,219,222,1)] z-10">
+                        <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-tertiary"></div>
+                    </div>
+                    <!-- Scanline Overlay -->
+                    <div class="absolute inset-0 scanline z-20 pointer-events-none rounded-full"></div>
+                    <!-- Compass Points -->
+                    <span class="absolute top-1 left-1/2 transform -translate-x-1/2 font-label-caps text-label-caps text-secondary z-30">N</span>
+                    <span class="absolute bottom-1 left-1/2 transform -translate-x-1/2 font-label-caps text-label-caps text-on-surface-variant z-30">S</span>
+                    <span class="absolute left-1 top-1/2 transform -translate-y-1/2 font-label-caps text-label-caps text-on-surface-variant z-30">W</span>
+                    <span class="absolute right-1 top-1/2 transform -translate-y-1/2 font-label-caps text-label-caps text-on-surface-variant z-30">E</span>
+                </div>
+                <!-- Location Label -->
+                <div id="hud-zone-name" class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-surface-container-highest px-3 py-1 rounded border border-outline-variant font-label-caps text-label-caps text-on-surface whitespace-nowrap">
+                    Unknown Zone
+                </div>
+            </div>
+            
+            <!-- Quests UI (Top Right, below minimap) -->
+            <div id="ui-quests" class="absolute top-48 right-0 w-64 pointer-events-auto bg-surface-container-lowest/80 border-l-2 border-y-2 border-secondary p-3 shadow-lg transform transition-transform translate-x-full">
+                <h4 class="font-headline-sm text-[16px] text-secondary mb-2 uppercase tracking-widest border-b border-outline-variant pb-1">Active Quests</h4>
+                <div id="quest-list" class="flex flex-col gap-2">
+                    <!-- Quest items will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Screen: Zone Lore Splash -->
+        <div id="ui-zone-lore" class="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none opacity-0 transition-opacity duration-1000 flex flex-col items-center justify-center bg-background/80 p-8 rounded-xl border border-outline-variant shadow-[0_0_50px_rgba(0,0,0,0.9)] max-w-2xl">
+            <h2 id="lore-zone-name" class="font-headline-lg text-[40px] text-primary tracking-widest uppercase text-shadow-md mb-4">Zone Name</h2>
+            <p id="lore-zone-text" class="font-body-lg text-[16px] text-on-surface-variant italic leading-relaxed">Lore text goes here...</p>
+        </div>
+
+        <!-- Center Screen (Clear) -->
+        <div class="flex-grow"></div>
+
+        <!-- Bottom Row: Hotbar -->
+        <div class="absolute top-4 left-1/2 transform -translate-x-1/2 flex opacity-70 hover:opacity-100 transition-opacity duration-300">
+            <!-- Decorative Frame Left -->
+            <div class="w-12 h-16 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWE0MDNjIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0yMCAydjIwSDRWMmwxNiAwem0tMiAySDZ2MTZsMTItMTZ6Ii8+PC9zdmc+')] bg-contain bg-no-repeat bg-right opacity-50"></div>
+            <div class="flex gap-2 p-2 hud-border rounded-lg bg-surface-container-lowest/95 pointer-events-auto items-center relative">
+                <!-- Inventory Popup -->
+                <div id="inv-popup" class="absolute -bottom-24 left-1/2 transform -translate-x-1/2 w-48 bg-surface-container border-2 border-primary rounded p-2 text-center shadow-lg transition-all opacity-0 pointer-events-none scale-95 z-50">
+                    <h4 id="inv-popup-title" class="font-headline-sm text-primary uppercase text-[12px] font-bold tracking-widest mb-1">Item Name</h4>
+                    <p id="inv-popup-desc" class="font-body-sm text-on-surface-variant text-[10px] leading-tight">Item description goes here.</p>
+                </div>
+
+                <!-- Slot 1: Weapon -->
+                <div id="inv-slot-1" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                    <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">1</span>
+                    <div id="inv-icon-1" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                        <div id="inv-bg-1" style="width: 80px; height: 64px; background-position: left top; background-repeat: no-repeat; transform: scale(0.5); image-rendering: pixelated;"></div>
+                    </div>
+                    <span id="inv-placeholder-1" class="material-symbols-outlined text-4xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">swords</span>
+                    <!-- Active highlight -->
+                    <div class="absolute inset-0 border-2 border-secondary rounded opacity-50 shadow-[0_0_10px_rgba(246,190,59,0.5)] pointer-events-none z-30"></div>
+                </div>
+                <!-- Slot 2: Health Potion -->
+                <div id="inv-slot-2" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                    <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">2</span>
+                    <div id="inv-icon-2" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                        <div id="inv-bg-2" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png'); background-position: -16px 0px; background-size: 48px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
+                    </div>
+                    <span id="inv-placeholder-2" class="material-symbols-outlined text-4xl text-primary group-hover:text-primary-fixed transition-colors z-10" style="font-variation-settings: 'FILL' 1;">water_drop</span>
+                    <span id="inv-qty-2" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
+                </div>
+                <!-- Slot 3: Mana Potion -->
+                <div id="inv-slot-3" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                    <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">3</span>
+                    <div id="inv-icon-3" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                        <div id="inv-bg-3" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png'); background-position: 0px 0px; background-size: 16px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
+                    </div>
+                    <span id="inv-placeholder-3" class="material-symbols-outlined text-4xl text-info group-hover:text-info-fixed transition-colors z-10" style="color: #60a5fa; font-variation-settings: 'FILL' 1;">science</span>
+                    <span id="inv-qty-3" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
+                </div>
+                <!-- Slot 4: Meat -->
+                <div id="inv-slot-4" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                    <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">4</span>
+                    <div id="inv-icon-4" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                        <div id="inv-bg-4" style="width: 16px; height: 16px; background-position: left top; background-repeat: no-repeat; transform: scale(2.5); image-rendering: pixelated; background-image: url('src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png'); transform-origin: center;"></div>
+                    </div>
+                    <span id="inv-placeholder-4" class="material-symbols-outlined text-4xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">set_meal</span>
+                    <span id="inv-qty-4" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
+                </div>
+                <!-- Slot 5: Stamina Potion -->
+                <div id="inv-slot-5" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                    <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">5</span>
+                    <div id="inv-icon-5" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                        <div id="inv-bg-5" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png'); background-position: 0px 0px; background-size: 16px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
+                    </div>
+                    <span id="inv-placeholder-5" class="material-symbols-outlined text-4xl text-success group-hover:text-success-fixed transition-colors z-10" style="color: #4ade80; font-variation-settings: 'FILL' 1;">bolt</span>
+                    <span id="inv-qty-5" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
+                </div>
+            </div>
+            <!-- Decorative Frame Right -->
+            <div class="w-12 h-16 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWE0MDNjIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik00IDJ2MjBoMTZWMkw0IDJ6bTIgMmgxMnYxNkw2IDR6Ii8+PC9zdmc+')] bg-contain bg-no-repeat bg-left opacity-50"></div>
+        </div>
+    </div>
+
+    <!-- NPC Chat UI -->
+    <div id="chat-ui">
+        <div id="chat-npc-name" style="font-weight: bold; color: #ffaa00; margin-bottom: 10px;">NPC Name</div>
+        <div id="chat-history"></div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Type your response... (Press Enter or click Send)">
+            <button id="chat-submit">Send</button>
+            <button id="chat-trade" style="background-color: #f6be3b; color: #131313; margin-left: 5px; font-weight: bold; border: 1px solid #c69302;">Trade</button>
+            <button id="chat-activity" style="background-color: #3b82f6; color: #ffffff; margin-left: 5px; font-weight: bold; border: 1px solid #2563eb; display: none;">Activity</button>
+        </div>
+        <div style="font-size: 12px; color: #888; margin-top: 5px;">Press ESC or walk away to close.</div>
+    </div>
+
+    <!-- Shop UI -->
+    <div id="ui-shop" style="display: none;" class="absolute inset-0 z-40 bg-background/90 text-on-background overflow-hidden font-body-lg flex items-center justify-center pointer-events-auto">
+        <div class="bg-surface-container/95 backdrop-blur-md border-2 border-outline-variant p-8 flex flex-col gap-6 shadow-[10px_10px_30px_rgba(0,0,0,0.8)] relative w-full max-w-3xl">
+            <div class="border-b border-outline-variant pb-4 mb-2 flex justify-between items-center">
+                <h3 id="shop-title" class="font-headline-md text-[24px] font-bold text-secondary tracking-wide uppercase">Merchant Shop</h3>
+                <button id="btn-close-shop" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px]">Close (ESC)</button>
+            </div>
+            
+            <!-- Items Grid -->
+            <div id="shop-items-container" class="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto max-h-[60vh] pr-2">
+                <!-- Javascript will insert shop items here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Town Directory UI -->
+    <div id="ui-town-directory" style="display: none;" class="absolute inset-0 z-40 bg-background/90 text-on-background overflow-hidden font-body-lg flex items-center justify-center pointer-events-auto">
+        <div class="bg-surface-container/95 backdrop-blur-md border-2 border-outline-variant p-8 flex flex-col gap-6 shadow-[10px_10px_30px_rgba(0,0,0,0.8)] relative w-full max-w-4xl">
+            <div class="border-b border-outline-variant pb-4 mb-2 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-4xl text-tertiary">explore</span>
+                    <h3 class="font-headline-md text-[28px] font-bold text-tertiary tracking-wide uppercase">Town Directory</h3>
+                </div>
+                <button id="btn-close-directory" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px]">Close (ESC)</button>
+            </div>
+            
+            <!-- Locations Grid -->
+            <div id="directory-locations-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[60vh] pr-2">
+                <!-- Javascript will insert location cards here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Toggle Button -->
+    <button id="debug-toggle-btn" onclick="
+        const hud = document.getElementById('debug-hud');
+        const isVisible = hud.style.display !== 'none';
+        hud.style.display = isVisible ? 'none' : 'block';
+        if (window._gameScene) window._gameScene.debugHudVisible = !isVisible;
+        this.style.opacity = isVisible ? '0.4' : '1';
+    " style="position: fixed; bottom: 10px; left: 10px; z-index: 10000;
+        background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(0, 255, 0, 0.3); border-radius: 4px;
+        padding: 4px 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #00ff88;
+        cursor: pointer; opacity: 0.4; transition: opacity 0.2s;"
+        title="Toggle Debug HUD (F3)">⚙ DBG</button>
+
+    <!-- Debug HUD (Toggle with F3) -->
+    <div id="debug-hud" style="display: none; position: fixed; bottom: 40px; left: 10px; z-index: 9999;
+        background: rgba(0, 0, 0, 0.85); border: 1px solid rgba(0, 255, 0, 0.3); border-radius: 6px;
+        padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #00ff88;
+        pointer-events: none; min-width: 280px; line-height: 1.6; text-shadow: 0 0 4px rgba(0,255,100,0.3);">
+        <div style="color: #00ff00; font-weight: bold; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid rgba(0,255,0,0.2); padding-bottom: 3px;">
+            ⚙ DEBUG <span style="color: #888; font-weight: normal; font-size: 10px;">(F3 to toggle)</span>
+        </div>
+        <div id="debug-content">Loading...</div>
+        <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,255,0,0.2); pointer-events: auto;">
+            <button id="btn-sprite-debugger" onclick="
+                const p = document.getElementById('debug-panel');
+                if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+            " style="background: rgba(0,80,0,0.6); border: 1px solid rgba(0,255,0,0.4); border-radius: 3px;
+                padding: 3px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #00ff88;
+                cursor: pointer; transition: all 0.2s; width: 100%;"
+                onmouseover="this.style.background='rgba(0,120,0,0.8)'"
+                onmouseout="this.style.background='rgba(0,80,0,0.6)'"
+                title="Open Sprite Sheet Debugger">🎨 Sprite Debugger</button>
+        </div>
+    </div>
+    <div id="game-container"></div>
+    
+    <!-- Load Game Scripts -->
+    <script src="src/AssetManager.js"></script>
+    <script src="src/InputManager.js"></script>
+    <script src="src/PlayerController.js"></script>
+    <script src="src/GeminiService.js"></script>
+    <script src="src/EnemyController.js"></script>
+    <script src="src/NPCController.js"></script>
+    <script src="src/WorldManager.js"></script>
+    <script src="src/scenes/TitleScene.js"></script>
+    <script src="src/scenes/GameScene.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>

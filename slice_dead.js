@@ -1,0 +1,1 @@
+const { Jimp } = require('jimp'); async function run() { const img = await Jimp.read('src/assets/Ultimate Pixel Tree Pack/Ultimate Pixel Tree Pack/Sheet_4_Dead_Trees.png'); let count = 1; for(let y=0; y<512; y+=64) { for(let x=0; x<512; x+=64) { const frame = img.clone(); frame.crop({x: x, y: y, w: 64, h: 64}); await frame.write(src/assets/dead_tree_.png); count++; } } } run();

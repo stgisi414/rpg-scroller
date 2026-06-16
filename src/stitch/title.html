@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ELDEN SOUL - Title Screen</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;family=Space+Grotesk:wght@600;700&amp;family=Courier+Prime:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary": "#f6be3b",
+                        "surface-container-highest": "#353535",
+                        "on-secondary-fixed-variant": "#5c4300",
+                        "tertiary-fixed": "#5af8fb",
+                        "tertiary-container": "#004b4c",
+                        "on-surface-variant": "#e3beb8",
+                        "outline-variant": "#5a403c",
+                        "on-background": "#e4e2e1",
+                        "primary-fixed-dim": "#ffb4a8",
+                        "on-tertiary-container": "#00c3c6",
+                        "on-error": "#690005",
+                        "primary-fixed": "#ffdad4",
+                        "surface-container-lowest": "#0e0e0e",
+                        "primary": "#ffb4a8",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed": "#410000",
+                        "on-tertiary": "#003738",
+                        "surface": "#131313",
+                        "surface-container-low": "#1b1c1c",
+                        "background": "#131313",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-tint": "#ffb4a8",
+                        "on-secondary-container": "#433000",
+                        "surface-container": "#1f2020",
+                        "on-tertiary-fixed-variant": "#004f51",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#920703",
+                        "on-primary-container": "#ff907f",
+                        "surface-dim": "#131313",
+                        "on-primary": "#690000",
+                        "inverse-on-surface": "#303030",
+                        "secondary-fixed": "#ffdea0",
+                        "tertiary": "#2ddbde",
+                        "secondary-fixed-dim": "#f6be3b",
+                        "tertiary-fixed-dim": "#2ddbde",
+                        "primary-container": "#8b0000",
+                        "secondary-container": "#c69302",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed": "#261900",
+                        "on-surface": "#e4e2e1",
+                        "inverse-primary": "#b52619",
+                        "inverse-surface": "#e4e2e1",
+                        "surface-bright": "#393939",
+                        "surface-variant": "#353535",
+                        "error-container": "#93000a",
+                        "outline": "#aa8984",
+                        "on-secondary": "#402d00"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "gutter": "16px",
+                        "panel-padding": "12px",
+                        "margin-edge": "32px",
+                        "pixel-unit": "4px"
+                    },
+                    fontFamily: {
+                        "body-lg": ["JetBrains Mono", "monospace"],
+                        "headline-lg": ["Space Grotesk", "sans-serif"],
+                        "headline-md": ["Space Grotesk", "sans-serif"],
+                        "body-sm": ["JetBrains Mono", "monospace"],
+                        "label-caps": ["Courier Prime", "monospace"],
+                        "headline-lg-mobile": ["Space Grotesk", "sans-serif"]
+                    },
+                    fontSize: {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["64px", { "lineHeight": "72px", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-caps": ["10px", { "lineHeight": "12px", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["40px", { "lineHeight": "48px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0e0e0e; /* surface-container-lowest */
+            color: #e4e2e1; /* on-surface */
+            overflow: hidden; /* Prevent scrolling on title screen */
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.6), 0 0 30px rgba(255, 0, 0, 0.4);
+        }
+
+        .menu-item {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .menu-item:hover {
+            color: #ffb4a8; /* primary */
+            transform: translateX(10px);
+        }
+
+        .menu-item::before {
+            content: 'sword_rose';
+            font-family: 'Material Symbols Outlined';
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            color: #2ddbde; /* tertiary */
+            transition: all 0.2s ease;
+            text-shadow: 0 0 10px rgba(45,219,222,0.8);
+        }
+
+        .menu-item:hover::before {
+            opacity: 1;
+            left: -30px;
+        }
+        
+        .crt-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen relative flex items-center justify-center">
+<!-- Atmospheric Background Image -->
+<div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-60" data-alt="A dark fantasy pixel art style scene of a ruined gothic castle at night. The castle is silhouetted against a deep, moody night sky with subtle, ominous red and purple hues. Crumbling stone towers and arches are visible, with thick fog rolling through the courtyard. The lighting is extremely low-key, evoking a sense of dread and forgotten history, typical of a grim metroidvania aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC-bCEqsex1-WLpRhTKorxE81MdpSmcFbRPZ7LUlj-sR4G5NKGjyIl8lclXsIwKwvvPPGhDd8LqJ33xtgVD6oNrMprHXB1oIQKs4y5BMsMe6Pau89lEKNYjk5UNwldG3tuHV2PHnpaVEa7qF1Swr1XEDa1jgYqwjVfF1KH1BcfvwbkseIOJUrOQtpuNVPDCrIF_0by4pc1yuO2Tssp-0OvH2ADYmUTwEMqSHoPiP7oYcg7rXombmSrDBQmFx7w4yAI3OChThwy2Ovlq');">
+</div>
+<!-- The Veil Overlay -->
+<div class="absolute inset-0 z-10 bg-black/50 backdrop-blur-[2px]"></div>
+<!-- CRT Scanline Effect -->
+<div class="absolute inset-0 z-20 crt-overlay mix-blend-overlay"></div>
+<!-- Main Content Container -->
+<main class="relative z-30 flex flex-col items-center justify-center gap-16 p-margin-edge w-full max-w-4xl mx-auto">
+<!-- Game Title / Logo -->
+<div class="text-center">
+<h1 class="font-headline-lg text-headline-lg md:text-headline-lg font-bold uppercase tracking-[0.2em] text-surface-container-highest bg-clip-text text-transparent bg-gradient-to-b from-on-surface to-surface-container-highest drop-shadow-[0_4px_4px_rgba(0,0,0,1)] glow-text" style="filter: drop-shadow(0 0 20px rgba(139, 0, 0, 0.8));">
+                ELDEN SOUL
+            </h1>
+<p class="font-label-caps text-label-caps text-tertiary mt-4 tracking-widest uppercase opacity-80 shadow-[0_0_10px_rgba(45,219,222,0.3)]">
+                Press Start to Awaken
+            </p>
+</div>
+<!-- Menu Options -->
+<nav class="flex flex-col items-center gap-6 mt-8">
+<button class="menu-item font-body-lg text-body-lg text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                New Game
+            </button>
+<button class="menu-item font-body-lg text-body-lg text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                Continue
+            </button>
+<button class="menu-item font-body-lg text-body-lg text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                Settings
+            </button>
+<button class="menu-item font-body-lg text-body-lg text-on-surface-variant uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none hover:text-error transition-colors">
+                Quit
+            </button>
+</nav>
+<!-- Version/Footer Info -->
+<div class="absolute bottom-margin-edge left-margin-edge font-label-caps text-label-caps text-on-surface-variant/50">
+            v1.0.4 - Early Access
+        </div>
+<div class="absolute bottom-margin-edge right-margin-edge font-label-caps text-label-caps text-on-surface-variant/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">sports_esports</span> Gamepad Recommended
+        </div>
+</main>
+<!-- Subtle Particle Effect (Placeholder for actual webgl/canvas if needed, but keeping it simple CSS for now) -->
+<div class="absolute inset-0 z-15 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary-container/20 via-background/0 to-background/0"></div>
+</body></html>

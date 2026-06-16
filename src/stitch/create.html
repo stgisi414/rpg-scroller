@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Elden Soul - Character Creation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;family=Space+Grotesk:wght@300..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#f6be3b",
+                        "surface-container-highest": "#353535",
+                        "on-secondary-fixed-variant": "#5c4300",
+                        "tertiary-fixed": "#5af8fb",
+                        "tertiary-container": "#004b4c",
+                        "on-surface-variant": "#e3beb8",
+                        "outline-variant": "#5a403c",
+                        "on-background": "#e4e2e1",
+                        "primary-fixed-dim": "#ffb4a8",
+                        "on-tertiary-container": "#00c3c6",
+                        "on-error": "#690005",
+                        "primary-fixed": "#ffdad4",
+                        "surface-container-lowest": "#0e0e0e",
+                        "primary": "#ffb4a8",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed": "#410000",
+                        "on-tertiary": "#003738",
+                        "surface": "#131313",
+                        "surface-container-low": "#1b1c1c",
+                        "background": "#131313",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-tint": "#ffb4a8",
+                        "on-secondary-container": "#433000",
+                        "surface-container": "#1f2020",
+                        "on-tertiary-fixed-variant": "#004f51",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#920703",
+                        "on-primary-container": "#ff907f",
+                        "surface-dim": "#131313",
+                        "on-primary": "#690000",
+                        "inverse-on-surface": "#303030",
+                        "secondary-fixed": "#ffdea0",
+                        "tertiary": "#2ddbde",
+                        "secondary-fixed-dim": "#f6be3b",
+                        "tertiary-fixed-dim": "#2ddbde",
+                        "primary-container": "#8b0000",
+                        "secondary-container": "#c69302",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed": "#261900",
+                        "on-surface": "#e4e2e1",
+                        "inverse-primary": "#b52619",
+                        "inverse-surface": "#e4e2e1",
+                        "surface-bright": "#393939",
+                        "surface-variant": "#353535",
+                        "error-container": "#93000a",
+                        "outline": "#aa8984",
+                        "on-secondary": "#402d00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "panel-padding": "12px",
+                        "margin-edge": "32px",
+                        "pixel-unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["JetBrains Mono"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"],
+                        "body-sm": ["JetBrains Mono"],
+                        "label-caps": ["Courier Prime"],
+                        "headline-lg-mobile": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-caps": ["10px", { "lineHeight": "12px", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom Pixel Outline / Glow Utilities */
+        .pixel-border {
+            box-shadow: inset 0 0 0 2px var(--tw-colors-outline-variant);
+        }
+        .pixel-border-active {
+            box-shadow: inset 0 0 0 2px var(--tw-colors-secondary), 0 0 8px rgba(246, 190, 59, 0.4);
+        }
+        .pixel-bg-pattern {
+            background-image: radial-gradient(var(--tw-colors-surface-container-high) 1px, transparent 1px);
+            background-size: 4px 4px;
+        }
+        .crt-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+        
+        /* Stat Bar Animations */
+        @keyframes fillBar {
+            from { width: 0; }
+            to { width: var(--target-width); }
+        }
+        .stat-bar-fill {
+            animation: fillBar 1s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background h-screen w-screen overflow-hidden relative font-body-lg">
+<!-- Ambient CRT/Vignette Overlay -->
+<div class="absolute inset-0 crt-overlay z-50 pointer-events-none"></div>
+<div class="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] z-40 pointer-events-none"></div>
+<!-- Background Layer (Level 0) -->
+<div class="absolute inset-0 w-full h-full bg-surface-container-lowest pixel-bg-pattern">
+<!-- Optional: A dark, moody dungeon backdrop image could go here -->
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/80"></div>
+</div>
+<!-- Main Content Layout -->
+<main class="relative z-10 w-full h-full flex flex-col md:flex-row p-margin-edge gap-margin-edge">
+<!-- Top App Bar (Semantic Shell - Visible on Desktop, Hidden on Mobile for this view as it's full screen) -->
+<header class="absolute top-0 left-0 w-full z-30 hidden md:flex justify-between items-center px-margin-edge h-20 bg-background/80 backdrop-blur-sm border-b-2 border-outline-variant shadow-lg shadow-black/50">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary tracking-widest uppercase">ELDEN SOUL</h1>
+<nav class="flex gap-8">
+<!-- Suppressed Nav Items since this is a transactional/creation screen -->
+</nav>
+<div class="flex gap-4">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+</button>
+</div>
+</header>
+<!-- Left Panel: Character Preview (World Space) -->
+<section class="flex-1 h-full flex flex-col items-center justify-center relative mt-16 md:mt-0">
+<!-- Pedestal/Environment Ground -->
+<div class="absolute bottom-1/4 w-[400px] h-[100px] bg-gradient-to-t from-surface-container-lowest to-transparent rounded-full blur-xl"></div>
+<div class="absolute bottom-[28%] w-[300px] h-2 bg-outline-variant/30 rounded-full blur-sm"></div>
+<!-- Character Sprite Container -->
+<div class="relative w-64 h-64 flex items-center justify-center transform scale-150 mb-12">
+<!-- Placeholder for the actual pixel art sprite. Using a styled div to simulate the presence -->
+<div class="w-full h-full bg-surface-container-high/50 border-2 border-outline border-dashed rounded-lg flex items-center justify-center relative overflow-hidden" data-alt="A 32-bit pixel art animation frame of a heavily armored gothic knight standing idle, clutching a large greatsword. The armor is dark, worn iron with subtle crimson accents. The background is completely transparent. The lighting suggests a dark fantasy dungeon setting, with a subtle magical glow from below." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDGXMDd88AXnlst_oK5CsJ1hpDHFnx0oPyp5pcip1LSezbr_yLzJ7lMMzr_F6qMWQlGEmPPig3Qc25LFpDwqiO_-HjNvg3bUzvyWNbdgrLjW5Qe9xZeduRZM5qcqbhNS6sL0B7IuYPfsf_nPC8LziN9SBOwRF-V-ybONJ_SXsqmPfDsXPtIUteElY1B1RVlUcoqetIAbW_LsOCsfg8yAelZlu8SPG6JBJTwrkNcVZobbq4PP0OtP9w01wIqywIIxrPTSO7cpdB-O59e'); background-size: cover; background-position: center;">
+<!-- Simulated 'Focus/Glow' (Level 4) -->
+<div class="absolute inset-0 shadow-[0_0_30px_rgba(45,219,222,0.1)] pointer-events-none rounded-lg"></div>
+</div>
+</div>
+<!-- Character Name & Tagline -->
+<div class="text-center z-10 mt-8">
+<h2 class="font-headline-lg text-headline-lg text-primary tracking-widest uppercase text-shadow-sm">The Vanguard</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-2 uppercase tracking-widest opacity-80">Forged in Ash, Bound by Iron</p>
+</div>
+</section>
+<!-- Right Panel: UI / Stats / Class Selection (Level 2 Panel) -->
+<section class="w-full md:w-[450px] lg:w-[500px] h-full flex flex-col gap-6 pt-20 md:pt-24 pb-8 z-20">
+<!-- Panel Container -->
+<div class="flex-1 bg-surface-container/90 backdrop-blur-md border-2 border-outline-variant p-6 flex flex-col gap-6 shadow-[10px_10px_30px_rgba(0,0,0,0.8)] relative overflow-hidden">
+<!-- Inner Panel Decoration (Ornate Corners) -->
+<div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-secondary/50"></div>
+<div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-secondary/50"></div>
+<div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-secondary/50"></div>
+<div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-secondary/50"></div>
+<!-- Header -->
+<div class="border-b border-outline-variant pb-4 mb-2">
+<h3 class="font-headline-md text-headline-md text-on-surface tracking-wide">CHOOSE ORIGIN</h3>
+</div>
+<!-- Class Selection Grid (Level 3 Interactive) -->
+<div class="grid grid-cols-4 gap-4">
+<!-- Class: Knight (Active) -->
+<button aria-label="Select Knight" class="relative group p-2 flex flex-col items-center gap-2 bg-surface-container-high pixel-border-active transition-all">
+<div class="w-12 h-12 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<span class="font-label-caps text-label-caps text-secondary">Knight</span>
+<!-- Active Glow -->
+<div class="absolute inset-0 bg-secondary/10 pointer-events-none"></div>
+</button>
+<!-- Class: Wizard -->
+<button aria-label="Select Wizard" class="relative group p-2 flex flex-col items-center gap-2 bg-surface-container-low pixel-border hover:border-tertiary hover:bg-surface-container-highest transition-all duration-200">
+<div class="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-4xl">magic_button</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant group-hover:text-on-surface">Wizard</span>
+</button>
+<!-- Class: Samurai -->
+<button aria-label="Select Samurai" class="relative group p-2 flex flex-col items-center gap-2 bg-surface-container-low pixel-border hover:border-error hover:bg-surface-container-highest transition-all duration-200">
+<div class="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:text-error transition-colors">
+<span class="material-symbols-outlined text-4xl">colorize</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant group-hover:text-on-surface">Rogue</span>
+</button>
+<!-- Class: Ranger -->
+<button aria-label="Select Ranger" class="relative group p-2 flex flex-col items-center gap-2 bg-surface-container-low pixel-border hover:border-primary hover:bg-surface-container-highest transition-all duration-200">
+<div class="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-4xl">my_location</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant group-hover:text-on-surface">Ranger</span>
+</button>
+</div>
+<!-- Stat Details Area -->
+<div class="flex-1 flex flex-col mt-4 bg-surface-container-lowest/50 p-4 border border-outline-variant/50">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 leading-relaxed">
+                        A sturdy warrior clad in heavy iron. Excels in close combat and absorbs significant physical damage. Starts with a Broadsword and Heater Shield.
+                    </p>
+<!-- Linear Stat Bars (Alternative to Radar Chart for pixel aesthetic) -->
+<div class="flex flex-col gap-4 w-full">
+<!-- Vitality -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="font-label-caps text-label-caps text-on-surface">VIT</span>
+<span class="font-body-sm text-body-sm text-primary">15</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+<div class="h-full bg-primary stat-bar-fill shadow-[0_0_8px_rgba(255,180,168,0.5)]" style="--target-width: 75%;"></div>
+</div>
+</div>
+<!-- Strength -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="font-label-caps text-label-caps text-on-surface">STR</span>
+<span class="font-body-sm text-body-sm text-secondary">14</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+<div class="h-full bg-secondary stat-bar-fill shadow-[0_0_8px_rgba(246,190,59,0.5)]" style="--target-width: 70%;"></div>
+</div>
+</div>
+<!-- Dexterity -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="font-label-caps text-label-caps text-on-surface">DEX</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">9</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+<div class="h-full bg-outline stat-bar-fill" style="--target-width: 45%;"></div>
+</div>
+</div>
+<!-- Intelligence -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="font-label-caps text-label-caps text-on-surface">INT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">8</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high border border-outline-variant overflow-hidden">
+<div class="h-full bg-outline stat-bar-fill" style="--target-width: 40%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Action (Confirm Button) -->
+<div class="mt-auto pt-4 flex justify-end">
+<button class="group relative px-8 py-4 bg-surface-container border-2 border-outline-variant hover:border-secondary transition-all duration-150 active:translate-y-[2px]">
+<span class="font-headline-md text-headline-md text-on-surface group-hover:text-secondary uppercase tracking-wider relative z-10">AWAKEN</span>
+<!-- Hover Glow -->
+<div class="absolute inset-0 bg-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+<!-- Inner stroke simulation -->
+<div class="absolute inset-0 border border-transparent group-hover:border-secondary/30 m-[2px]"></div>
+</button>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Simple script to trigger bar animations on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const bars = document.querySelectorAll('.stat-bar-fill');
+            // Re-trigger animation by re-adding class (useful if swapping classes)
+            bars.forEach(bar => {
+                bar.style.animation = 'none';
+                bar.offsetHeight; /* trigger reflow */
+                bar.style.animation = null; 
+            });
+        });
+    </script>
+</body></html>

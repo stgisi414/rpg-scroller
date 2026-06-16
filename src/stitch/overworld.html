@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sidescrolling Overworld HUD</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&amp;family=JetBrains+Mono:wght@400..800&amp;family=Space+Grotesk:wght@300..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-surface-variant": "#e3beb8",
+                      "surface-container-high": "#2a2a2a",
+                      "surface-container": "#1f2020",
+                      "surface-bright": "#393939",
+                      "surface-variant": "#353535",
+                      "inverse-surface": "#e4e2e1",
+                      "on-error": "#690005",
+                      "on-primary": "#690000",
+                      "on-error-container": "#ffdad6",
+                      "primary-fixed-dim": "#ffb4a8",
+                      "on-tertiary-fixed-variant": "#004f51",
+                      "tertiary-fixed": "#5af8fb",
+                      "primary": "#ffb4a8",
+                      "on-primary-container": "#ff907f",
+                      "surface": "#131313",
+                      "on-tertiary-container": "#00c3c6",
+                      "surface-container-lowest": "#0e0e0e",
+                      "inverse-primary": "#b52619",
+                      "on-secondary-fixed-variant": "#5c4300",
+                      "surface-container-low": "#1b1c1c",
+                      "on-tertiary-fixed": "#002020",
+                      "surface-tint": "#ffb4a8",
+                      "on-surface": "#e4e2e1",
+                      "tertiary-container": "#004b4c",
+                      "on-tertiary": "#003738",
+                      "on-primary-fixed": "#410000",
+                      "inverse-on-surface": "#303030",
+                      "primary-fixed": "#ffdad4",
+                      "error-container": "#93000a",
+                      "surface-dim": "#131313",
+                      "surface-container-highest": "#353535",
+                      "secondary-fixed-dim": "#f6be3b",
+                      "secondary-fixed": "#ffdea0",
+                      "secondary-container": "#c69302",
+                      "secondary": "#f6be3b",
+                      "outline-variant": "#5a403c",
+                      "on-secondary": "#402d00",
+                      "on-secondary-fixed": "#261900",
+                      "outline": "#aa8984",
+                      "tertiary-fixed-dim": "#2ddbde",
+                      "primary-container": "#8b0000",
+                      "on-secondary-container": "#433000",
+                      "on-primary-fixed-variant": "#920703",
+                      "background": "#131313",
+                      "on-background": "#e4e2e1",
+                      "error": "#ffb4ab",
+                      "tertiary": "#2ddbde"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-edge": "32px",
+                      "pixel-unit": "4px",
+                      "panel-padding": "12px",
+                      "gutter": "16px"
+              },
+              "fontFamily": {
+                      "label-caps": [
+                              "Courier Prime"
+                      ],
+                      "body-lg": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-lg-mobile": [
+                              "Space Grotesk"
+                      ],
+                      "headline-md": [
+                              "Space Grotesk"
+                      ],
+                      "headline-lg": [
+                              "Space Grotesk"
+                      ],
+                      "body-sm": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {
+                      "label-caps": [
+                              "10px",
+                              {
+                                      "lineHeight": "12px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "30px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      }
+              }
+            },
+          }
+    </script>
+<style>body {
+    background-color: theme("colors.background");
+    color: theme("colors.on-background");
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    /* Prevent scrolling in HUD context */
+    user-select: none
+    }
+/* Material Symbols Fill override where needed */
+.material-symbols-fill {
+    font-variation-settings: "FILL" 1
+    }
+/* Custom scrollbar for immersive feel if needed elsewhere */
+::-webkit-scrollbar {
+    width: 8px
+    }
+::-webkit-scrollbar-track {
+    background: theme("colors.surface-container-lowest")
+    }
+::-webkit-scrollbar-thumb {
+    background: theme("colors.outline-variant");
+    border-radius: 0
+    }
+/* Pixel-art styling utility classes */
+.pixel-border {
+    border: theme("spacing.pixel-unit") solid theme("colors.outline-variant")
+    }
+.pixel-border-gold {
+    border: theme("spacing.pixel-unit") solid theme("colors.secondary")
+    }
+.pixel-inner-stroke {
+    box-shadow: inset 0 0 0 1px theme("colors.secondary-container")
+    }
+.pixel-shadow {
+    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.8)
+    }
+/* Bar animations */
+@keyframes pulse-mana {
+    0% {
+        opacity: 0.8;
+        } 50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 2px theme("colors.tertiary"));
+        } 100% {
+        opacity: 0.8;
+        }
+    }
+.animate-mana {
+    animation: pulse-mana 2s infinite
+    }
+@keyframes shake-health {
+    0%, 100% {
+        transform: translateX(0);
+        } 25% {
+        transform: translateX(-1px);
+        } 75% {
+        transform: translateX(1px);
+        }
+    }
+.low-health {
+    animation: shake-health 0.5s infinite
+    }
+/* Background image placeholder styling */
+.bg-game-world {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuBMt40scfXX8h8lFnUkrzrOXSi5IkWMs9J0y0iEkic9pnK2qmKPrKrgSMBh7qUX6PMzGnXUs0syn3ebv7Gsn4p99WsJsWeJKg0EvCaUZqqFbU7CwRTI71U2NSn9Q3S3j1o8-xFZBYCV1DUv-ggtzR-kkSLdIBmBvNOawb-5MflmW1_qBZhYkUBJCqMqJTyO7JH8Wt6jV8rAlwXBG9IBwjJRqzgMH5pX48nfYpX5kXx7ue60alaIUrLpmBGGBe2rxTUsTShqQhGr3i0g);
+    background-size: cover;
+    background-position: center;
+    /* Simulate the darkness of the forest */
+    position: relative
+    }
+/* The Veil - subtle darkness over the background but not full pause screen */
+.bg-veil {
+    background: linear-gradient(to bottom, rgba(14, 14, 14, 0.4) 0%, rgba(14, 14, 14, 0.1) 50%, rgba(14, 14, 14, 0.6) 100%)
+    }
+/* Ornate filigree hints */
+.ornate-corner {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: theme("colors.secondary");
+    clip-path: polygon(0 0, 100% 0, 100% 25%, 25% 25%, 25% 100%, 0 100%)
+    }
+.corner-tl {
+    top: -4px;
+    left: -4px
+    }
+.corner-tr {
+    top: -4px;
+    right: -4px;
+    transform: rotate(90deg)
+    }
+.corner-bl {
+    bottom: -4px;
+    left: -4px;
+    transform: rotate(-90deg)
+    }
+.corner-br {
+    bottom: -4px;
+    right: -4px;
+    transform: rotate(180deg)
+    }</style>
+</head>
+<body class="h-screen w-screen relative font-body-lg text-body-lg antialiased">
+<!-- Game World Background Layer -->
+<div class="absolute inset-0 bg-game-world z-0" data-alt="A 16-bit pixel art style dark fantasy forest path. The scene is atmospheric and grim, with silhouetted twisted trees framing the foreground. In the distant background, the silhouette of a ruined gothic town is visible against a muted, desaturated sky. The color palette relies heavily on deep blacks, dark slates, and subtle hints of crimson and sickly green in the foliage. Lighting is low-key, evoking a sense of dread and isolation consistent with a dark fantasy Metroidvania aesthetic.">
+<div class="absolute inset-0 bg-veil"></div>
+</div>
+<!-- HUD Overlay Layer -->
+<div class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-margin-edge">
+<!-- Top HUD Row -->
+<div class="flex justify-between items-start w-full">
+<!-- Top-Left: Vitals -->
+<div class="flex flex-col gap-2 w-64">
+<!-- Alignment Badge -->
+<div class="bg-surface-container/80 pixel-border px-2 py-1 flex items-center gap-2 w-fit mb-1">
+<span class="material-symbols-outlined text-secondary text-sm">balance</span>
+<span class="font-label-caps text-label-caps text-on-surface uppercase tracking-wider">Alignment: Neutral</span>
+</div>
+<!-- Health Bar Frame -->
+<div class="relative h-6 bg-surface-container-lowest pixel-border p-1 w-full flex items-center low-health">
+<div class="h-full bg-primary w-[15%] relative overflow-hidden flex items-center shadow-[0_0_5px_theme('colors.primary')]">
+<!-- simulated pixel texture inside bar -->
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPjxyZWN0IHdpZHRoPScxJyBoZWlnaHQ9JzEnIGZpbGw9J3JnYmEoMCwwLDAsMC4yKScvPjwvc3ZnPg==')] opacity-30"></div>
+</div>
+</div>
+<!-- Mana Bar Frame -->
+<div class="relative h-4 bg-surface-container-lowest pixel-border p-1 w-[80%] flex items-center">
+<div class="h-full bg-tertiary w-[60%] relative overflow-hidden animate-mana">
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPjxyZWN0IHdpZHRoPScxJyBoZWlnaHQ9JzEnIGZpbGw9J3JnYmEoMjU1LDI1NSwyNTUsMC4yKScvPjwvc3ZnPg==')] opacity-40"></div>
+</div>
+</div>
+<!-- Stamina Bar Frame -->
+<div class="relative h-3 bg-surface-container-lowest pixel-border p-0.5 w-[60%] flex items-center">
+<div class="h-full bg-secondary-fixed-dim w-[100%] relative"></div>
+</div>
+</div>
+<!-- Top-Center: Location Nameplate -->
+<div class="relative bg-surface-container-high/90 pixel-border border-outline-variant px-8 py-3 flex items-center justify-center pixel-shadow mt-4">
+<!-- Ornate Corners -->
+<div class="ornate-corner corner-tl"></div>
+<div class="ornate-corner corner-tr"></div>
+<div class="ornate-corner corner-bl"></div>
+<div class="ornate-corner corner-br"></div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-widest uppercase text-center" style="text-shadow: 2px 2px 0px #000;">
+                    The Ruined Outpost
+                </h1>
+</div>
+<!-- Top-Right: Minimap -->
+<div class="relative w-48 h-48 bg-surface-container-lowest pixel-border-gold pixel-inner-stroke pixel-shadow p-1 flex flex-col items-end">
+<!-- Map Content (Placeholder for pixel map) -->
+<div class="w-full h-full bg-surface-container overflow-hidden relative" data-alt="A small square 16-bit pixel art minimap representing a dark fantasy forest and town outskirts. The map uses blocky, abstract representations of paths, trees, and buildings in muted dark greens, slates, and blacks. A small glowing gold pixel indicates the player's current location near the center. The style is strictly retro UI, heavily stylized and utilitarian.">
+<!-- Simulated Map paths -->
+<div class="absolute top-1/2 left-0 w-3/4 h-2 bg-outline-variant/50 transform -translate-y-1/2"></div>
+<div class="absolute top-1/4 left-1/2 w-2 h-1/2 bg-outline-variant/50 transform -translate-x-1/2"></div>
+<!-- Player blip -->
+<div class="absolute top-1/2 left-1/2 w-2 h-2 bg-secondary transform -translate-x-1/2 -translate-y-1/2 shadow-[0_0_4px_theme('colors.secondary')]"></div>
+</div>
+<!-- Compass Rose hint -->
+<div class="absolute top-2 right-2 bg-background/80 px-1 border border-outline-variant">
+<span class="font-label-caps text-label-caps text-secondary">N</span>
+</div>
+</div>
+</div>
+<!-- Bottom HUD Row -->
+<div class="flex justify-between items-end w-full">
+<!-- Bottom-Left: Quest Tracker -->
+<div class="bg-surface-container-high/80 pixel-border border-outline-variant p-4 w-80 pixel-shadow relative">
+<!-- Small decorative pin -->
+<div class="absolute -top-2 left-4 w-4 h-4 bg-secondary-container rounded-sm border border-secondary shadow-md"></div>
+<h2 class="font-headline-md text-headline-md text-secondary-fixed mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">auto_stories</span>
+                    Active Quest
+                </h2>
+<div class="flex gap-3 items-start border-t-2 border-surface-variant pt-2 mt-2">
+<div class="mt-1 w-2 h-2 bg-tertiary-fixed shadow-[0_0_5px_theme('colors.tertiary')]"></div>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-tight">
+                        Speak with the Village Elder
+                    </p>
+</div>
+</div>
+<!-- Bottom-Right: Currency & Actions -->
+<div class="flex flex-col items-end gap-4">
+<!-- Action Prompt (Contextual) -->
+<div class="flex items-center gap-3 bg-surface-container-lowest/90 px-4 py-2 pixel-border border-outline-variant pixel-shadow animate-pulse">
+<span class="material-symbols-outlined text-secondary">swords</span>
+<span class="font-headline-md text-headline-md text-on-surface tracking-wider uppercase">Enter Town</span>
+</div>
+<!-- Gold Counter -->
+<div class="flex items-center gap-2 bg-surface-container/90 px-3 py-1 pixel-border border-outline-variant">
+<div class="w-6 h-6 rounded-full bg-secondary border-2 border-secondary-container flex items-center justify-center shadow-[inset_0_-2px_0_rgba(0,0,0,0.5)]">
+<span class="text-secondary-container font-bold text-xs" style="text-shadow: 1px 1px 0 rgba(255,255,255,0.5);">$</span>
+</div>
+<span class="font-body-lg text-body-lg text-secondary-fixed">1,240</span>
+</div>
+</div>
+</div>
+</div>
+</body></html>
