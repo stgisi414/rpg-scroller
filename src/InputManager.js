@@ -17,6 +17,8 @@ class InputManager {
             skill2: Phaser.Input.Keyboard.KeyCodes.TWO,
             skill3: Phaser.Input.Keyboard.KeyCodes.THREE,
             skill4: Phaser.Input.Keyboard.KeyCodes.FOUR,
+            skill5: Phaser.Input.Keyboard.KeyCodes.FIVE,
+            skill6: Phaser.Input.Keyboard.KeyCodes.SIX,
             superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA
         });
 

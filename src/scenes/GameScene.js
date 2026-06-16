@@ -341,7 +341,40 @@ class GameScene extends Phaser.Scene {
         this.createHUD();
         
         // Load Initial Zone
-        this.worldManager.loadZone(startZone, 'center');
+        this.worldManager.loadZone(startZone, 'center').then(() => {
+            // Trigger New Game Intro Cutscene
+            if (window.saveData && window.saveData.isNewGame) {
+                window.saveData.isNewGame = false;
+                
+                // Wait briefly for physics to settle and sprites to spawn
+                this.time.delayedCall(500, () => {
+                    const sage = this.npcs.find(n => n.npcName === "Elara the Sage");
+                    if (sage) {
+                        this.player.sprite.x = sage.sprite.x - 60;
+                        sage.openChat(true); // true = isIntro
+                    } else {
+                        // Fallback if Sage is missing
+                        if (this.npcs.length > 0) {
+                            this.player.sprite.x = this.npcs[0].sprite.x - 60;
+                            this.npcs[0].openChat(true);
+                        }
+                    }
+                });
+            }
+        }).catch(err => {
+            alert("loadZone rejected! " + err);
+        });
+        
+        // Spawn coordinates fallback
+        let safeSpawnX = 100;
+        let safeSpawnY = 620;
+        if (window.saveData && typeof window.saveData.x === 'number' && !isNaN(window.saveData.x)) {
+            safeSpawnX = window.saveData.x;
+        }
+        if (window.saveData && typeof window.saveData.y === 'number' && !isNaN(window.saveData.y)) {
+            safeSpawnY = window.saveData.y;
+        }
+        this.player.sprite.setPosition(safeSpawnX, safeSpawnY);
         
         // Set camera bounds
         this.cameras.main.setBounds(0, 0, 1280, 720);
@@ -438,15 +471,20 @@ class GameScene extends Phaser.Scene {
 
         // Enemy type breakdown
         let enemyTypes = {};
+        let rivalDebug = '';
         if (this.enemies) {
             this.enemies.getChildren().forEach(e => {
                 if (e.active && e.controller) {
-                    const t = e.controller.type || 'unknown';
+                    const t = e.controller.type || (e.controller.isAI ? 'rival_hero' : 'unknown');
                     enemyTypes[t] = (enemyTypes[t] || 0) + 1;
+                    
+                    if (e.controller.isAI) {
+                        rivalDebug = ` | Rival Pos: ${Math.round(e.x)}, ${Math.round(e.y)}`;
+                    }
                 }
             });
         }
-        const enemyBreakdown = Object.entries(enemyTypes).map(([k, v]) => `${k}×${v}`).join(', ') || 'none';
+        const enemyBreakdown = (Object.entries(enemyTypes).map(([k, v]) => `${k}×${v}`).join(', ') || 'none') + rivalDebug;
 
         // Inventory summary
         const inv = this.player ? this.player.inventory : {};
@@ -484,6 +522,24 @@ class GameScene extends Phaser.Scene {
             }).join('<br>');
         }
 
+        // Enemy debug info
+        let enemyDebug = '';
+        if (this.enemies && this.enemies.getChildren().length > 0) {
+            enemyDebug = this.enemies.getChildren().map((e, i) => {
+                if (!e.active) return '';
+                const type = e.controller ? e.controller.type : '?';
+                const hpStr = e.controller ? `${e.controller.hp}/${e.controller.maxHp}` : '?';
+                const texKey = e.texture ? e.texture.key : '?';
+                const pos = `${Math.round(e.x)},${Math.round(e.y)}`;
+                const vis = `vis=${e.visible} α=${e.alpha.toFixed(2)} act=${e.active}`;
+                const sc = `sc=${e.scaleX.toFixed(1)},${e.scaleY.toFixed(1)}`;
+                const sz = e.body ? `body=${Math.round(e.body.width)}x${Math.round(e.body.height)}` : 'no body';
+                const frame = e.frame ? `frame=${e.frame.name}` : '?';
+                const anim = e.anims && e.anims.currentAnim ? e.anims.currentAnim.key : 'none';
+                return `<span style="color:#f88">Enemy[${i}]</span> ${c('type', type, '#da0')} ${c('hp', hpStr, '#f44')} ${c('tex', texKey, '#8af')} ${c('pos', pos, '#0f0')}<br>&nbsp;&nbsp;${vis} ${sc} ${sz} frame=${frame} anim=${anim}`;
+            }).filter(s => s !== '').join('<br>');
+        }
+
         el.innerHTML = [
             c('Zone', `${zoneIdx}`, '#ff0') + ' │ ' + c('Biome', biome, '#0ff') + ' │ ' + c('Type', zoneType, zoneType === 'Safe' ? '#0f0' : '#f88'),
             c('Name', zoneName, '#fff'),
@@ -495,8 +551,9 @@ class GameScene extends Phaser.Scene {
             c('Weapon', weapon, '#da0') + ' │ ' + c('Pot', `${potions}HP ${mpPotions}MP ${spPotions}SP`, '#8f8'),
             c('Decor', `${decorCount} items`, '#aaa'),
             `<span style="color:#666;font-size:10px">${decorBreakdown}</span>`,
-            partyDebug
-        ].join('<br>');
+            partyDebug,
+            enemyDebug
+        ].filter(s => s !== '').join('<br>');
     }
 
     createHUD() {
@@ -624,7 +681,8 @@ class GameScene extends Phaser.Scene {
         `;
         
         // Derived stats
-        const weaponBonus = p.inventory && p.inventory.weapon ? p.inventory.weapon.damageBonus : 0;
+        const weaponBonusRaw = p.inventory && p.inventory.weapon ? p.inventory.weapon.damageBonus : 0;
+        const weaponBonus = typeof weaponBonusRaw === 'number' && !isNaN(weaponBonusRaw) ? weaponBonusRaw : 0;
         let baseDmg = 0;
         if (cd.id === 'wizard') baseDmg = (stats.int * 2) + weaponBonus;
         else if (cd.id === 'samurai') baseDmg = Math.floor(stats.dex * 2.5) + Math.floor(stats.str * 0.5) + weaponBonus;
@@ -1821,6 +1879,11 @@ class GameScene extends Phaser.Scene {
         }
 
         const spawnY = Math.min(y, 400); // Cap Y so tall sprites don't clip through the floor
+        if (isNaN(x) || isNaN(spawnY)) {
+            console.error(`[GameScene] spawnHeroAI received NaN! x: ${x}, y: ${y}`);
+            console.trace();
+            x = 400; // Fallback
+        }
         const hero = new PlayerController(this, x, spawnY, this.inputManager, { isAI: true, aiState: aiState, classId: spriteKey, npcName: npcName, persona: persona, camaraderie: camaraderie });
         
         if (isParty) {

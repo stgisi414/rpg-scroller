@@ -151,7 +151,7 @@ class NPCController {
             }
         } else {
             this.promptText.setVisible(false);
-            if (this.isChatOpen) this.closeChat();
+            if (this.isChatOpen && !this.isIntroCutscene) this.closeChat();
             if (this.isShopOpen) this.closeShop();
         }
 
@@ -220,8 +220,9 @@ class NPCController {
         }
     }
 
-    openChat() {
+    openChat(isIntro = false) {
         this.isChatOpen = true;
+        this.isIntroCutscene = isIntro;
         this.player.isTalking = true;
         this.uiContainer.style.display = 'block';
         this.npcNameDiv.innerText = this.npcName;
@@ -233,7 +234,14 @@ class NPCController {
         }
 
         if (this.chatHistory.length === 0) {
-            this.addMessageToUI(this.npcName, "Greetings, traveler. What brings you to these parts?");
+            if (isIntro) {
+                this.chatInput.disabled = true;
+                this.chatSubmitBtn.disabled = true;
+                const hiddenPrompt = "*The player has just started a new game. Welcome them to the town of Willowbrook, explain the lore of the Elden Soul, and introduce yourself as their Game Master.*";
+                this.triggerHiddenPrompt(hiddenPrompt, this.npcName);
+            } else {
+                this.addMessageToUI(this.npcName, "Greetings, traveler. What brings you to these parts?");
+            }
         }
 
         if (this.chatActivityBtn) {
@@ -259,6 +267,7 @@ class NPCController {
 
     closeChat() {
         this.isChatOpen = false;
+        this.isIntroCutscene = false;
         this.player.isTalking = false;
         this.uiContainer.style.display = 'none';
         this.chatInput.blur();
@@ -287,10 +296,17 @@ class NPCController {
             'study': "The player wants to study in the library. Roleplay giving them a short riddle. If they answer correctly, end your next message with the exact string [ACTION_SUCCESS]."
         };
 
-        const prompt = prompts[this.indoorAction];
+        let prompt = prompts[this.indoorAction];
+        
+        if (this.indoorAction === 'contracts') {
+            const targets = ['slime', 'bat', 'spider', 'goblin', 'bandit'];
+            this.pendingQuestTarget = targets[Math.floor(Math.random() * targets.length)];
+            prompt = `The player is interacting with the bounty board. You are granting them a contract to hunt 3 ${this.pendingQuestTarget}s. Roleplay handing them the bounty parchment and wishing them luck or giving a tip. You MUST include the exact string [ACTION_SUCCESS] at the end of your response to formally grant the quest. Do not wait for the player to reply.`;
+        }
+
         if (!prompt) return;
 
-        this.addMessageToUI("System", "Activity Started! Check the NPC's next message.");
+        this.addMessageToUI("System", "Activity Started! Wait for the NPC's response...");
         this.chatInput.disabled = true;
         this.chatSubmitBtn.disabled = true;
         this.chatActivityBtn.disabled = true;
@@ -381,9 +397,20 @@ class NPCController {
                 rewardText = "Received 1 HP Potion!";
                 break;
             case 'contracts':
-                this.player.inventory.gold = (this.player.inventory.gold || 0) + 50;
-                this.player.updateHUD();
-                rewardText = "Bounty Completed (+50 Gold)!";
+                if (this.pendingQuestTarget) {
+                    const quest = {
+                        id: `bounty_${Date.now()}`,
+                        title: `Hunt ${this.pendingQuestTarget}s`,
+                        targetType: this.pendingQuestTarget,
+                        targetCount: 3,
+                        currentCount: 0,
+                        rewardGold: 100
+                    };
+                    this.player.addQuest(quest);
+                    rewardText = `Quest Accepted: Hunt 3 ${this.pendingQuestTarget}s!`;
+                } else {
+                    rewardText = "Bounty Completed (+50 Gold)!"; // Fallback
+                }
                 break;
             case 'pray':
                 const stats = ['vit', 'str', 'dex', 'int'];
@@ -561,6 +588,43 @@ class NPCController {
         this.chatHistoryDiv.appendChild(msgDiv);
         
         this.chatHistoryDiv.scrollTop = this.chatHistoryDiv.scrollHeight;
+    }
+
+    async triggerHiddenPrompt(hiddenPrompt, displayName) {
+        const loadingId = "loading-" + Date.now();
+        this.addMessageToUI(displayName, "...", loadingId);
+
+        const wm = this.scene.worldManager;
+        const p = this.player;
+        const state = {
+            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
+            player: { level: window.saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` },
+            inventory: p.inventory ? { gold: p.inventory.gold, items: "Potions" } : null,
+            alignment: p.alignment
+        };
+        
+        try {
+            const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
+            
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) loadingElement.remove();
+
+            this.addMessageToUI(displayName, response.response);
+            
+            // Do not add the hidden prompt to the chat history, so the user doesn't see it
+            // Only add the AI's response so it has context of its own words
+            this.chatHistory.push({ sender: displayName, text: response.response });
+            
+        } catch (err) {
+            console.error("AI Intro failed:", err);
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) loadingElement.remove();
+            this.addMessageToUI(displayName, "Welcome to Willowbrook. I am the Sage.");
+        }
+
+        this.chatInput.disabled = false;
+        this.chatSubmitBtn.disabled = false;
+        this.chatInput.focus();
     }
 
     destroy() {

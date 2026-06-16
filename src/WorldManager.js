@@ -251,16 +251,29 @@ class WorldManager {
                 }
             });
 
-            // Spawn NPCs
-            if (zoneData.npcs) {
+            // Build NPCs
+            if (zoneData.npcs && Array.isArray(zoneData.npcs)) {
                 zoneData.npcs.forEach(nData => {
-                    const spriteKey = nData.spriteKey || 'npc';
+                    const rawKey = nData.spriteKey || nData.type || 'npc';
+                    const spriteKey = ['blacksmith', 'alchemist', 'knight', 'samurai', 'sage', 'ranger', 'wizard'].includes(rawKey) ? rawKey : 'npc';
                     const npc = new NPCController(this.scene, nData.x, 696, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
                     this.scene.physics.add.collider(npc.sprite, this.scene.platforms);
                     this.scene.npcs.push(npc);
                     this.scene.decorGroup.add(npc.nameText);
                     this.scene.decorGroup.add(npc.promptText);
                 });
+            }
+
+            // FALLBACK: If it's zone 0 and Gemini forgot the Sage, force her to spawn!
+            if (this.currentZoneIndex === 0) {
+                const hasSage = this.scene.npcs.find(n => n.npcName === 'Elara the Sage' || n.spriteKey === 'sage');
+                if (!hasSage) {
+                    const sage = new NPCController(this.scene, 500, 696, this.scene.player, this.geminiService, 'Elara the Sage', 'Elara is a wise and mysterious sage...', 'sage');
+                    this.scene.physics.add.collider(sage.sprite, this.scene.platforms);
+                    this.scene.npcs.push(sage);
+                    this.scene.decorGroup.add(sage.nameText);
+                    this.scene.decorGroup.add(sage.promptText);
+                }
             }
         } else {
             // --- WILDERNESS DECOR PERSISTENCE (biome-aware) ---
@@ -569,10 +582,16 @@ class WorldManager {
                     console.warn(`AI generated invalid enemy type: ${type}. Falling back.`);
                     type = validTypes[Math.floor(Math.random() * validTypes.length)];
                 }
-                const enemy = new EnemyController(this.scene, eData.x, 600, this.scene.player, this.geminiService, type);
-                enemy.maxHp = eData.hp;
-                enemy.hp = eData.hp;
-                enemy.speed = eData.speed;
+                
+                // Sanitize AI outputs which could be strings, undefined, or NaN
+                const spawnX = (eData.x !== undefined && !isNaN(Number(eData.x))) ? Number(eData.x) : 200 + Math.random() * 800;
+                const hp = (eData.hp !== undefined && !isNaN(Number(eData.hp))) ? Number(eData.hp) : 100;
+                const speed = (eData.speed !== undefined && !isNaN(Number(eData.speed))) ? Number(eData.speed) : 100;
+
+                const enemy = new EnemyController(this.scene, spawnX, 600, this.scene.player, this.geminiService, type);
+                enemy.maxHp = hp;
+                enemy.hp = hp;
+                enemy.speed = speed;
                 this.scene.enemies.add(enemy.sprite);
             });
 

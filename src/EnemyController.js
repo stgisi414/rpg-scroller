@@ -120,6 +120,9 @@ class EnemyController {
         const freezeEffect = this.statusEffects.find(e => e.type === 'freeze');
         if (freezeEffect) speedMultiplier = 1.0 - (freezeEffect.strength / 100);
 
+        if (this.baseSpeed === undefined) {
+            this.baseSpeed = this.speed || 100;
+        }
         this.speed = this.baseSpeed * speedMultiplier;
 
         if (this.scene.isCutscene) {
@@ -240,7 +243,7 @@ class EnemyController {
                     }
                 }
 
-                if ((this.type === 'skeleton' || this.type === 'bandit' || this.type === 'frost_giant' || this.type === 'slime') && distanceX <= 65) {
+                if (distanceX <= 65) {
                     this.sprite.setVelocityX(0);
                     this.sprite.setFlipX(shouldFlip);
                     this.isAttacking = true;

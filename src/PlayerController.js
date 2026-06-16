@@ -1,5 +1,21 @@
 // PlayerController.js - Base class for the player character
 
+window.ARTIFACTS_DATA = {
+    'artifact-strength': { key: 'artifact-strength', name: 'Ring of Strength', desc: '+20% Damage', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon1.png', type: 'artifact', statBoosts: { damageMultiplier: 1.2 } },
+    'artifact-vitality': { key: 'artifact-vitality', name: 'Amulet of Vitality', desc: '+50 Max HP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon2.png', type: 'artifact', statBoosts: { maxHp: 50 } },
+    'artifact-swiftness': { key: 'artifact-swiftness', name: 'Boots of Swiftness', desc: '+20% Speed', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon3.png', type: 'artifact', statBoosts: { speedMultiplier: 1.2 } },
+    'artifact-magic': { key: 'artifact-magic', name: 'Crystal of Magic', desc: '+50 Max MP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon4.png', type: 'artifact', statBoosts: { maxMp: 50 } },
+    'artifact-vampire': { key: 'artifact-vampire', name: 'Vampiric Fang', desc: '5% Lifesteal', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon5.png', type: 'artifact', statBoosts: { lifesteal: 0.05 } },
+    'artifact-shield': { key: 'artifact-shield', name: 'Shielding Charm', desc: '10% Damage Reduction', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon6.png', type: 'artifact', statBoosts: { damageReduction: 0.10 } },
+    'artifact-antidote': { key: 'artifact-antidote', name: 'Antidote Vial', desc: 'Immunity to Poison', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon7.png', type: 'artifact', immunities: ['poison'] },
+    'artifact-frostward': { key: 'artifact-frostward', name: 'Frost Ward', desc: 'Immunity to Freeze', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon8.png', type: 'artifact', immunities: ['freeze'] },
+    'artifact-fireopal': { key: 'artifact-fireopal', name: 'Fire Opal', desc: 'Immunity to Burn', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon9.png', type: 'artifact', immunities: ['burn'] },
+    'artifact-holy': { key: 'artifact-holy', name: 'Holy Symbol', desc: '+30% Dmg/Spd (Align > 50)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon10.png', type: 'artifact', alignmentReq: { min: 51, max: 100 }, statBoosts: { damageMultiplier: 1.3, speedMultiplier: 1.3 } },
+    'artifact-demonic': { key: 'artifact-demonic', name: 'Demonic Sigil', desc: '+50% Dmg, 10% Lifesteal (Align < -50)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon11.png', type: 'artifact', alignmentReq: { min: -100, max: -51 }, statBoosts: { damageMultiplier: 1.5, lifesteal: 0.10 } },
+    'artifact-scales': { key: 'artifact-scales', name: 'Scales of Balance', desc: '+20% All Stats (Align -20 to 20)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon12.png', type: 'artifact', alignmentReq: { min: -20, max: 20 }, statBoosts: { damageMultiplier: 1.2, speedMultiplier: 1.2, maxHp: 20, maxMp: 20 } },
+    'artifact-teleporter': { key: 'artifact-teleporter', name: 'Town Portal Stone', desc: 'Teleport to town at <15% HP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon13.png', type: 'artifact', special: 'auto-teleport' },
+    'artifact-commander': { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png', type: 'artifact', special: 'party-boost' }
+};
 class PlayerController {
     constructor(scene, x, y, inputManager, options = {}) {
         this.scene = scene;
@@ -131,6 +147,54 @@ class PlayerController {
         this.baseOffset = { x: this.sprite.body.offset.x / this.baseScale, y: this.sprite.body.offset.y / this.baseScale };
 
         this.sprite.setCollideWorldBounds(true);
+
+        // --- NaN INTERCEPTOR ---
+        const originalSetVelocityX = this.sprite.setVelocityX.bind(this.sprite);
+        this.sprite.setVelocityX = (v) => {
+            if (isNaN(v)) {
+                console.error(`[Physics Interceptor] setVelocityX passed NaN!`);
+                console.trace();
+                return originalSetVelocityX(0); // Fallback to 0 to prevent total corruption
+            }
+            return originalSetVelocityX(v);
+        };
+        const originalSetVelocityY = this.sprite.setVelocityY.bind(this.sprite);
+        this.sprite.setVelocityY = (v) => {
+            if (isNaN(v)) {
+                console.error(`[Physics Interceptor] setVelocityY passed NaN!`);
+                console.trace();
+                return originalSetVelocityY(0);
+            }
+            return originalSetVelocityY(v);
+        };
+        const originalSetPosition = this.sprite.setPosition.bind(this.sprite);
+        this.sprite.setPosition = (x, y) => {
+            if (isNaN(x) || isNaN(y)) {
+                console.error(`[Physics Interceptor] setPosition passed NaN! x:${x}, y:${y}`);
+                console.trace();
+                return;
+            }
+            return originalSetPosition(x, y);
+        };
+        const originalSetSize = this.sprite.body.setSize.bind(this.sprite.body);
+        this.sprite.body.setSize = (w, h, c) => {
+            if (isNaN(w) || isNaN(h)) {
+                console.error(`[Physics Interceptor] setSize passed NaN! w:${w}, h:${h}`);
+                console.trace();
+                return originalSetSize(10, 10, c);
+            }
+            return originalSetSize(w, h, c);
+        };
+        const originalSetOffset = this.sprite.body.setOffset.bind(this.sprite.body);
+        this.sprite.body.setOffset = (x, y) => {
+            if (isNaN(x) || isNaN(y)) {
+                console.error(`[Physics Interceptor] setOffset passed NaN! x:${x}, y:${y}`);
+                console.trace();
+                return originalSetOffset(0, 0);
+            }
+            return originalSetOffset(x, y);
+        };
+        // -----------------------
         
         // Physics stats influenced by Class Stats
         this.hp = this.classData.stats.vit * 10;
@@ -143,6 +207,7 @@ class PlayerController {
         
         this.isAttacking = false;
         this.attackDuration = 300; // ms
+        this.dashDuration = 300; // ms
         this.facingDirection = 1; // 1 for right, -1 for left
         
         // Let's add an aiming reticle placeholder
@@ -165,8 +230,12 @@ class PlayerController {
             this.inventory = window.saveData && window.saveData.inventory ? window.saveData.inventory : {
                 weapon: { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 0, desc: 'A basic stick.' },
                 potions: 5,
-                scrolls: 2
+                scrolls: 2,
+                artifacts: [],
+                equippedArtifact: -1
             };
+            if (!this.inventory.artifacts) this.inventory.artifacts = [];
+            if (this.inventory.equippedArtifact === undefined) this.inventory.equippedArtifact = -1;
             
             if (this.inventory.weapon) {
                 if (!this.inventory.weapon.iconSrc || this.inventory.weapon.iconSrc.includes('Stick.png')) {
@@ -174,6 +243,7 @@ class PlayerController {
                 }
             }
             
+            this.recalculateStats(); // Ensure stats are fully initialized BEFORE first update loop!
             this.updateInventoryUI();
 
             this.quests = window.saveData.quests || [];
@@ -184,6 +254,15 @@ class PlayerController {
     }
 
     _getAIClassData(classId) {
+        // Strip _rival suffix if present
+        const baseClassId = classId.replace('_rival', '');
+        if (classId === 'megaboss_rival') {
+            // Megaboss uses knight animations but scaled up
+            classId = 'knight';
+        } else {
+            classId = baseClassId;
+        }
+
         // AI base metadata matching main.js to fix animation rows, sprite sizes, and flip
         const classStats = {
             knight:   { vit: 15, str: 14, dex: 9,  int: 8  },
@@ -247,7 +326,13 @@ class PlayerController {
     }
 
     recalculateStats() {
-        const stats = this.classData.stats;
+        const stats = this.classData.stats || { vit: 10, str: 10, dex: 10, int: 10 };
+        // Sanitize stats against NaN corruption from older saves
+        if (typeof stats.dex !== 'number' || isNaN(stats.dex)) stats.dex = 10;
+        if (typeof stats.str !== 'number' || isNaN(stats.str)) stats.str = 10;
+        if (typeof stats.vit !== 'number' || isNaN(stats.vit)) stats.vit = 10;
+        if (typeof stats.int !== 'number' || isNaN(stats.int)) stats.int = 10;
+
         this.speed = 200 + (stats.dex * 5);          // DEX → movement speed
         this.jumpVelocity = -400 - (stats.str * 10);  // STR → jump height
         this.dashSpeed = 400 + (stats.dex * 15);       // DEX → dash speed & distance
@@ -261,10 +346,60 @@ class PlayerController {
         } else {
             this.maxMp = 20 + (stats.int * 2);
         }
-        if (this.mp === undefined) this.mp = this.maxMp;
         
         // SP (Stamina) system - used for dashing
         this.maxSp = 50 + (stats.dex * 3);
+
+        // --- Apply Artifact Boosts ---
+        let partyBoosts = { maxHp: 0, maxMp: 0, maxSp: 0, speedMultiplier: 1.0 };
+
+        // Check if ANY party member has Commander's Horn
+        if (this.scene && this.scene.player) {
+            const checkCommander = (p) => {
+                if (p && p.inventory && p.inventory.artifacts && p.inventory.equippedArtifact >= 0) {
+                    const artKey = p.inventory.artifacts[p.inventory.equippedArtifact];
+                    const artData = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artKey] : null;
+                    if (artData && artData.special === 'party-boost') return true;
+                }
+                return false;
+            };
+            
+            let hasCommander = checkCommander(this.scene.player);
+            if (!hasCommander && this.scene.partyMembers) {
+                hasCommander = this.scene.partyMembers.some(checkCommander);
+            }
+            if (hasCommander) {
+                this.maxHp = Math.floor(this.maxHp * 1.5);
+                this.maxMp = Math.floor(this.maxMp * 1.5);
+                this.maxSp = Math.floor(this.maxSp * 1.5);
+                this.speed *= 1.5;
+            }
+        }
+
+        // Apply personal artifact boosts
+        if (this.inventory && this.inventory.artifacts && this.inventory.equippedArtifact >= 0) {
+            const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef) {
+                // Check alignment if required
+                let alignmentValid = true;
+                if (artifactDef.alignmentReq) {
+                    const align = this.alignment || 0;
+                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) {
+                        alignmentValid = false;
+                    }
+                }
+                
+                if (alignmentValid && artifactDef.statBoosts) {
+                    if (artifactDef.statBoosts.maxHp) this.maxHp += artifactDef.statBoosts.maxHp;
+                    if (artifactDef.statBoosts.maxMp) this.maxMp += artifactDef.statBoosts.maxMp;
+                    if (artifactDef.statBoosts.maxSp) this.maxSp += artifactDef.statBoosts.maxSp;
+                    if (artifactDef.statBoosts.speedMultiplier) this.speed *= artifactDef.statBoosts.speedMultiplier;
+                }
+            }
+        }
+
+        if (this.mp === undefined) this.mp = this.maxMp;
         if (this.sp === undefined) this.sp = this.maxSp;
 
         // Restore HP from save or fully heal
@@ -318,6 +453,22 @@ class PlayerController {
             let totalCamaraderie = 0;
             this.scene.partyMembers.forEach(m => totalCamaraderie += (m.camaraderie || 0));
             mult += Math.min(0.5, Math.floor(totalCamaraderie / 10) * 0.02);
+        }
+
+        // Apply Artifact Boosts
+        if (this.inventory && this.inventory.artifacts && this.inventory.equippedArtifact >= 0) {
+            const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.damageMultiplier) {
+                let alignmentValid = true;
+                if (artifactDef.alignmentReq) {
+                    const align = this.alignment || 0;
+                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
+                }
+                if (alignmentValid) {
+                    mult *= artifactDef.statBoosts.damageMultiplier;
+                }
+            }
         }
         return mult;
     }
@@ -408,7 +559,32 @@ class PlayerController {
             if (wHolder) wHolder.style.display = 'none';
         }
 
-        // Potion Slot (2)
+        // Artifact Slot (New Slot 2)
+        const aIcon = document.getElementById('inv-icon-artifact');
+        const aBg = document.getElementById('inv-bg-artifact');
+        const aHolder = document.getElementById('inv-placeholder-artifact');
+        if (this.inventory.equippedArtifact !== undefined && this.inventory.equippedArtifact >= 0 && this.inventory.artifacts && this.inventory.artifacts.length > 0) {
+            const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef) {
+                if (aBg) {
+                    aBg.style.backgroundImage = `url('${artifactDef.iconSrc}')`;
+                }
+                if (aIcon) {
+                    aIcon.style.display = 'flex';
+                    aIcon.classList.remove('hidden');
+                }
+                if (aHolder) aHolder.style.display = 'none';
+            }
+        } else {
+            if (aIcon) {
+                aIcon.style.display = 'none';
+                aIcon.classList.add('hidden');
+            }
+            if (aHolder) aHolder.style.display = 'block';
+        }
+
+        // Potion Slot (3)
         const pQty = document.getElementById('inv-qty-2');
         const pIcon = document.getElementById('inv-icon-2');
         const pHolder = document.getElementById('inv-placeholder-2');
@@ -522,40 +698,63 @@ class PlayerController {
         const slot1 = document.getElementById('inv-slot-1');
         if (slot1) slot1.onclick = useWeapon;
 
+        const slotArtifact = document.getElementById('inv-slot-artifact');
+        if (slotArtifact) slotArtifact.onclick = () => {
+            if (this.inventory.artifacts && this.inventory.artifacts.length > 0) {
+                this.cycleArtifact();
+                const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+                const artifactDef = window.ARTIFACTS_DATA[artifactKey];
+                showPopup(2, artifactDef.name, artifactDef.desc);
+            } else {
+                showPopup(2, 'No Artifacts', 'Find artifacts in chests or stores.');
+            }
+        };
+
         const slot2 = document.getElementById('inv-slot-2');
         if (slot2) slot2.onclick = () => {
             if (this.usePotion()) {
-                showPopup(2, 'Health Potion', 'Restores 50 HP when used.');
+                showPopup(3, 'Health Potion', 'Restores 50 HP when used.');
             }
         };
 
         const slot3 = document.getElementById('inv-slot-3');
         if (slot3) slot3.onclick = () => {
             if (this.useMpPotion()) {
-                showPopup(3, 'Mana Potion', 'Restores 50 MP when used.');
+                showPopup(4, 'Mana Potion', 'Restores 50 MP when used.');
             }
         };
 
         const slot4 = document.getElementById('inv-slot-4');
         if (slot4) slot4.onclick = () => {
             if (this.useMeat()) {
-                showPopup(4, 'Boar Meat', 'Restores 20 HP when consumed.');
+                showPopup(5, 'Boar Meat', 'Restores 20 HP when consumed.');
             }
         };
 
         const slot5 = document.getElementById('inv-slot-5');
         if (slot5) slot5.onclick = () => {
             if (this.useSpPotion()) {
-                showPopup(5, 'Stamina Potion', 'Restores 50 SP when used.');
+                showPopup(6, 'Stamina Potion', 'Restores 50 SP when used.');
             }
         };
 
         // Hotkeys
         this.scene.input.keyboard.on('keydown-ONE', useWeapon);
-        this.scene.input.keyboard.on('keydown-TWO', () => { if(slot2) slot2.onclick(); });
-        this.scene.input.keyboard.on('keydown-THREE', () => { if(slot3) slot3.onclick(); });
-        this.scene.input.keyboard.on('keydown-FOUR', () => { if(slot4) slot4.onclick(); });
-        this.scene.input.keyboard.on('keydown-FIVE', () => { if(slot5) slot5.onclick(); });
+        this.scene.input.keyboard.on('keydown-TWO', () => { if(slotArtifact) slotArtifact.onclick(); });
+        this.scene.input.keyboard.on('keydown-THREE', () => { if(slot2) slot2.onclick(); });
+        this.scene.input.keyboard.on('keydown-FOUR', () => { if(slot3) slot3.onclick(); });
+        this.scene.input.keyboard.on('keydown-FIVE', () => { if(slot4) slot4.onclick(); });
+        this.scene.input.keyboard.on('keydown-SIX', () => { if(slot5) slot5.onclick(); });
+    }
+
+    cycleArtifact() {
+        if (!this.inventory.artifacts || this.inventory.artifacts.length === 0) return;
+        this.inventory.equippedArtifact++;
+        if (this.inventory.equippedArtifact >= this.inventory.artifacts.length) {
+            this.inventory.equippedArtifact = 0;
+        }
+        this.recalculateStats();
+        this.updateInventoryUI();
     }
 
     usePotion() {
@@ -720,7 +919,9 @@ class PlayerController {
                 { key: 'weapon-iron-sword', name: 'Iron Broadsword', desc: '+5 Damage', price: 150, type: 'weapon', damageBonus: 5, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_02.png' },
                 { key: 'weapon-gold-sword', name: 'Golden Longsword', desc: '+8 Damage', price: 300, type: 'weapon', damageBonus: 8, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_03.png' },
                 { key: 'weapon-diamond-sword', name: 'Obsidian Blade', desc: '+15 Damage', price: 500, type: 'weapon', damageBonus: 15, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_04.png' },
-                { key: 'weapon-iron-axe', name: 'Heavy Battleaxe', desc: '+6 Damage', price: 200, type: 'weapon', damageBonus: 6, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_01.png' }
+                { key: 'weapon-iron-axe', name: 'Heavy Battleaxe', desc: '+6 Damage', price: 200, type: 'weapon', damageBonus: 6, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_01.png' },
+                { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', price: 1500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png' },
+                { key: 'artifact-strength', name: 'Ring of Strength', desc: '+20% Damage', price: 400, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon1.png' }
             ];
         } else if (shopType === 'alchemist') {
             items = [
@@ -729,7 +930,9 @@ class PlayerController {
                 { key: 'item-sp-potion', name: 'Stamina Potion', desc: 'Restores 50 SP', price: 20, type: 'sp_potion', isSpritesheet: true, imageSrc: 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png' },
                 { key: 'weapon-stick', name: 'Oak Wand', desc: '+2 Damage', price: 50, type: 'weapon', damageBonus: 2, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_01.png' },
                 { key: 'weapon-staff', name: 'Adept Staff', desc: '+5 Damage', price: 150, type: 'weapon', damageBonus: 5, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_02.png' },
-                { key: 'item-chest', name: 'Mystery Chest', desc: 'Contains random loot!', price: 100, type: 'chest', isSpritesheet: true, imageSrc: 'src/assets/GandalfHardcore Chests/GandalfHardcore Chests/chest sheet 1.png' }
+                { key: 'item-chest', name: 'Mystery Chest', desc: 'Contains random loot!', price: 100, type: 'chest', isSpritesheet: true, imageSrc: 'src/assets/GandalfHardcore Chests/GandalfHardcore Chests/chest sheet 1.png' },
+                { key: 'artifact-teleporter', name: 'Town Portal Stone', desc: 'Teleport to town at <15% HP', price: 1000, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon13.png' },
+                { key: 'artifact-antidote', name: 'Antidote Vial', desc: 'Immunity to Poison', price: 300, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon7.png' }
             ];
         } else if (shopType === 'ranger') {
             items = [
@@ -897,6 +1100,18 @@ class PlayerController {
             this.inventory.meat = (this.inventory.meat || 0) + 1;
         } else if (item.type === 'junk') {
             this.inventory.furs = (this.inventory.furs || 0) + 1;
+        } else if (item.type === 'artifact') {
+            if (!this.inventory.artifacts.includes(item.key)) {
+                this.inventory.artifacts.push(item.key);
+                if (this.inventory.equippedArtifact === -1) {
+                    this.inventory.equippedArtifact = 0;
+                    this.recalculateStats();
+                }
+            } else {
+                alert(`You already own the ${item.name}!`);
+                window.saveData.gold += item.price; // refund
+                if(goldEl) goldEl.innerText = `Gold: ${window.saveData.gold}`;
+            }
         } else if (item.type === 'chest') {
             // Random reward
             const roll = Math.random();
@@ -1008,7 +1223,7 @@ class PlayerController {
         let message = '';
         let color = '#ffffff';
 
-        if (roll < 0.40) {
+        if (roll < 0.35) {
             // Gold
             const playerLevel = window.saveData ? window.saveData.level : 1;
             const amount = 20 + Math.floor(Math.random() * 60) + (playerLevel * 5);
@@ -1016,21 +1231,43 @@ class PlayerController {
             document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
             message = `+${amount} Gold`;
             color = 0xffd700;
-        } else if (roll < 0.60) {
+        } else if (roll < 0.50) {
             // Health Potion
             this.inventory.potions = (this.inventory.potions || 0) + 1;
             message = '+1 Health Potion';
             color = 0xff6b6b;
-        } else if (roll < 0.75) {
+        } else if (roll < 0.65) {
             // Mana Potion
             this.inventory.mpPotions = (this.inventory.mpPotions || 0) + 1;
             message = '+1 Mana Potion';
             color = 0x60a5fa;
-        } else if (roll < 0.85) {
+        } else if (roll < 0.75) {
             // Stamina Potion
             this.inventory.spPotions = (this.inventory.spPotions || 0) + 1;
             message = '+1 Stamina Potion';
             color = 0x4ade80;
+        } else if (roll < 0.85) {
+            // Artifact Drop
+            const allArtifacts = Object.keys(window.ARTIFACTS_DATA || {});
+            const unowned = allArtifacts.filter(key => !this.inventory.artifacts.includes(key));
+            if (unowned.length > 0) {
+                const randomArt = unowned[Math.floor(Math.random() * unowned.length)];
+                this.inventory.artifacts.push(randomArt);
+                if (this.inventory.equippedArtifact === -1) {
+                    this.inventory.equippedArtifact = 0; // auto-equip first one
+                    this.recalculateStats();
+                }
+                const artDef = window.ARTIFACTS_DATA[randomArt];
+                message = `Found Artifact: ${artDef.name}!`;
+                color = 0x00ffff;
+            } else {
+                // Already have all artifacts, fallback to gold
+                const amount = 100 + Math.floor(Math.random() * 100);
+                window.saveData.gold = (window.saveData.gold || 0) + amount;
+                document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
+                message = `+${amount} Gold`;
+                color = 0xffd700;
+            }
         } else {
             // Weapon Upgrade
             const upgrade = this.getNextWeaponUpgrade();
@@ -1285,6 +1522,16 @@ class PlayerController {
     update(time, delta) {
         if (!this.sprite || !this.sprite.active) return;
         
+        if (isNaN(this.sprite.x)) {
+            if (!this.nanLogged) {
+                console.error(`[PlayerController] X is NaN for ${this.classData ? this.classData.id : 'unknown'}. AI: ${this.isAI}`);
+                console.trace();
+                this.nanLogged = true;
+            }
+        } else {
+            this.lastValidX = this.sprite.x;
+        }
+
         if (this.hp <= 0) {
             this.sprite.setVelocityX(0);
             return;
@@ -1544,6 +1791,7 @@ class PlayerController {
                         isCrit = true;
                     }
                     enemySprite.controller.takeDamage(damage, this.facingDirection);
+                    this.applyLifesteal(damage);
                     if (isCrit && this.scene.showFloatingText) {
                         this.scene.showFloatingText(enemySprite.x, enemySprite.y - 60, 'CRIT!', 0xffff00);
                     }
@@ -1569,7 +1817,8 @@ class PlayerController {
     fireArrow() {
         if (!this.sprite || !this.sprite.active) return;
         const cd = this.classData;
-        const weaponBonus = this.inventory && this.inventory.weapon ? this.inventory.weapon.damageBonus : 0;
+        const weaponBonusRaw = this.inventory && this.inventory.weapon ? this.inventory.weapon.damageBonus : 0;
+        const weaponBonus = typeof weaponBonusRaw === 'number' && !isNaN(weaponBonusRaw) ? weaponBonusRaw : 0;
         let damage = (cd.stats.dex * 2) + cd.stats.str + weaponBonus + Math.floor(Math.random() * 5);
         damage = Math.floor(damage * this.getDamageMultiplier());
 
@@ -1593,6 +1842,7 @@ class PlayerController {
                 }
 
                 enemySprite.controller.takeDamage(finalDamage, this.facingDirection);
+                this.applyLifesteal(finalDamage);
                 if (Math.random() < 0.20 && enemySprite.controller.applyStatusEffect) {
                     enemySprite.controller.applyStatusEffect('poison', 5000, 5); // 5 damage/sec for 5 sec
                 }
@@ -1622,7 +1872,8 @@ class PlayerController {
 
     fireProjectile() {
         const cd = this.classData;
-        const weaponBonus = this.inventory && this.inventory.weapon ? this.inventory.weapon.damageBonus : 0;
+        const weaponBonusRaw = this.inventory && this.inventory.weapon ? this.inventory.weapon.damageBonus : 0;
+        const weaponBonus = typeof weaponBonusRaw === 'number' && !isNaN(weaponBonusRaw) ? weaponBonusRaw : 0;
         let damage = (cd.stats.int * 2) + weaponBonus + Math.floor(Math.random() * 5);
         damage = Math.floor(damage * this.getDamageMultiplier());
         
@@ -1637,6 +1888,7 @@ class PlayerController {
         const overlap = this.scene.physics.add.overlap(proj, this.scene.enemies, (p, enemySprite) => {
             if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
                 enemySprite.controller.takeDamage(damage, this.facingDirection);
+                this.applyLifesteal(damage);
                 if (Math.random() < 0.50 && enemySprite.controller.applyStatusEffect) {
                     enemySprite.controller.applyStatusEffect('burn', 3000, 10); // 10 damage/0.5s for 3s
                 }
@@ -1752,6 +2004,7 @@ class PlayerController {
                         const overlap = this.scene.physics.add.overlap(p, this.scene.enemies, (proj, enemySprite) => {
                             if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
                                 enemySprite.controller.takeDamage(damage, dir);
+                                this.applyLifesteal(damage);
                                 proj.destroy();
                                 this.scene.physics.world.removeCollider(overlap);
                             }
@@ -1785,6 +2038,7 @@ class PlayerController {
                         if (enemySprite && enemySprite.active && enemySprite.controller && enemySprite.controller.hp > 0) {
                             if (Phaser.Geom.Intersects.RectangleToRectangle(hitBox, enemySprite.getBounds())) {
                                 enemySprite.controller.takeDamage(damage, dir);
+                                this.applyLifesteal(damage);
                                 // 100% chance to stun
                                 if (enemySprite.controller.applyStatusEffect) {
                                     enemySprite.controller.applyStatusEffect('stun', 1500, 0);
@@ -1824,6 +2078,7 @@ class PlayerController {
                         if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
                             if (this.isAI && this.aiState === 'hostile') return;
                             enemySprite.controller.takeDamage(damage, dir);
+                            this.applyLifesteal(damage);
                             p.destroy();
                             this.scene.physics.world.removeCollider(overlap);
                         }
@@ -1864,6 +2119,7 @@ class PlayerController {
                     if (enemySprite && enemySprite.active && enemySprite.controller && enemySprite.controller.hp > 0) {
                         if (Phaser.Geom.Intersects.RectangleToRectangle(hitBox, enemySprite.getBounds())) {
                             enemySprite.controller.takeDamage(damage, dir);
+                            this.applyLifesteal(damage);
                             // Add significant knockback
                             if (enemySprite.body) {
                                 enemySprite.setVelocityX(dir * 300);
@@ -1955,11 +2211,29 @@ class PlayerController {
     takeDamage(amount, knockbackDirection) {
         if (this.hp <= 0) return; // Already dead
 
-        this.hp -= amount;
+        let finalAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+        
+        // Artifact Damage Reduction
+        if (this.inventory && this.inventory.artifacts && this.inventory.equippedArtifact >= 0) {
+            const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.damageReduction) {
+                let alignmentValid = true;
+                if (artifactDef.alignmentReq) {
+                    const align = this.alignment || 0;
+                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
+                }
+                if (alignmentValid) {
+                    finalAmount = Math.max(1, Math.floor(finalAmount * (1.0 - artifactDef.statBoosts.damageReduction)));
+                }
+            }
+        }
+
+        this.hp -= finalAmount;
         
         // Show damage text
         if (this.scene && this.scene.showFloatingText) {
-            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, `-${amount}`, 0xff0000);
+            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, `-${finalAmount}`, 0xff0000);
         }
 
         // Apply knockback
@@ -1990,11 +2264,85 @@ class PlayerController {
 
         if (this.hp <= 0) {
             this.die();
+        } else if (!this.isAI && this.hp <= this.maxHp * 0.15) {
+            // Artifact Teleporter Trigger
+            if (this.inventory && this.inventory.artifacts && this.inventory.equippedArtifact >= 0) {
+                const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+                const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+                if (artifactDef && artifactDef.special === 'auto-teleport') {
+                    // Find nearest town
+                    if (this.scene && this.scene.biomes) {
+                        let nearestTown = null;
+                        let minDist = Infinity;
+                        for (let key in this.scene.biomes) {
+                            const biome = this.scene.biomes[key];
+                            if (biome.type === 'town') {
+                                const dist = Math.abs(biome.xStart - this.sprite.x);
+                                if (dist < minDist) {
+                                    minDist = dist;
+                                    nearestTown = biome;
+                                }
+                            }
+                        }
+                        if (nearestTown) {
+                            if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 50, 'Emergency Teleport!', 0x88ccff);
+                            // Heal them a tiny bit so they don't immediately die again
+                            this.hp = Math.floor(this.maxHp * 0.20);
+                            this.sprite.x = nearestTown.xStart + 300;
+                            this.sprite.y = 500;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    applyLifesteal(damageDealt) {
+        if (this.hp <= 0 || damageDealt <= 0 || typeof damageDealt !== 'number' || isNaN(damageDealt)) return;
+        if (this.inventory && this.inventory.artifacts && this.inventory.equippedArtifact >= 0) {
+            const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.lifesteal) {
+                let alignmentValid = true;
+                if (artifactDef.alignmentReq) {
+                    const align = this.alignment || 0;
+                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
+                }
+                if (alignmentValid) {
+                    const healAmount = Math.max(1, Math.floor(damageDealt * artifactDef.statBoosts.lifesteal));
+                    this.hp = Math.min(this.maxHp, this.hp + healAmount);
+                    if (this.scene && this.scene.showFloatingText) {
+                        this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, `+${healAmount} HP`, 0x00ff00);
+                    }
+                    if (!this.isAI && this.scene && this.scene.updateHUD) {
+                        this.scene.updateHUD();
+                    }
+                }
+            }
         }
     }
 
     applyStatusEffect(type, durationMs, strength) {
         if (this.hp <= 0) return;
+        
+        // Artifact Immunities
+        if (this.inventory && this.inventory.artifacts && this.inventory.equippedArtifact >= 0) {
+            const artifactKey = this.inventory.artifacts[this.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef && artifactDef.immunities && artifactDef.immunities.includes(type)) {
+                let alignmentValid = true;
+                if (artifactDef.alignmentReq) {
+                    const align = this.alignment || 0;
+                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
+                }
+                if (alignmentValid) {
+                    if (this.scene && this.scene.showFloatingText) {
+                        this.scene.showFloatingText(this.sprite.x, this.sprite.y - 50, 'Immune!', 0xaaaaaa);
+                    }
+                    return; // Prevent effect
+                }
+            }
+        }
         
         // Check if effect already exists
         const existing = this.statusEffects.find(e => e.type === type);
@@ -2139,7 +2487,7 @@ class PlayerController {
     // Ally Chat Integration
     // ==========================================
 
-    openChat() {
+    openChat(isIntro = false) {
         if (!this.uiContainer) {
             this.uiContainer = document.getElementById('chat-ui');
             this.chatHistoryDiv = document.getElementById('chat-history');
@@ -2177,7 +2525,15 @@ class PlayerController {
         }
 
         if (this.chatHistory.length === 0) {
-            this.addMessageToUI(displayName, "Ready when you are, boss.");
+            if (isIntro) {
+                // Automatically generate intro from the AI
+                this.chatInput.disabled = true;
+                this.chatSubmitBtn.disabled = true;
+                const hiddenPrompt = "*The player has just started a new game. Welcome them to the town of Willowbrook, explain the lore of the Elden Soul, and introduce yourself as their Game Master.*";
+                this.triggerHiddenPrompt(hiddenPrompt, displayName);
+            } else {
+                this.addMessageToUI(displayName, "Ready when you are, boss.");
+            }
         }
 
         setTimeout(() => this.chatInput.focus(), 100);
@@ -2243,6 +2599,44 @@ class PlayerController {
         // Update character sheet if open
         if (this.scene.updateCharacterSheet) {
             this.scene.updateCharacterSheet();
+        }
+
+        this.chatInput.disabled = false;
+        this.chatSubmitBtn.disabled = false;
+        this.chatInput.focus();
+    }
+
+    async triggerHiddenPrompt(hiddenPrompt, displayName) {
+        const loadingId = "loading-" + Date.now();
+        this.addMessageToUI(displayName, "...", loadingId);
+
+        const wm = this.scene.worldManager;
+        const p = this.scene.player;
+        const state = {
+            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
+            player: { level: window.saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` }
+        };
+
+        const geminiService = this.scene.geminiService;
+        const persona = this.persona || "A loyal adventurer traveling with the player.";
+        
+        try {
+            const response = await geminiService.getNpcResponse(persona, this.chatHistory, hiddenPrompt, state);
+            
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) loadingElement.remove();
+
+            this.addMessageToUI(displayName, response.response);
+            
+            // Do not add the hidden prompt to the chat history, so the user doesn't see it
+            // Only add the AI's response so it has context of its own words
+            this.chatHistory.push({ sender: displayName, text: response.response });
+            
+        } catch (err) {
+            console.error("AI Intro failed:", err);
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) loadingElement.remove();
+            this.addMessageToUI(displayName, "Welcome to Willowbrook. I am the Sage.");
         }
 
         this.chatInput.disabled = false;

@@ -542,7 +542,8 @@ document.addEventListener('DOMContentLoaded', () => {
             classId: selectedClassData.id,
             level: 1,
             playTime: 0,
-            lastSaved: Date.now()
+            lastSaved: Date.now(),
+            isNewGame: true
         };
         
         saves.push(newSave);
