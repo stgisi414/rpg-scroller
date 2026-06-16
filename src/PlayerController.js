@@ -13,6 +13,7 @@ class PlayerController {
         this.classId = options.classId || 'knight';
         this.aiInput = { left: false, right: false, up: false, attack: false, dashLeft: false, dashRight: false, superSpell: false };
         this.lastAITick = 0;
+        this.currentAnimKey = null;
 
         // Get the selected class from options (if AI) or window object
         this.classData = this.isAI ? this._getAIClassData(options.classId) : (window.selectedClass || { id: 'knight', stats: { vit: 10, str: 10, dex: 10, int: 10 }, frameWidth: 80, frameHeight: 64, isSheet: true, idleRow: 0, idleFrames: 5 });
@@ -96,7 +97,7 @@ class PlayerController {
                 }
             }
 
-            this.sprite.play(classData.id + '_idle');
+            this._playAnim();
 
             // Physics body — use per-class overrides if provided, otherwise generic
             if (classData.bodyWidth !== undefined) {
@@ -1224,6 +1225,13 @@ class PlayerController {
         }
     }
 
+    _playAnim(key) {
+        if (!this.classData || !this.classData.isSheet) return;
+        if (this.currentAnimKey === key) return;
+        this.currentAnimKey = key;
+        this._playAnim();
+    }
+
     update(time, delta) {
         if (this.isAI) {
             this.updateAI(time, delta);
@@ -1232,7 +1240,7 @@ class PlayerController {
         if (this.scene.isTransitioning) {
             this.sprite.setVelocity(0, 0);
             this.sprite.body.setAllowGravity(false);
-            if (this.classData && this.classData.isSheet) this.sprite.play(this.classData.id + '_idle', true);
+            if (this.classData && this.classData.isSheet) this._playAnim();
             return;
         } else if (this.sprite.body && !this.sprite.body.allowGravity) {
             this.sprite.body.setAllowGravity(true);
@@ -1244,7 +1252,7 @@ class PlayerController {
         }
         if (this.isDashing) {
             if (this.classData.isSheet && this.classData.dashRow !== undefined) {
-                this.sprite.play(this.classData.id + '_dash', true);
+                this._playAnim();
             }
             return;
         }
@@ -1276,7 +1284,7 @@ class PlayerController {
         const isDucking = this.isDownDown() && onGround;
         if (isDucking) {
             this.sprite.setVelocityX(0);
-            if (cd.isSheet) this.sprite.play(cd.id + '_duck', true);
+            if (cd.isSheet) this._playAnim();
             // Shrink hitbox
             if (!this.wasDucking) {
                 this.sprite.body.setSize(cd.frameWidth * 0.38, cd.frameHeight * 0.45);
@@ -1334,15 +1342,15 @@ class PlayerController {
                 const vy = this.sprite.body.velocity.y;
                 if (vy < -10) {
                     // Rising after a jump — hold the jump pose
-                    this.sprite.play(cd.id + '_jump', true);
+                    this._playAnim();
                 } else {
                     // Falling — gravity has taken over (after jump apex or walking off a ledge)
-                    this.sprite.play(cd.id + '_fall', true);
+                    this._playAnim();
                 }
             } else if (movingX) {
-                this.sprite.play(cd.id + '_walk', true);
+                this._playAnim();
             } else {
-                this.sprite.play(cd.id + '_idle', true);
+                this._playAnim();
             }
         }
 
@@ -1385,7 +1393,7 @@ class PlayerController {
 
         // Play attack animation
         if (cd.isSheet && this.scene.anims.exists(cd.id + '_attack')) {
-            this.sprite.play(cd.id + '_attack', true);
+            this._playAnim();
         }
 
         // Branch logic based on class
@@ -1406,7 +1414,7 @@ class PlayerController {
             
             this.scene.time.delayedCall(this.attackDuration, () => {
                 this.isAttacking = false;
-                if (cd.isSheet) this.sprite.play(cd.id + '_idle', true);
+                if (cd.isSheet) this._playAnim();
             });
         } else if (cd.id === 'ranger') {
             // Ranger Ranged Attack
@@ -1416,7 +1424,7 @@ class PlayerController {
 
             this.scene.time.delayedCall(this.attackDuration, () => {
                 this.isAttacking = false;
-                if (cd.isSheet) this.sprite.play(cd.id + '_idle', true);
+                if (cd.isSheet) this._playAnim();
             });
         } else {
             // Melee Attack (Warrior, Samurai uses melee for now)
@@ -1469,7 +1477,7 @@ class PlayerController {
             this.scene.time.delayedCall(this.attackDuration, () => {
                 this.isAttacking = false;
                 hitbox.destroy();
-                if (cd.isSheet) this.sprite.play(cd.id + '_idle', true);
+                if (cd.isSheet) this._playAnim();
             });
         }
     }
@@ -1605,7 +1613,7 @@ class PlayerController {
         // === END LOGGER SETUP ===
 
         if (cd.isSheet && this.scene.anims.exists(cd.id + '_combo')) {
-            this.sprite.play(cd.id + '_combo', true);
+            this._playAnim();
             // Log the first frame too
             const curFrame = this.sprite.anims.currentFrame;
             if (curFrame) {
@@ -1738,7 +1746,7 @@ class PlayerController {
         this.sprite.once('animationcomplete', (anim) => {
             if (anim.key === cd.id + '_combo') {
                 this.isAttacking = false;
-                this.sprite.play(cd.id + '_idle', true);
+                this._playAnim();
                 
                 // === PRINT FRAME LOG ===
                 this.sprite.off('animationupdate', onFrameChange);
@@ -1762,7 +1770,7 @@ class PlayerController {
         this.scene.time.delayedCall(1500, () => {
             if (this.isAttacking) {
                 this.isAttacking = false;
-                this.sprite.play(cd.id + '_idle', true);
+                this._playAnim();
             }
         });
     }
@@ -1832,7 +1840,7 @@ class PlayerController {
         }
 
         if (this.scene.anims.exists(this.classData.id + '_hit') && !this.isAttacking) {
-            this.sprite.play(this.classData.id + '_hit', true);
+            this._playAnim();
         }
 
         if (!this.isAI && this.scene && this.scene.updateHUD) {
@@ -1848,7 +1856,7 @@ class PlayerController {
         if (!this.sprite || !this.sprite.active) return;
 
         if (this.scene.anims.exists(this.classData.id + '_die')) {
-            this.sprite.play(this.classData.id + '_die', true);
+            this._playAnim();
             this.sprite.body.enable = false;
         }
 

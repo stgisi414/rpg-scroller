@@ -620,8 +620,20 @@
                 title="Open Sprite Sheet Debugger">🎨 Sprite Debugger</button>
         </div>
     </div>
-    <div id="game-container"></div>
     
+    <!-- Cinematic Cutscene Overlay -->
+    <div id="cutscene-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; pointer-events: none; flex-direction: column; justify-content: space-between; transition: opacity 0.5s;">
+        <!-- Top black bar -->
+        <div style="width: 100%; height: 15vh; background: black; box-shadow: 0 10px 20px rgba(0,0,0,0.8);"></div>
+        <!-- Center transparent area for game -->
+        <div style="flex-grow: 1;"></div>
+        <!-- Bottom black bar with text -->
+        <div style="width: 100%; height: 25vh; background: black; box-shadow: 0 -10px 20px rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">
+            <div id="cutscene-text" style="font-family: 'Courier Prime', monospace; color: #ffb4a8; font-size: 24px; text-align: center; text-shadow: 0 0 10px rgba(255,180,168,0.5); max-width: 800px; line-height: 1.5;"></div>
+        </div>
+    </div>
+
+    <div id="game-container"></div>
     <!-- Load Game Scripts -->
     <script src="src/AssetManager.js"></script>
     <script src="src/InputManager.js"></script>

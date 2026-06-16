@@ -16,6 +16,12 @@ class AssetManager {
         this.scene.load.spritesheet('wizard', 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Black Wizard sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('samurai', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet black.png', { frameWidth: 96, frameHeight: 64 });
         this.scene.load.spritesheet('ranger', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png', { frameWidth: 64, frameHeight: 64 });
+
+        // Rival Hero Sprites (Red recolors)
+        this.scene.load.spritesheet('knight_rival', 'src/assets/Heavy Knight 2/Heavy Knight 2/Heavy Knighty sheet2 red.png', { frameWidth: 80, frameHeight: 64 }); // Assuming 80x64
+        this.scene.load.spritesheet('wizard_rival', 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Red Wizard sheet.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('samurai_rival', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png', { frameWidth: 96, frameHeight: 64 });
+        this.scene.load.spritesheet('ranger_rival', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png', { frameWidth: 64, frameHeight: 64 });
         
         // Damned Enemies
         const damnedPath = 'src/assets/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore The Damned Enemies and NPCs/';

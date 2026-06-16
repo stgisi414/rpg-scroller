@@ -305,7 +305,7 @@ class NPCController {
             player: {
                 level: window.saveData.level || 1,
                 class: p.classData ? p.classData.id : "adventurer",
-                hp: `${p.stats.hp}/${p.stats.maxHp}`,
+                hp: `${p.hp}/${p.maxHp}`,
                 gold: window.saveData.gold || 0,
                 alignment: window.saveData.alignment || 0,
                 inventory: p.inventory,
@@ -362,9 +362,9 @@ class NPCController {
         let rewardText = "";
         switch (this.indoorAction) {
             case 'rest':
-                this.player.stats.hp = this.player.stats.maxHp;
-                this.player.stats.mp = this.player.stats.maxMp;
-                this.player.stats.sp = this.player.stats.maxSp;
+                this.player.hp = this.player.maxHp;
+                this.player.mp = this.player.maxMp;
+                this.player.sp = this.player.maxSp;
                 this.player.updateHUD();
                 rewardText = "Fully Rested!";
                 break;
@@ -387,14 +387,18 @@ class NPCController {
             case 'pray':
                 const stats = ['vit', 'str', 'dex', 'int'];
                 const randomStat = stats[Math.floor(Math.random() * stats.length)];
-                this.player.stats[randomStat]++;
-                this.player.calculateDerivedStats();
+                if (this.player.classData && this.player.classData.stats) {
+                    this.player.classData.stats[randomStat]++;
+                    this.player.calculateDerivedStats();
+                }
                 this.player.updateHUD();
                 rewardText = `Blessing Received (+1 ${randomStat.toUpperCase()})!`;
                 break;
             case 'study':
-                this.player.stats.int += 1;
-                this.player.calculateDerivedStats();
+                if (this.player.classData && this.player.classData.stats) {
+                    this.player.classData.stats.int += 1;
+                    this.player.calculateDerivedStats();
+                }
                 this.player.updateHUD();
                 rewardText = "Temporary +1 INT Buff!";
                 break;
@@ -431,7 +435,7 @@ class NPCController {
             player: {
                 level: window.saveData.level || 1,
                 class: p.classData ? p.classData.id : "adventurer",
-                hp: `${p.stats.hp}/${p.stats.maxHp}`,
+                hp: `${p.hp}/${p.maxHp}`,
                 gold: window.saveData.gold || 0,
                 alignment: window.saveData.alignment || 0,
                 inventory: p.inventory,
