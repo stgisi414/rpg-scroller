@@ -1176,6 +1176,28 @@ class PlayerController {
                 if (dist <= optimalDist + 60) {
                     if (Math.random() < 0.3) this.aiInput.attack = true;
                 }
+
+                // Dodge and Potion logic for Rivals (or smart enemies)
+                if (this.aiState === 'hostile' && this.classId && this.classId.includes('rival')) {
+                    if (this.inventory.potions === undefined) this.inventory.potions = 2; // Rivals get 2 potions
+                    
+                    // Potion use
+                    if (this.hp < this.maxHp * 0.4 && this.inventory.potions > 0 && Math.random() < 0.05) {
+                        this.inventory.potions--;
+                        this.hp = Math.min(this.maxHp, this.hp + 50);
+                        if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, "Potion!", 0x00ff00);
+                    }
+                    
+                    // Active dodging
+                    if (p.isAttacking && dist < optimalDist + 50) {
+                        if (Math.random() < 0.2) {
+                            if (dx > 0) this.aiInput.dashLeft = true;
+                            else this.aiInput.dashRight = true;
+                        } else if (Math.random() < 0.1) {
+                            this.aiInput.up = true; // Jump away
+                        }
+                    }
+                }
             }
             
             // Dash logic - charge into combat if far away
@@ -1226,13 +1248,45 @@ class PlayerController {
     }
 
     _playAnim(key) {
-        if (!this.classData || !this.classData.isSheet) return;
-        if (this.currentAnimKey === key) return;
-        this.currentAnimKey = key;
-        this._playAnim();
+        if (!this.classData || !this.classData.isSheet || !this.sprite || !this.sprite.active) return;
+        
+        let targetKey = key;
+        if (!targetKey) {
+            if (this.hp <= 0) targetKey = this.classData.id + '_die';
+            else if (this.isAttacking) targetKey = this.classData.id + '_attack';
+            else if (this.isDashing) targetKey = this.classData.id + '_dash';
+            else if (this.wasDucking) targetKey = this.classData.id + '_duck';
+            else if (this.isHit) targetKey = this.classData.id + '_hit';
+            else if (this.sprite.body && !this.sprite.body.onFloor() && this.sprite.body.velocity.y < -10) targetKey = this.classData.id + '_jump';
+            else if (this.sprite.body && !this.sprite.body.onFloor() && this.sprite.body.velocity.y > 10) targetKey = this.classData.id + '_fall';
+            else if (this.sprite.body && Math.abs(this.sprite.body.velocity.x) > 10) targetKey = this.classData.id + '_walk';
+            else targetKey = this.classData.id + '_idle';
+        }
+
+        // Fallback to idle if animation doesn't exist
+        if (!this.scene.anims.exists(targetKey)) {
+            targetKey = this.classData.id + '_idle';
+            if (!this.scene.anims.exists(targetKey)) return; // Emergency abort
+        }
+
+        if (this.currentAnimKey === targetKey) return;
+        this.currentAnimKey = targetKey;
+        this.sprite.play(targetKey, true);
     }
 
     update(time, delta) {
+        if (!this.sprite || !this.sprite.active) return;
+        
+        if (this.hp <= 0) {
+            this.sprite.setVelocityX(0);
+            return;
+        }
+
+        if (this.scene.isCutscene) {
+            this.sprite.setVelocityX(0);
+            return;
+        }
+
         if (this.isAI) {
             this.updateAI(time, delta);
         }
@@ -1862,6 +1916,17 @@ class PlayerController {
 
         if (this.isAI) {
             if (this.aiState === 'hostile') {
+                if (this.classId && this.classId.includes('rival')) {
+                    if (!window.saveData.defeatedRivals) window.saveData.defeatedRivals = [];
+                    if (!window.saveData.defeatedRivals.includes(this.classId)) {
+                        window.saveData.defeatedRivals.push(this.classId);
+                        if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, "Rival Defeated!", 0xffa500);
+                    }
+                    if (this.classId === 'megaboss_rival') {
+                        window.saveData.isSavior = true;
+                        if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 80, "SAVIOR OF THE REALM", 0xffff00);
+                    }
+                }
                 // Drop loot
                 if (this.scene && this.scene.grantRewards) {
                     this.scene.grantRewards(50, 20); // 50 XP, 20 Gold
@@ -1879,9 +1944,38 @@ class PlayerController {
         } else {
             // Real Player dies
             this.scene.showFloatingText(this.sprite.x, this.sprite.y - 50, "YOU DIED", 0xff0000);
+            
+            // Penalty: lose 1% XP
+            if (window.saveData) {
+                const currentXp = window.saveData.xp || 0;
+                const xpLoss = Math.floor(currentXp * 0.01);
+                window.saveData.xp = Math.max(0, currentXp - xpLoss);
+                if (xpLoss > 0) {
+                    this.scene.time.delayedCall(1000, () => {
+                        this.scene.showFloatingText(this.sprite.x, this.sprite.y - 70, `Lost ${xpLoss} XP`, 0xffa500);
+                    });
+                }
+
+                // Respawn at nearest town backwards
+                let respawnZone = 0;
+                if (window.saveData.worldMap) {
+                    for (let i = window.saveData.currentZone || 0; i >= 0; i--) {
+                        if (window.saveData.worldMap[i] && window.saveData.worldMap[i].type === 'Safe') {
+                            respawnZone = i;
+                            break;
+                        }
+                    }
+                }
+                window.saveData.currentZone = respawnZone;
+                window.saveData.hp = window.saveData.maxHp || this.maxHp || 100;
+                // Save it so the reload picks it up
+                localStorage.setItem('rpg_save', JSON.stringify(window.saveData));
+            }
+
             // Quick reload
-            setTimeout(() => {
-            }, 2000);
+            this.scene.time.delayedCall(3500, () => {
+                this.scene.scene.restart();
+            });
         }
     }
 

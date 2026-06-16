@@ -308,6 +308,7 @@ class NPCController {
                 hp: `${p.hp}/${p.maxHp}`,
                 gold: window.saveData.gold || 0,
                 alignment: window.saveData.alignment || 0,
+                isSavior: window.saveData.isSavior || false,
                 inventory: p.inventory,
                 quests: p.quests
             }
@@ -438,6 +439,7 @@ class NPCController {
                 hp: `${p.hp}/${p.maxHp}`,
                 gold: window.saveData.gold || 0,
                 alignment: window.saveData.alignment || 0,
+                isSavior: window.saveData.isSavior || false,
                 inventory: p.inventory,
                 quests: p.quests
             }

@@ -194,6 +194,12 @@ const classesData = {
     }
 };
 
+classesData.knight_rival = { ...classesData.knight, id: 'knight_rival' };
+classesData.wizard_rival = { ...classesData.wizard, id: 'wizard_rival' };
+classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival' };
+classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival' };
+classesData.megaboss_rival = { ...classesData.knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 } };
+
 function showTitleScreen() {
     document.getElementById('ui-create').style.display = 'none';
     document.getElementById('ui-title').style.display = 'flex';

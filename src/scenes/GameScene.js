@@ -506,6 +506,8 @@ class GameScene extends Phaser.Scene {
             spFill: document.getElementById('hud-sp-fill'),
             gold: document.getElementById('hud-gold'),
             zoneName: document.getElementById('hud-zone-name'),
+            zoneType: document.getElementById('hud-zone-type'),
+            zoneBiome: document.getElementById('hud-zone-biome'),
             alignment: document.getElementById('alignment-display'),
             xpFill: document.getElementById('hud-xp-fill'),
             xpText: document.getElementById('hud-xp-text')
@@ -722,6 +724,47 @@ class GameScene extends Phaser.Scene {
             this.hudElements.spFill.style.width = `${spPercent}%`;
             if (window.debugSP) console.log(`SP: ${this.player.sp}, Percent: ${spPercent}%, Width set to: ${this.hudElements.spFill.style.width}`);
         }
+
+        // Metroidvania Room Tracker - TEMPORARILY DISABLED FOR DEBUGGING
+        // The hardcoded HTML nodes in index.html should be visible without JS
+        /*
+        const trackerContainer = document.getElementById('hud-room-tracker');
+        if (trackerContainer && window.saveData) {
+            const currentZ = parseInt(window.saveData.currentZone) || 0;
+            // Force rebuild if HTML is empty, or zone changed
+            if (trackerContainer.dataset.lastZone != currentZ || !trackerContainer.innerHTML.trim()) {
+                trackerContainer.dataset.lastZone = currentZ;
+                let html = '';
+                
+                let nodeCount = 0;
+                for (let i = currentZ - 2; i <= currentZ + 2; i++) {
+                    if (i < 0) continue; 
+                    
+                    if (nodeCount > 0) {
+                        const connectorColor = (i <= currentZ) ? '#f6be3b' : '#5a403c';
+                        html += `<div style="width: 14px; height: 3px; background-color: ${connectorColor}; margin: 0 4px; box-shadow: 0 0 2px ${connectorColor};"></div>`;
+                    }
+                    
+                    if (i === currentZ) {
+                        html += `<div style="width: 18px; height: 18px; background-color: #2ddbde; box-shadow: 0 0 10px #2ddbde; border: 2px solid white; border-radius: 4px;"></div>`;
+                    } else if (i < currentZ) {
+                        html += `<div style="width: 14px; height: 14px; background-color: #f6be3b; opacity: 0.9; border-radius: 3px;"></div>`;
+                    } else {
+                        html += `<div style="width: 14px; height: 14px; border: 2px solid #5a403c; background-color: #131313; border-radius: 3px;"></div>`;
+                    }
+                    
+                    nodeCount++;
+                }
+                
+                trackerContainer.innerHTML = html;
+                trackerContainer.style.minHeight = "30px";
+                trackerContainer.style.overflow = "visible";
+                trackerContainer.style.display = "flex";
+                trackerContainer.style.alignItems = "center";
+                trackerContainer.style.justifyContent = "center";
+            }
+        }
+        */
     }
 
     showLoading(isVisible) {
@@ -1778,6 +1821,12 @@ class GameScene extends Phaser.Scene {
             this.angelPromptText.setVisible(false);
         }
 
+        // HUD Update (throttled to 4x/sec to avoid DOM thrashing)
+        if (!this._lastHudUpdate || time - this._lastHudUpdate > 250) {
+            this._lastHudUpdate = time;
+            this.updateHUD();
+        }
+
         // Debug HUD Update (throttled to 4x/sec)
         if (this.debugHudVisible && time - this._lastDebugUpdate > 250) {
             this._lastDebugUpdate = time;
@@ -1788,9 +1837,9 @@ class GameScene extends Phaser.Scene {
     spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0) {
         if (!this.partyMembers) this.partyMembers = [];
         
-        const isParty = aiState === 'party';
-        if (isParty && this.partyMembers.length >= 2) {
-            this.showFloatingText(x, y, "Party is Full!", 0xffaa00);
+        const isParty = (aiState === 'party');
+        if (isParty && this.partyMembers.length >= 6) {
+            this.showFloatingText(x, y - 20, "Party Full!", 0xff0000);
             return;
         }
 
@@ -1891,6 +1940,45 @@ class GameScene extends Phaser.Scene {
                 });
             }
         });
+    }
+
+    playCutscene(text, onCompleteCallback) {
+        this.isCutscene = true;
+        this.physics.pause();
+        
+        const overlay = document.getElementById('cutscene-overlay');
+        const textContainer = document.getElementById('cutscene-text');
+        
+        if (overlay && textContainer) {
+            overlay.style.display = 'flex';
+            // Trigger reflow
+            void overlay.offsetWidth;
+            overlay.style.opacity = '1';
+            
+            textContainer.innerHTML = '';
+            let i = 0;
+            const typeWriter = setInterval(() => {
+                if (i < text.length) {
+                    textContainer.innerHTML += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeWriter);
+                    setTimeout(() => {
+                        overlay.style.opacity = '0';
+                        setTimeout(() => {
+                            overlay.style.display = 'none';
+                            this.isCutscene = false;
+                            this.physics.resume();
+                            if (onCompleteCallback) onCompleteCallback();
+                        }, 500);
+                    }, 3000); // Read time
+                }
+            }, 30); // Typing speed
+        } else {
+            this.isCutscene = false;
+            this.physics.resume();
+            if (onCompleteCallback) onCompleteCallback();
+        }
     }
 
     grantRewards(xp, gold) {

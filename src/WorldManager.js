@@ -95,6 +95,13 @@ class WorldManager {
         // Update HUD Zone Name
         if (this.scene.hudElements && this.scene.hudElements.zoneName) {
             this.scene.hudElements.zoneName.innerText = zoneData.name || `Zone ${window.saveData.currentZone}`;
+            if (this.scene.hudElements.zoneType) {
+                this.scene.hudElements.zoneType.innerText = zoneData.type || 'Unknown';
+                this.scene.hudElements.zoneType.className = zoneData.type === 'Safe' ? 'text-tertiary-fixed-dim' : 'text-error';
+            }
+            if (this.scene.hudElements.zoneBiome) {
+                this.scene.hudElements.zoneBiome.innerText = zoneData.biome || 'Unknown';
+            }
         }
 
         // Spawn Player at correct edge
@@ -520,6 +527,32 @@ class WorldManager {
                 });
             }
 
+            let isRivalEncounter = false;
+            let rivalClass = 'knight_rival';
+            let isMegaboss = false;
+
+            const defeatedCount = (window.saveData.defeatedRivals || []).length;
+            
+            // Base encounter chance for first rival is 50%, drops 10% per kill down to 10% for the Megaboss
+            const encounterChance = Math.max(0.10, 0.50 - (defeatedCount * 0.10));
+
+            if (zoneData.type !== 'Safe' && Math.random() < encounterChance) {
+                isRivalEncounter = true;
+                const rivalClasses = ['knight_rival', 'wizard_rival', 'samurai_rival', 'ranger_rival'];
+                
+                if (defeatedCount >= 4 && !window.saveData.isSavior) {
+                    isMegaboss = true;
+                    rivalClass = 'megaboss_rival';
+                } else {
+                    rivalClass = rivalClasses[Math.floor(Math.random() * rivalClasses.length)];
+                }
+                
+                // Clear the normal enemies or keep 1-2 as the "party"
+                if (zoneData.enemies.length > 2) {
+                    zoneData.enemies.length = 2; // Keep max 2 monsters as minions
+                }
+            }
+
             // Spawn Enemies
             zoneData.enemies.forEach(eData => {
                 let type = (eData.type || 'slime').toLowerCase().replace(/\s+/g, '_');
@@ -542,6 +575,31 @@ class WorldManager {
                 enemy.speed = eData.speed;
                 this.scene.enemies.add(enemy.sprite);
             });
+
+            if (isRivalEncounter) {
+                const spawnX = spawnSide === 'left' ? 800 : 400; // Spawn opposite to player
+                this.scene.spawnHeroAI(rivalClass, spawnX, 600, 'hostile', 'Rival Hero', 'A cocky and aggressive rival adventurer who hates the player.', 0);
+                
+                if (isMegaboss) {
+                    // Spawn all 4 base rivals as backup
+                    this.scene.spawnHeroAI('knight_rival', spawnX - 80, 600, 'hostile', 'Rival Knight');
+                    this.scene.spawnHeroAI('wizard_rival', spawnX + 80, 600, 'hostile', 'Rival Wizard');
+                    this.scene.spawnHeroAI('samurai_rival', spawnX - 160, 600, 'hostile', 'Rival Samurai');
+                    this.scene.spawnHeroAI('ranger_rival', spawnX + 160, 600, 'hostile', 'Rival Ranger');
+                }
+
+                // Trigger the cutscene
+                let prompt = `Generate a 2-sentence trash-talk dialogue from a rival adventurer (${rivalClass}) who just ambushed the player in ${zoneData.name}. They might have monsters with them. Be aggressive and dramatic.`;
+                if (isMegaboss) {
+                    prompt = `Generate an epic 3-sentence boss monologue from the Rival Megaboss. The player has defeated all his lieutenants, and now he is attacking with his entire elite squad of 4 heroes! This is the ultimate showdown.`;
+                }
+
+                this.geminiService.getGameMasterResponse(this.scene.player, prompt, zoneData).then(res => {
+                    if (this.scene.playCutscene) {
+                        this.scene.playCutscene(`[Rival]: ${res.storyText}`, () => {});
+                    }
+                }).catch(e => console.error("GM cutscene error:", e));
+            }
 
             // Inject quest-target enemies if player has active kill quests
             if (zoneData.type === 'Dangerous' && window.saveData.quests && window.saveData.quests.length > 0) {

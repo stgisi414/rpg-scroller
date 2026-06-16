@@ -102,6 +102,11 @@ class EnemyController {
 
     update(time, delta) {
         if (!this.player || !this.player.sprite || !this.sprite.active) return;
+        if (this.scene.isCutscene) {
+            this.sprite.setVelocityX(0);
+            if (this._playAnim) this._playAnim(this.type + '-idle');
+            return;
+        }
 
         // UI removed
 
@@ -336,6 +341,7 @@ class EnemyController {
             }
         });
     }
+
 
     spawnSkeleton() {
         if (!this.sprite || !this.sprite.active) return;

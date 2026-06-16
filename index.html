@@ -435,27 +435,27 @@
                 </div>
             </div>
             
-            <!-- Minimap (Top Right) -->
+            <!-- Room Tracker (Top Right) -->
             <div class="pointer-events-auto relative flex flex-col items-end gap-2">
                 <button id="btn-return-menu" class="px-3 py-1 bg-surface-container-highest border border-outline hover:border-secondary hover:text-secondary text-on-surface-variant text-[10px] uppercase tracking-wider rounded transition-colors font-label-caps" onclick="if(window.returnToMainMenu) window.returnToMainMenu()">Main Menu</button>
-                <div class="w-40 h-40 rounded-full border-4 border-secondary bg-surface-container-lowest/90 overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.8)] relative">
-                    <!-- Map Image -->
-                    <img id="hud-minimap-img" alt="Minimap" class="w-full h-full object-cover opacity-60 mix-blend-luminosity filter contrast-125 brightness-75" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4WJ1WjIh1_qtQAF0GUo9xNZYTgzUDIgBMsU15MKk1_ZCuhxtZLGjPQIJhg3RF-55sl8DRmKx3qSqWWi5TVRyRCz6OyTwQEB9SGGmxobGoRD7Z5TGeMRvfqm41EMXkwBR6ktAEzgEV8GP_RAuZAq81DroaIrzZrmUIjlVDWm_F7V3gITO_yH7eB5JLZcDGIB1yg8BRL3XSrCJrkyUp2v7R4cRYrJL7ozIGcdUP_7hYW6Vl3H7uP3TncpkM49NNEDPU3PlmOmXK0x5L">
-                    <!-- Player Marker -->
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-tertiary rounded-full shadow-[0_0_10px_rgba(45,219,222,1)] z-10">
-                        <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-tertiary"></div>
+                
+                <div class="bg-surface-container-lowest/90 border-2 border-secondary rounded-lg p-3 flex flex-col items-center gap-2 shadow-[0_0_20px_rgba(0,0,0,0.8)] w-64">
+                    <div class="font-label-caps text-[10px] text-tertiary tracking-widest uppercase">Exploration Tracker</div>
+                    
+                    <div id="hud-room-tracker" style="display: flex; align-items: center; justify-content: center; min-height: 30px; gap: 4px; padding: 6px 0;">
+                        <span style="color: #f6be3b; font-size: 18px;">■</span>
+                        <span style="color: #f6be3b; font-size: 10px;">───</span>
+                        <span style="color: #2ddbde; font-size: 22px; text-shadow: 0 0 10px #2ddbde;">◆</span>
+                        <span style="color: #5a403c; font-size: 10px;">───</span>
+                        <span style="color: #5a403c; font-size: 18px;">□</span>
                     </div>
-                    <!-- Scanline Overlay -->
-                    <div class="absolute inset-0 scanline z-20 pointer-events-none rounded-full"></div>
-                    <!-- Compass Points -->
-                    <span class="absolute top-1 left-1/2 transform -translate-x-1/2 font-label-caps text-label-caps text-secondary z-30">N</span>
-                    <span class="absolute bottom-1 left-1/2 transform -translate-x-1/2 font-label-caps text-label-caps text-on-surface-variant z-30">S</span>
-                    <span class="absolute left-1 top-1/2 transform -translate-y-1/2 font-label-caps text-label-caps text-on-surface-variant z-30">W</span>
-                    <span class="absolute right-1 top-1/2 transform -translate-y-1/2 font-label-caps text-label-caps text-on-surface-variant z-30">E</span>
-                </div>
-                <!-- Location Label -->
-                <div id="hud-zone-name" class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-surface-container-highest px-3 py-1 rounded border border-outline-variant font-label-caps text-label-caps text-on-surface whitespace-nowrap">
-                    Unknown Zone
+                    
+                    <div id="hud-zone-name" class="font-label-caps text-[11px] text-primary text-center whitespace-nowrap mt-1 leading-none tracking-widest">Unknown Zone</div>
+                    <div id="hud-zone-details" class="font-label-caps text-[9px] text-on-surface-variant flex justify-center items-center gap-1 mt-0.5 leading-none">
+                        <span id="hud-zone-type">Unknown</span>
+                        <span class="text-tertiary-fixed-dim text-[8px]">•</span>
+                        <span id="hud-zone-biome">Unknown</span>
+                    </div>
                 </div>
             </div>
             

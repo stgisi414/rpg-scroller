@@ -305,4 +305,39 @@ Return ONLY a valid JSON object in this exact format:
             };
         }
     }
+
+    async getGameMasterResponse(player, promptText, zoneData) {
+        if (!this.model) return { storyText: "Prepare to die!" }; // Fallback
+
+        const playerLevel = window.saveData ? (window.saveData.level || 1) : 1;
+        const className = player.classData ? player.classData.id : 'adventurer';
+        const isSavior = window.saveData && window.saveData.isSavior ? 'Savior of the Realm' : 'Unknown wanderer';
+        const zoneName = zoneData ? zoneData.name : 'Unknown lands';
+
+        const prompt = `You are an AI Game Master in a dark fantasy 2D RPG.
+Current Context:
+- Player Level: ${playerLevel}
+- Player Class: ${className}
+- Player Status: ${isSavior}
+- Current Zone: ${zoneName}
+
+Task: ${promptText}
+
+Output your response as JSON in this exact format:
+{
+  "storyText": "Your dialogue or narration here."
+}
+Keep it short, punchy, and atmospheric.`;
+
+        try {
+            const result = await this.model.generateContent(prompt);
+            let text = result.response.text();
+            // Clean up any markdown code blocks
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            return JSON.parse(text);
+        } catch (e) {
+            console.error("GeminiService: Failed GM response", e);
+            return { storyText: "Prepare to meet your doom!" };
+        }
+    }
 }
