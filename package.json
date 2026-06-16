@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "2D Action-RPG Metroidvania",
   "scripts": {
-    "start": "concurrently \"npx tailwindcss -i ./src/input.css -o ./src/output.css --watch\" \"npx serve . -p 3000\""
+    "start": "concurrently \"npx tailwindcss -i ./src/input.css -o ./src/output.css --watch\" \"npx http-server . -p 3000 -c-1\""
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",
     "concurrently": "^10.0.3",
+    "http-server": "^14.1.1",
     "tailwindcss": "^3.4.19"
   },
   "dependencies": {

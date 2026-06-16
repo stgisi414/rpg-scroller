@@ -443,14 +443,17 @@
                     <div class="font-label-caps text-[10px] text-tertiary tracking-widest uppercase">Exploration Tracker</div>
                     
                     <div id="hud-room-tracker" style="display: flex; align-items: center; justify-content: center; min-height: 30px; gap: 4px; padding: 6px 0;">
-                        <span style="color: #f6be3b; font-size: 18px;">■</span>
-                        <span style="color: #f6be3b; font-size: 10px;">───</span>
-                        <span style="color: #2ddbde; font-size: 22px; text-shadow: 0 0 10px #2ddbde;">◆</span>
-                        <span style="color: #5a403c; font-size: 10px;">───</span>
-                        <span style="color: #5a403c; font-size: 18px;">□</span>
+                        <span id="rt-n0" style="color: #5a403c; font-size: 16px; line-height:1;">□</span>
+                        <span id="rt-c0" style="color: #5a403c; font-size: 10px;">───</span>
+                        <span id="rt-n1" style="color: #5a403c; font-size: 16px; line-height:1;">□</span>
+                        <span id="rt-c1" style="color: #5a403c; font-size: 10px;">───</span>
+                        <span id="rt-n2" style="color: #2ddbde; font-size: 22px; text-shadow: 0 0 10px #2ddbde; line-height:1;">◆</span>
+                        <span id="rt-c2" style="color: #5a403c; font-size: 10px;">───</span>
+                        <span id="rt-n3" style="color: #5a403c; font-size: 16px; line-height:1;">□</span>
+                        <span id="rt-c3" style="color: #5a403c; font-size: 10px;">───</span>
+                        <span id="rt-n4" style="color: #5a403c; font-size: 16px; line-height:1;">□</span>
                     </div>
-                    
-                    <div id="hud-zone-name" class="font-label-caps text-[11px] text-primary text-center whitespace-nowrap mt-1 leading-none tracking-widest">Unknown Zone</div>
+                    <div id="hud-zone-name" class="font-label-caps text-[11px] text-primary text-center mt-1 leading-tight tracking-widest break-words w-full px-2">Unknown Zone</div>
                     <div id="hud-zone-details" class="font-label-caps text-[9px] text-on-surface-variant flex justify-center items-center gap-1 mt-0.5 leading-none">
                         <span id="hud-zone-type">Unknown</span>
                         <span class="text-tertiary-fixed-dim text-[8px]">•</span>
@@ -643,7 +646,46 @@
     <script src="src/NPCController.js"></script>
     <script src="src/WorldManager.js"></script>
     <script src="src/scenes/TitleScene.js"></script>
-    <script src="src/scenes/GameScene.js"></script>
+    <script src="src/scenes/GameScene.js?v=EMPTY9"></script>
     <script src="src/main.js"></script>
+    <script>
+    setInterval(function() {
+        var sd = window.saveData;
+        if (!sd) return;
+        var z = parseInt(sd.currentZone);
+        if (isNaN(z)) z = 0;
+        var wm = sd.zones || {};
+        
+        var i, zi, n, c;
+        for (i = 0; i < 5; i++) {
+            zi = z - 2 + i;
+            n = document.getElementById('rt-n' + i);
+            if (!n) continue;
+            if (zi === z) {
+                n.textContent = '\u25C6';
+                n.style.color = '#2ddbde';
+                n.style.textShadow = '0 0 10px #2ddbde';
+                n.style.fontSize = '22px';
+            } else if (wm[zi]) {
+                n.textContent = '\u25A0';
+                n.style.color = '#FFD700';
+                n.style.textShadow = '0 0 6px #f6be3b';
+                n.style.fontSize = '16px';
+            } else {
+                n.textContent = '\u25A1';
+                n.style.color = '#3a2a28';
+                n.style.textShadow = 'none';
+                n.style.fontSize = '16px';
+            }
+        }
+        for (i = 0; i < 4; i++) {
+            c = document.getElementById('rt-c' + i);
+            if (!c) continue;
+            zi = z - 2 + i + 1;
+            if (wm[zi] || zi === z) { c.style.color = '#FFD700'; c.style.textShadow = '0 0 4px #f6be3b'; }
+            else { c.style.color = '#3a2a28'; c.style.textShadow = 'none'; }
+        }
+    }, 1000);
+    </script>
 </body>
 </html>

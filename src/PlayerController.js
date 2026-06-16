@@ -133,12 +133,13 @@ class PlayerController {
         this.sprite.setCollideWorldBounds(true);
         
         // Physics stats influenced by Class Stats
-        this.recalculateStats();
-        
-        // State variables
-        this.isDashing = false;
-        this.dashTimer = null;
-        this.dashDuration = 200; // ms
+        this.hp = this.classData.stats.vit * 10;
+        this.maxHp = this.hp;
+        this.stamina = 100;
+        this.maxStamina = 100;
+        this.mana = 100;
+        this.maxMana = 100;
+        this.statusEffects = []; // Array of active status effects // ms
         
         this.isAttacking = false;
         this.attackDuration = 300; // ms
@@ -294,6 +295,17 @@ class PlayerController {
         if (!this.isAI && this.inventory && this.scene && this.scene.updateHUD) {
             this.scene.updateHUD();
         }
+    }
+
+    applyStatusEffect(type, duration, strength = 0) {
+        this.statusEffects.push({ type, duration, strength });
+    }
+
+    updateStatusEffects(delta) {
+        this.statusEffects = this.statusEffects.filter(effect => {
+            effect.duration -= delta;
+            return effect.duration > 0;
+        });
     }
 
     getDamageMultiplier() {
@@ -688,10 +700,6 @@ class PlayerController {
         }
         
         this.updateInventoryUI();
-        
-        if (this.scene && this.scene.showFloatingText) {
-            this.scene.showFloatingText(bestHero.sprite.x, bestHero.sprite.y - 40, `${label} → ${className}`, colorMap[color] || 0xffffff);
-        }
         
         return true;
     }
@@ -1300,6 +1308,21 @@ class PlayerController {
             this.sprite.body.setAllowGravity(true);
         }
 
+        // Apply status effects
+        this.updateStatusEffects(delta);
+        // If stunned, cannot move
+        const isStunned = this.statusEffects.some(e => e.type === 'stun');
+        if (isStunned) {
+            this.sprite.setVelocityX(0);
+            return; // Skip input processing while stunned
+        }
+
+        let speedMultiplier = 1.0;
+        const freezeEffect = this.statusEffects.find(e => e.type === 'freeze');
+        if (freezeEffect) speedMultiplier = 1.0 - (freezeEffect.strength / 100);
+
+        if (this.isDashing || this.isAttacking) return;
+        
         if (this.isTalking) {
             this.sprite.setVelocityX(0);
             return;
@@ -1409,6 +1432,13 @@ class PlayerController {
         }
 
         this.updateAiming();
+        
+        // Recover stamina
+        if (this.stamina < this.maxStamina) {
+            this.stamina += 20 * (delta / 1000);
+            if (this.stamina > this.maxStamina) this.stamina = this.maxStamina;
+            if (this.updatePlayerUI) this.updatePlayerUI();
+        }
         
         // Passive MP/SP regen (MP: 1 every 5s = 0.2/sec. SP: 8/sec)
         if (typeof delta === 'number') {
@@ -1643,6 +1673,13 @@ class PlayerController {
                 return;
             }
             this.sp -= spCost;
+        } else if (cd.id === 'knight' || cd.id === 'warrior') {
+            const spCost = Math.floor(this.maxSp * 0.5); // 50% SP cost for heavy combo
+            if (this.sp < spCost) {
+                if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, 'Not Enough Stamina!', 0x44ff44);
+                return;
+            }
+            this.sp -= spCost;
         }
 
         if (this.updatePlayerUI) this.updatePlayerUI();
@@ -1667,7 +1704,7 @@ class PlayerController {
         // === END LOGGER SETUP ===
 
         if (cd.isSheet && this.scene.anims.exists(cd.id + '_combo')) {
-            this._playAnim();
+            this._playAnim(cd.id + '_combo');
             // Log the first frame too
             const curFrame = this.sprite.anims.currentFrame;
             if (curFrame) {
@@ -1793,6 +1830,42 @@ class PlayerController {
                 });
             }
             this.scene.time.delayedCall(100, () => this.scene.cameras.main.shake(200, 0.01));
+        } else if (cd.id === 'knight' || cd.id === 'warrior') {
+            const dir = this.facingDirection || 1;
+            const weaponBonus = this.inventory && this.inventory.weapon ? this.inventory.weapon.damageBonus : 0;
+            let damage = Math.floor(cd.stats.str * 3.5) + Math.floor(cd.stats.vit * 1.5) + weaponBonus;
+            damage = Math.floor(damage * this.getDamageMultiplier());
+            
+            // Thrust/Bash attack - lunges forward and hits everything in a wide arc
+            this.sprite.setVelocityX(400 * dir); // Massive lunge
+            
+            this.scene.time.delayedCall(200, () => {
+                if (!this.sprite || !this.sprite.active) return;
+                
+                const attackRange = 100;
+                const attackHeight = 80;
+                const offsetX = (dir === 1) ? 50 : -50;
+                const hitBox = new Phaser.Geom.Rectangle(this.sprite.x + offsetX - (attackRange/2), this.sprite.y - (attackHeight/2), attackRange, attackHeight);
+
+                let hitCount = 0;
+                this.scene.enemies.children.iterate((enemySprite) => {
+                    if (enemySprite && enemySprite.active && enemySprite.controller && enemySprite.controller.hp > 0) {
+                        if (Phaser.Geom.Intersects.RectangleToRectangle(hitBox, enemySprite.getBounds())) {
+                            enemySprite.controller.takeDamage(damage, dir);
+                            // Add significant knockback
+                            if (enemySprite.body) {
+                                enemySprite.setVelocityX(dir * 300);
+                                enemySprite.setVelocityY(-150);
+                            }
+                            hitCount++;
+                        }
+                    }
+                });
+                
+                if (hitCount > 0) {
+                    this.scene.cameras.main.shake(300, 0.015);
+                }
+            });
         }
 
         // The combo animation has 12 frames at 12fps, so roughly 1000ms duration.
@@ -1849,8 +1922,10 @@ class PlayerController {
         // Stop dashing after duration
         this.scene.time.delayedCall(this.dashDuration, () => {
             this.isDashing = false;
-            this.sprite.body.allowGravity = true;
-            this.sprite.setAlpha(1.0);
+            if (this.sprite && this.sprite.body) {
+                this.sprite.body.allowGravity = true;
+                this.sprite.setAlpha(1.0);
+            }
         });
     }
 
@@ -1903,6 +1978,75 @@ class PlayerController {
 
         if (this.hp <= 0) {
             this.die();
+        }
+    }
+
+    applyStatusEffect(type, durationMs, strength) {
+        if (this.hp <= 0) return;
+        
+        // Check if effect already exists
+        const existing = this.statusEffects.find(e => e.type === type);
+        if (existing) {
+            existing.duration = durationMs;
+            if (strength > existing.strength) existing.strength = strength;
+        } else {
+            this.statusEffects.push({
+                type: type,
+                duration: durationMs,
+                strength: strength,
+                tickTimer: 0
+            });
+        }
+    }
+
+    updateStatusEffects(delta) {
+        if (!this.sprite || !this.sprite.active || this.hp <= 0) return;
+
+        let hasTint = false;
+        
+        for (let i = this.statusEffects.length - 1; i >= 0; i--) {
+            const effect = this.statusEffects[i];
+            effect.duration -= delta;
+            
+            // Apply visual tint based on strongest/latest effect
+            if (!this.isHit) { // Don't override damage flash
+                if (effect.type === 'stun') { this.sprite.setTint(0xffff00); hasTint = true; }
+                else if (effect.type === 'freeze' && !hasTint) { this.sprite.setTint(0x88ccff); hasTint = true; }
+                else if (effect.type === 'burn' && !hasTint) { this.sprite.setTint(0xff6600); hasTint = true; }
+                else if (effect.type === 'poison' && !hasTint) { this.sprite.setTint(0x00ff00); hasTint = true; }
+            }
+
+            // Process tick damage
+            if (effect.type === 'poison' || effect.type === 'burn') {
+                effect.tickTimer += delta;
+                const tickRate = effect.type === 'poison' ? 1000 : 500;
+                
+                if (effect.tickTimer >= tickRate) {
+                    effect.tickTimer -= tickRate;
+                    this.hp -= effect.strength;
+                    
+                    if (this.scene && this.scene.showFloatingText) {
+                        const color = effect.type === 'poison' ? 0x00ff00 : 0xff6600;
+                        this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, `-${effect.strength}`, color);
+                    }
+                    if (this.updatePlayerUI) this.updatePlayerUI();
+                    if (!this.isAI && this.scene && this.scene.updateHUD) this.scene.updateHUD();
+
+                    if (this.hp <= 0) {
+                        this.die();
+                        return;
+                    }
+                }
+            }
+
+            // Remove expired effects
+            if (effect.duration <= 0) {
+                this.statusEffects.splice(i, 1);
+            }
+        }
+        
+        if (this.statusEffects.length === 0 && !this.isHit) {
+            this.sprite.clearTint();
         }
     }
 

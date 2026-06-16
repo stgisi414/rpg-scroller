@@ -120,6 +120,30 @@ const classesData = {
             jump: { start: 40, end: 43 },
             fall: { start: 50, end: 53 }
         },
+        comboStartFrame: 120, comboEndFrame: 129, // Row 13 for GandalfHardcore Warrior
+        slotPortraitX: -17, slotPortraitY: -18,
+        stats: { vit: 15, str: 14, dex: 9, int: 8 }
+    },
+    heavy_knight: {
+        id: 'heavy_knight',
+        name: 'Heavy Knight',
+        tagline: 'Unstoppable Juggernaut',
+        desc: 'A colossal knight with devastating power.',
+        image: 'src/assets/Heavy Knight 2/Heavy Knight 2/Heavy Knighty sheet2 red.png',
+        isSheet: true,
+        frameWidth: 80, frameHeight: 64,
+        idleFrames: 5, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        dashRow: 5, // Shield Bash
+        flipX: true,
+        animFrames: {
+            jump: { start: 20, end: 24 }, // Block/Ready
+            fall: { start: 20, end: 24 }, // Block/Ready
+            hit: { start: 30, end: 34 },  // Hit/Impact (Row 7, idx 6)
+            die: { start: 50, end: 54 }   // Death Sequence (Row 11, idx 10)
+        },
+        comboStartFrame: 40, comboEndFrame: 44, // Projectile/Thrust (Row 9, idx 8)
         slotPortraitX: -17, slotPortraitY: -18,
         stats: { vit: 15, str: 14, dex: 9, int: 8 }
     },
@@ -194,11 +218,12 @@ const classesData = {
     }
 };
 
-classesData.knight_rival = { ...classesData.knight, id: 'knight_rival' };
+// Derived rival and boss classes
+classesData.knight_rival = { ...classesData.heavy_knight, id: 'knight_rival' };
 classesData.wizard_rival = { ...classesData.wizard, id: 'wizard_rival' };
 classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival' };
 classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival' };
-classesData.megaboss_rival = { ...classesData.knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 } };
+classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 } };
 
 function showTitleScreen() {
     document.getElementById('ui-create').style.display = 'none';

@@ -73,7 +73,10 @@ class EnemyController {
             this.maxHp = 100;
         }
         this.hp = this.maxHp;
+        // State tracking
         this.isHit = false;
+        this.isAttacking = false;
+        this.statusEffects = []; // Array of active status effects
         this.damageCooldown = 500;
         this.lastDamageTime = 0;
 
@@ -102,6 +105,23 @@ class EnemyController {
 
     update(time, delta) {
         if (!this.player || !this.player.sprite || !this.sprite.active) return;
+        if (this.hp <= 0) return;
+        
+        // Apply status effects
+        this.updateStatusEffects(delta);
+        
+        const isStunned = this.statusEffects.some(e => e.type === 'stun');
+        if (isStunned) {
+            this.sprite.setVelocityX(0);
+            return;
+        }
+
+        let speedMultiplier = 1.0;
+        const freezeEffect = this.statusEffects.find(e => e.type === 'freeze');
+        if (freezeEffect) speedMultiplier = 1.0 - (freezeEffect.strength / 100);
+
+        this.speed = this.baseSpeed * speedMultiplier;
+
         if (this.scene.isCutscene) {
             this.sprite.setVelocityX(0);
             if (this._playAnim) this._playAnim(this.type + '-idle');
@@ -203,12 +223,19 @@ class EnemyController {
                         this.sprite.setFlipX(shouldFlip);
                         this.isAttacking = true;
                         this._playAnim(`${this.type}-attack`);
+                        this.scene.time.delayedCall(300, () => {
+                            if (!this.sprite || !this.sprite.active) return;
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 90) {
+                                this.player.takeDamage(20);
+                            }
+                        });
                         break;
-                    } else if (distanceX > 100 && distanceX < 300 && Math.random() < 0.02) {
+                    } else if (distanceX > 100 && distanceX < 400 && Math.random() < 0.02) {
                         this.sprite.setVelocityX(0);
                         this.sprite.setFlipX(shouldFlip);
                         this.isAttacking = true;
                         this._playAnim(`${this.type}-attack2`);
+                        this.spawnFireball();
                         break;
                     }
                 }
@@ -324,6 +351,72 @@ class EnemyController {
         }
     }
 
+    applyStatusEffect(type, durationMs, strength) {
+        if (this.hp <= 0) return;
+        
+        const existing = this.statusEffects.find(e => e.type === type);
+        if (existing) {
+            existing.duration = durationMs;
+            if (strength > existing.strength) existing.strength = strength;
+        } else {
+            this.statusEffects.push({
+                type: type,
+                duration: durationMs,
+                strength: strength,
+                tickTimer: 0
+            });
+        }
+    }
+
+    updateStatusEffects(delta) {
+        if (!this.sprite || !this.sprite.active || this.hp <= 0) return;
+
+        let hasTint = false;
+        
+        for (let i = this.statusEffects.length - 1; i >= 0; i--) {
+            const effect = this.statusEffects[i];
+            effect.duration -= delta;
+            
+            if (!this.isHit) {
+                if (effect.type === 'stun') { this.sprite.setTint(0xffff00); hasTint = true; }
+                else if (effect.type === 'freeze' && !hasTint) { this.sprite.setTint(0x88ccff); hasTint = true; }
+                else if (effect.type === 'burn' && !hasTint) { this.sprite.setTint(0xff6600); hasTint = true; }
+                else if (effect.type === 'poison' && !hasTint) { this.sprite.setTint(0x00ff00); hasTint = true; }
+            }
+
+            if (effect.type === 'poison' || effect.type === 'burn') {
+                effect.tickTimer += delta;
+                const tickRate = effect.type === 'poison' ? 1000 : 500;
+                
+                if (effect.tickTimer >= tickRate) {
+                    effect.tickTimer -= tickRate;
+                    this.hp -= effect.strength;
+                    
+                    if (this.scene && this.scene.showFloatingText) {
+                        const color = effect.type === 'poison' ? 0x00ff00 : 0xff6600;
+                        this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, `-${effect.strength}`, color);
+                    }
+                    if (this.hpText && this.hpText.active) {
+                        this.hpText.setText(`HP: ${this.hp}`);
+                    }
+
+                    if (this.hp <= 0) {
+                        this.die();
+                        return;
+                    }
+                }
+            }
+
+            if (effect.duration <= 0) {
+                this.statusEffects.splice(i, 1);
+            }
+        }
+        
+        if (this.statusEffects.length === 0 && !this.isHit) {
+            this.sprite.clearTint();
+        }
+    }
+
     spawnSkull() {
         if (!this.sprite || !this.sprite.active || !this.player || !this.player.sprite) return;
         this.scene.time.delayedCall(300, () => {
@@ -338,6 +431,25 @@ class EnemyController {
                 const dist = Math.sqrt(dx * dx + dy * dy) || 1;
                 skull.setVelocityX((dx / dist) * 250);
                 skull.setVelocityY((dy / dist) * 250);
+            }
+        });
+    }
+    spawnFireball() {
+        if (!this.sprite || !this.sprite.active || !this.player || !this.player.sprite) return;
+        this.scene.time.delayedCall(400, () => {
+            if (!this.sprite || !this.sprite.active || !this.player || !this.player.sprite) return;
+            // Devil shoots a large red burning skull
+            const fireball = this.scene.enemyProjectiles.create(this.sprite.x + (this.sprite.flipX ? -40 : 40), this.sprite.y - 10, 'burning_skull');
+            if (fireball) {
+                fireball.setScale(2);
+                fireball.body.setSize(16, 16);
+                const dx = this.player.sprite.x - fireball.x;
+                const dy = this.player.sprite.y - fireball.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                fireball.setVelocityX((dx / dist) * 350);
+                fireball.setVelocityY((dy / dist) * 350);
+                // Adjust rotation so it faces movement
+                fireball.setRotation(Math.atan2(dy, dx));
             }
         });
     }

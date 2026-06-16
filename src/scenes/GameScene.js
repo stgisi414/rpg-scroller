@@ -552,7 +552,11 @@ class GameScene extends Phaser.Scene {
         // Build character sheet modal (hidden)
         this._createCharacterSheetModal();
         
-        this.updateHUD();
+        this.renderRoomTracker();
+        try { this.updateHUD(); } catch(e) { console.error('updateHUD error:', e); }
+    }
+    
+    renderRoomTracker() {
     }
     
     _createCharacterSheetModal() {
@@ -725,46 +729,8 @@ class GameScene extends Phaser.Scene {
             if (window.debugSP) console.log(`SP: ${this.player.sp}, Percent: ${spPercent}%, Width set to: ${this.hudElements.spFill.style.width}`);
         }
 
-        // Metroidvania Room Tracker - TEMPORARILY DISABLED FOR DEBUGGING
-        // The hardcoded HTML nodes in index.html should be visible without JS
-        /*
-        const trackerContainer = document.getElementById('hud-room-tracker');
-        if (trackerContainer && window.saveData) {
-            const currentZ = parseInt(window.saveData.currentZone) || 0;
-            // Force rebuild if HTML is empty, or zone changed
-            if (trackerContainer.dataset.lastZone != currentZ || !trackerContainer.innerHTML.trim()) {
-                trackerContainer.dataset.lastZone = currentZ;
-                let html = '';
-                
-                let nodeCount = 0;
-                for (let i = currentZ - 2; i <= currentZ + 2; i++) {
-                    if (i < 0) continue; 
-                    
-                    if (nodeCount > 0) {
-                        const connectorColor = (i <= currentZ) ? '#f6be3b' : '#5a403c';
-                        html += `<div style="width: 14px; height: 3px; background-color: ${connectorColor}; margin: 0 4px; box-shadow: 0 0 2px ${connectorColor};"></div>`;
-                    }
-                    
-                    if (i === currentZ) {
-                        html += `<div style="width: 18px; height: 18px; background-color: #2ddbde; box-shadow: 0 0 10px #2ddbde; border: 2px solid white; border-radius: 4px;"></div>`;
-                    } else if (i < currentZ) {
-                        html += `<div style="width: 14px; height: 14px; background-color: #f6be3b; opacity: 0.9; border-radius: 3px;"></div>`;
-                    } else {
-                        html += `<div style="width: 14px; height: 14px; border: 2px solid #5a403c; background-color: #131313; border-radius: 3px;"></div>`;
-                    }
-                    
-                    nodeCount++;
-                }
-                
-                trackerContainer.innerHTML = html;
-                trackerContainer.style.minHeight = "30px";
-                trackerContainer.style.overflow = "visible";
-                trackerContainer.style.display = "flex";
-                trackerContainer.style.alignItems = "center";
-                trackerContainer.style.justifyContent = "center";
-            }
-        }
-        */
+        // Room Tracker
+        this.renderRoomTracker();
     }
 
     showLoading(isVisible) {
@@ -1091,6 +1057,9 @@ class GameScene extends Phaser.Scene {
             }
             localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
         }
+
+        // Cancel any active cutscenes so they don't bleed into the next zone
+        this.cancelCutscene();
 
         // Fade out
         this.cameras.main.fadeOut(500, 0, 0, 0);
@@ -1942,7 +1911,26 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    cancelCutscene() {
+        if (this.cutsceneInterval) clearInterval(this.cutsceneInterval);
+        if (this.cutsceneTimeout1) clearTimeout(this.cutsceneTimeout1);
+        if (this.cutsceneTimeout2) clearTimeout(this.cutsceneTimeout2);
+        this.cutsceneInterval = null;
+        this.cutsceneTimeout1 = null;
+        this.cutsceneTimeout2 = null;
+        
+        const overlay = document.getElementById('cutscene-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+        this.isCutscene = false;
+        if (this.physics && this.physics.world && this.physics.world.isPaused) {
+            this.physics.resume();
+        }
+    }
+
     playCutscene(text, onCompleteCallback) {
+        this.cancelCutscene(); // Cancel any existing cutscene before starting a new one
         this.isCutscene = true;
         this.physics.pause();
         
@@ -1957,15 +1945,15 @@ class GameScene extends Phaser.Scene {
             
             textContainer.innerHTML = '';
             let i = 0;
-            const typeWriter = setInterval(() => {
+            this.cutsceneInterval = setInterval(() => {
                 if (i < text.length) {
                     textContainer.innerHTML += text.charAt(i);
                     i++;
                 } else {
-                    clearInterval(typeWriter);
-                    setTimeout(() => {
+                    clearInterval(this.cutsceneInterval);
+                    this.cutsceneTimeout1 = setTimeout(() => {
                         overlay.style.opacity = '0';
-                        setTimeout(() => {
+                        this.cutsceneTimeout2 = setTimeout(() => {
                             overlay.style.display = 'none';
                             this.isCutscene = false;
                             this.physics.resume();
@@ -1975,8 +1963,7 @@ class GameScene extends Phaser.Scene {
                 }
             }, 30); // Typing speed
         } else {
-            this.isCutscene = false;
-            this.physics.resume();
+            this.cancelCutscene();
             if (onCompleteCallback) onCompleteCallback();
         }
     }
