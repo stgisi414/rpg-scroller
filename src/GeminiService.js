@@ -2,7 +2,14 @@
 
 class GeminiService {
     constructor() {
-        this.apiKey = "AIzaSyCa10W1niTv08ukY-0VkaChbMm55ovcLxU";
+        let key = localStorage.getItem("gemini_api_key");
+        if (!key) {
+            key = window.prompt("Please enter your Gemini API Key to enable AI features:");
+            if (key) {
+                localStorage.setItem("gemini_api_key", key);
+            }
+        }
+        this.apiKey = key || "";
         this.ai = null;
         this.model = null;
         this.isReady = false;
