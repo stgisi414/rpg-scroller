@@ -16,6 +16,11 @@ class GeminiService {
     }
 
     async init() {
+        if (!this.apiKey) {
+            console.warn("GeminiService: No API key found. Operating in offline/fallback mode.");
+            this.isReady = false;
+            return;
+        }
         try {
             // Dynamically import the ES module so we don't have to rewrite all our scripts to modules yet
             const { GoogleGenerativeAI } = await import('https://esm.run/@google/generative-ai');
@@ -274,7 +279,7 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
         const validEnemies = biomeEnemies[targetBiome] || ['slime'];
 
         const prompt = `You are a procedural generation engine for a 2D Action-RPG.
-Generate data for Zone Index ${zoneIndex}. Each zone MUST be unique.
+Generate data for Zone Index ${zoneIndex}. Note: Negative zoneIndex values indicate backtracking or moving to the left from the starting town (Zone 0); please treat them as valid progression areas. Use the absolute index ${Math.abs(zoneIndex)} for biome/difficulty calculations. Each zone MUST be unique.
 The player is Level ${playerLevel}.
 
 Rules:

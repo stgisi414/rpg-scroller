@@ -3,6 +3,12 @@
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
+        this.hudManager = new HUDManager(this);
+        this.spriteDebugger = new SpriteDebugger(this);
+        this.cutsceneController = new CutsceneController(this);
+        this.levelGenerator = new LevelGenerator(this);
+        this.indoorManager = new IndoorManager(this);
+        this.progressionManager = new ProgressionManager(this);
     }
 
     preload() {
@@ -12,6 +18,9 @@ class GameScene extends Phaser.Scene {
 
     create() {
         window._gameScene = this; // Expose for debug toggle button
+        this.isSceneDestroyed = false;
+        this.events.on('shutdown', this.cleanupScene, this);
+        this.events.on('destroy', this.cleanupScene, this);
         this.assetManager.create();
 
         // Slime Animations (sheet is 256x96, frames 32x32 = 8 per row, 3 rows)
@@ -46,6 +55,7 @@ class GameScene extends Phaser.Scene {
         this.anims.create({ key: 'orc-move', frames: this.anims.generateFrameNumbers('orc', { start: 8, end: 11 }), frameRate: 10, repeat: -1 });
         this.anims.create({ key: 'orc-hit',  frames: this.anims.generateFrameNumbers('orc', { start: 24, end: 25 }), frameRate: 10, repeat: 0 });
         this.anims.create({ key: 'orc-die',  frames: this.anims.generateFrameNumbers('orc', { start: 24, end: 27 }), frameRate: 8, repeat: 0 });
+        this.anims.create({ key: 'orc-attack', frames: this.anims.generateFrameNumbers('orc', { start: 16, end: 19 }), frameRate: 10, repeat: 0 });
 
         // Spider Boss: 192x96, 8 cols.
         this.anims.create({ key: 'spider-idle', frames: this.anims.generateFrameNumbers('spider', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
@@ -351,6 +361,7 @@ class GameScene extends Phaser.Scene {
         
         // Load Initial Zone
         this.worldManager.loadZone(startZone, 'center').then(() => {
+            if (this.isSceneDestroyed) return;
             // Trigger New Game Intro Cutscene
             if (window.saveData && window.saveData.isNewGame) {
                 window.saveData.isNewGame = false;
@@ -422,7 +433,8 @@ class GameScene extends Phaser.Scene {
         });
         
         // Save on page close/refresh
-        window.addEventListener('beforeunload', () => this._autoSave());
+        this._beforeUnloadListener = () => this._autoSave();
+        window.addEventListener('beforeunload', this._beforeUnloadListener);
 
         // Debug HUD Toggle (F3)
         this.debugHudVisible = false;
@@ -456,181 +468,11 @@ class GameScene extends Phaser.Scene {
     }
 
     _updateDebugHUD(time, delta) {
-        const el = document.getElementById('debug-content');
-        if (!el) return;
-
-        const zoneData = this.worldManager ? this.worldManager.currentZoneData : null;
-        const zoneIdx = window.saveData ? window.saveData.currentZone : '?';
-        const biome = zoneData ? (zoneData.biome || 'unknown') : '?';
-        const zoneType = zoneData ? (zoneData.type || '?') : '?';
-        const zoneName = zoneData ? (zoneData.name || '?') : '?';
-        const decorCount = zoneData && zoneData.decorLayout ? zoneData.decorLayout.length : 0;
-
-        const px = this.player && this.player.sprite ? Math.round(this.player.sprite.x) : '?';
-        const py = this.player && this.player.sprite ? Math.round(this.player.sprite.y) : '?';
-        const hp = this.player ? `${this.player.hp}/${this.player.maxHp}` : '?';
-        const mp = this.player ? `${this.player.mp || 0}/${this.player.maxMp || 0}` : '?';
-        const sp = this.player ? `${this.player.sp || 0}/${this.player.maxSp || 0}` : '?';
-        const alignment = this.player ? this.player.alignment : 0;
-        const gold = window.saveData ? window.saveData.gold : 0;
-        const level = window.saveData ? window.saveData.level : '?';
-        const classId = this.player && this.player.classData ? this.player.classData.id : '?';
-
-        const fps = Math.round(this.game.loop.actualFps);
-        const enemyCount = this.enemies ? this.enemies.getChildren().filter(e => e.active).length : 0;
-        const npcCount = this.npcs ? this.npcs.length : 0;
-        const partyCount = this.partyMembers ? this.partyMembers.length : 0;
-
-        // Enemy type breakdown
-        let enemyTypes = {};
-        let rivalDebug = '';
-        if (this.enemies) {
-            this.enemies.getChildren().forEach(e => {
-                if (e.active && e.controller) {
-                    const t = e.controller.type || (e.controller.isAI ? 'rival_hero' : 'unknown');
-                    enemyTypes[t] = (enemyTypes[t] || 0) + 1;
-                    
-                    if (e.controller.isAI) {
-                        rivalDebug = ` | Rival Pos: ${Math.round(e.x)}, ${Math.round(e.y)}`;
-                    }
-                }
-            });
-        }
-        const enemyBreakdown = (Object.entries(enemyTypes).map(([k, v]) => `${k}×${v}`).join(', ') || 'none') + rivalDebug;
-
-        // Inventory summary
-        const inv = this.player ? this.player.inventory : {};
-        const potions = inv ? (inv.potions || 0) : 0;
-        const mpPotions = inv ? (inv.mpPotions || 0) : 0;
-        const spPotions = inv ? (inv.spPotions || 0) : 0;
-        const weapon = inv && inv.weapon ? inv.weapon.name : 'none';
-
-        // Decor asset types
-        let decorTypes = {};
-        if (zoneData && zoneData.decorLayout) {
-            zoneData.decorLayout.forEach(d => {
-                const base = d.asset ? d.asset.replace(/_\d+$/, '') : 'unknown';
-                decorTypes[base] = (decorTypes[base] || 0) + 1;
-            });
-        }
-        const decorBreakdown = Object.entries(decorTypes).map(([k, v]) => `${k}×${v}`).join(', ') || 'none';
-
-        const c = (label, val, color = '#0f0') => `<span style="color:#888">${label}:</span> <span style="color:${color}">${val}</span>`;
-
-        // Party member debug info
-        let partyDebug = '';
-        if (this.partyMembers && this.partyMembers.length > 0) {
-            partyDebug = this.partyMembers.map((m, i) => {
-                const s = m.sprite;
-                const cd = m.classData;
-                const texKey = s ? s.texture.key : '?';
-                const pos = s ? `${Math.round(s.x)},${Math.round(s.y)}` : '?';
-                const vis = s ? `vis=${s.visible} α=${s.alpha.toFixed(2)} act=${s.active}` : '?';
-                const sc = s ? `sc=${s.scaleX.toFixed(1)},${s.scaleY.toFixed(1)}` : '?';
-                const sz = s && s.body ? `body=${Math.round(s.body.width)}x${Math.round(s.body.height)}` : 'no body';
-                const frame = s ? `frame=${s.frame.name}` : '?';
-                const anim = s && s.anims && s.anims.currentAnim ? s.anims.currentAnim.key : 'none';
-                return `<span style="color:#af0">Party[${i}]</span> ${c('cls', cd ? cd.id : '?', '#da0')} ${c('tex', texKey, '#8af')} ${c('pos', pos, '#0f0')} ${c('frame', frame, '#ff0')}<br>&nbsp;&nbsp;${vis} ${sc} ${sz} anim=${anim} fw=${cd?cd.frameWidth:'?'} fh=${cd?cd.frameHeight:'?'}`;
-            }).join('<br>');
-        }
-
-        // Enemy debug info
-        let enemyDebug = '';
-        if (this.enemies && this.enemies.getChildren().length > 0) {
-            enemyDebug = this.enemies.getChildren().map((e, i) => {
-                if (!e.active) return '';
-                const type = e.controller ? e.controller.type : '?';
-                const hpStr = e.controller ? `${e.controller.hp}/${e.controller.maxHp}` : '?';
-                const texKey = e.texture ? e.texture.key : '?';
-                const pos = `${Math.round(e.x)},${Math.round(e.y)}`;
-                const vis = `vis=${e.visible} α=${e.alpha.toFixed(2)} act=${e.active}`;
-                const sc = `sc=${e.scaleX.toFixed(1)},${e.scaleY.toFixed(1)}`;
-                const sz = e.body ? `body=${Math.round(e.body.width)}x${Math.round(e.body.height)}` : 'no body';
-                const frame = e.frame ? `frame=${e.frame.name}` : '?';
-                const anim = e.anims && e.anims.currentAnim ? e.anims.currentAnim.key : 'none';
-                return `<span style="color:#f88">Enemy[${i}]</span> ${c('type', type, '#da0')} ${c('hp', hpStr, '#f44')} ${c('tex', texKey, '#8af')} ${c('pos', pos, '#0f0')}<br>&nbsp;&nbsp;${vis} ${sc} ${sz} frame=${frame} anim=${anim}`;
-            }).filter(s => s !== '').join('<br>');
-        }
-
-        el.innerHTML = [
-            c('Zone', `${zoneIdx}`, '#ff0') + ' │ ' + c('Biome', biome, '#0ff') + ' │ ' + c('Type', zoneType, zoneType === 'Safe' ? '#0f0' : '#f88'),
-            c('Name', zoneName, '#fff'),
-            c('FPS', fps, fps >= 55 ? '#0f0' : fps >= 30 ? '#ff0' : '#f00') + ' │ ' + c('Class', classId, '#da0') + ' │ ' + c('Lv', level, '#ff0'),
-            c('Pos', `${px}, ${py}`) + ' │ ' + c('HP', hp, '#f44') + ' │ ' + c('MP', mp, '#48f') + ' │ ' + c('SP', sp, '#4f4'),
-            c('Gold', gold, '#fd0') + ' │ ' + c('Align', alignment, alignment > 0 ? '#0f0' : alignment < 0 ? '#f44' : '#888'),
-            c('Enemies', `${enemyCount}`, '#f88') + ' │ ' + c('NPCs', npcCount, '#8af') + ' │ ' + c('Party', `${partyCount}/2`, '#af0'),
-            c('Enemy Types', enemyBreakdown, '#fa8'),
-            c('Weapon', weapon, '#da0') + ' │ ' + c('Pot', `${potions}HP ${mpPotions}MP ${spPotions}SP`, '#8f8'),
-            c('Decor', `${decorCount} items`, '#aaa'),
-            `<span style="color:#666;font-size:10px">${decorBreakdown}</span>`,
-            partyDebug,
-            enemyDebug
-        ].filter(s => s !== '').join('<br>');
+        this.hudManager._updateDebugHUD(time, delta);
     }
 
     createHUD() {
-        // Show HTML HUD
-        const hudElement = document.getElementById('game-hud');
-        if (hudElement) hudElement.style.display = 'flex';
-        
-        // Cache DOM elements for quick updates
-        this.hudElements = {
-            nameLevel: document.getElementById('hud-name-level'),
-            hpFill: document.getElementById('hud-hp-fill'),
-            hpText: document.getElementById('hud-hp-text'),
-            mpFill: document.getElementById('hud-mp-fill'),
-            mpText: document.getElementById('hud-mp-text'),
-            spFill: document.getElementById('hud-sp-fill'),
-            gold: document.getElementById('hud-gold'),
-            zoneName: document.getElementById('hud-zone-name'),
-            zoneType: document.getElementById('hud-zone-type'),
-            zoneBiome: document.getElementById('hud-zone-biome'),
-            alignment: document.getElementById('alignment-display'),
-            xpFill: document.getElementById('hud-xp-fill'),
-            xpText: document.getElementById('hud-xp-text')
-        };
-        
-        // Make name panel solid and readable
-        if (this.hudElements.nameLevel) {
-            this.hudElements.nameLevel.style.background = 'rgba(0,0,0,0.85)';
-            this.hudElements.nameLevel.style.color = '#e0e0e0';
-            this.hudElements.nameLevel.style.textShadow = 'none';
-            this.hudElements.nameLevel.style.padding = '4px 10px';
-            this.hudElements.nameLevel.style.borderRadius = '4px';
-            this.hudElements.nameLevel.style.border = '1px solid rgba(255,255,255,0.15)';
-        }
-        
-        // Add character sheet button next to name
-        if (this.hudElements.nameLevel && !document.getElementById('btn-char-sheet')) {
-            const btn = document.createElement('button');
-            btn.id = 'btn-char-sheet';
-            btn.innerText = '⚔️';
-            btn.title = 'Character Sheet';
-            btn.style.cssText = 'margin-left:8px;background:rgba(80,60,30,0.9);border:1px solid #a0832b;color:#fde68a;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:14px;pointer-events:auto;';
-            btn.addEventListener('click', () => this.toggleCharacterSheet());
-            this.hudElements.nameLevel.appendChild(btn);
-        }
-        
-        // Show/hide MP and SP bars based on class
-        const classId = window.saveData ? window.saveData.classId : 'knight';
-        const mpBar = this.hudElements.mpFill ? this.hudElements.mpFill.closest('.relative') : null;
-        const spBar = this.hudElements.spFill ? this.hudElements.spFill.closest('.relative') : null;
-        
-        if (classId === 'wizard') {
-            // Wizard: show MP, hide SP
-            if (mpBar) mpBar.style.display = '';
-            if (spBar) spBar.style.display = 'none';
-        } else {
-            // Melee classes: show SP, hide MP
-            if (mpBar) mpBar.style.display = 'none';
-            if (spBar) spBar.style.display = '';
-        }
-        
-        // Build character sheet modal (hidden)
-        this._createCharacterSheetModal();
-        
-        this.renderRoomTracker();
-        try { this.updateHUD(); } catch(e) { console.error('updateHUD error:', e); }
+        this.hudManager.createHUD();
     }
     
        renderRoomTracker() {
@@ -638,402 +480,27 @@ class GameScene extends Phaser.Scene {
     }
     
     _createCharacterSheetModal() {
-        if (document.getElementById('char-sheet-modal')) return;
-        const modal = document.createElement('div');
-        modal.id = 'char-sheet-modal';
-        modal.className = 'fixed inset-0 z-[100] bg-background/95 flex items-center justify-center p-4 backdrop-blur-md pointer-events-auto transition-opacity duration-300';
-        modal.style.display = 'none';
-        
-        // Use inline SVG for a subtle noise texture to give a parchment/stone feel
-        const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='a'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23a)' opacity='0.05'/></svg>`;
-        
-        modal.innerHTML = `
-            <div class="bg-surface-container/95 border-2 border-outline-variant rounded p-8 max-w-5xl w-full shadow-[0_0_50px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col" style="background-image: url('data:image/svg+xml;base64,${btoa(noiseSvg)}'); border-color: #a0832b;">
-                
-                <!-- Decorative Corner Ornaments -->
-                <div class="absolute top-0 left-0 opacity-50" style="width:64px;height:64px;border-top:4px solid #a0832b;border-left:4px solid #a0832b;border-top-left-radius:4px;"></div>
-                <div class="absolute top-0 right-0 opacity-50" style="width:64px;height:64px;border-top:4px solid #a0832b;border-right:4px solid #a0832b;border-top-right-radius:4px;"></div>
-                <div class="absolute bottom-0 left-0 opacity-50" style="width:64px;height:64px;border-bottom:4px solid #a0832b;border-left:4px solid #a0832b;border-bottom-left-radius:4px;"></div>
-                <div class="absolute bottom-0 right-0 opacity-50" style="width:64px;height:64px;border-bottom:4px solid #a0832b;border-right:4px solid #a0832b;border-bottom-right-radius:4px;"></div>
-
-                <button id="cs-close" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px] font-bold" style="position:absolute; top:24px; right:24px; z-index:50;">Close (ESC)</button>
-
-                <!-- Header Panel -->
-                <div class="flex items-center gap-6 mb-8 border-b border-outline-variant pb-6 relative z-10">
-                    <div id="cs-sprite-container" class="w-24 h-24 bg-surface-container-lowest border-2 border-primary rounded-lg flex items-center justify-center shadow-inner relative overflow-hidden" style="image-rendering: pixelated;">
-                        <div id="cs-sprite-img" style="transform: scale(3);"></div>
-                    </div>
-                    <div class="flex-grow">
-                        <h2 id="cs-name" class="font-headline-lg text-[40px] text-primary uppercase tracking-widest mb-1" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-family: 'Space Grotesk', sans-serif;">Hero Name</h2>
-                        <p id="cs-subtitle" class="font-body-lg text-secondary uppercase tracking-widest text-[16px] font-bold">Level 1 Adventurer</p>
-                        <div class="flex flex-wrap gap-4 mt-3 font-label-caps text-[14px] text-on-surface-variant font-bold">
-                            <span id="cs-alignment" class="bg-surface-container-highest px-3 py-1 rounded border border-outline-variant shadow">Neutral (0)</span>
-                            <span id="cs-gold" class="bg-surface-container-highest px-3 py-1 rounded border border-tertiary text-tertiary shadow">0 Gold</span>
-                            <span id="cs-xp" class="bg-surface-container-highest px-3 py-1 rounded border border-info text-info shadow">0/100 XP</span>
-                            <span id="cs-hpmp" class="bg-surface-container-highest px-3 py-1 rounded border border-error text-error shadow">HP: 100/100</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 3-Column Layout -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 font-body-md text-on-surface relative z-10 overflow-y-auto pr-2" style="max-height: 50vh;">
-                    
-                    <!-- Left Col: Core Stats & Exploration -->
-                    <div class="space-y-8">
-                        <div>
-                            <h3 class="font-headline-sm text-secondary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">psychology</span> Core Attributes</h3>
-                            <div id="cs-core-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-info uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">explore</span> Exploration</h3>
-                            <div id="cs-exploration-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Middle Col: Combat Math -->
-                    <div class="space-y-8">
-                        <div>
-                            <h3 class="font-headline-sm text-primary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">swords</span> Combat Prowess</h3>
-                            <div id="cs-combat-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-error uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">warning</span> Status Effects</h3>
-                            <div id="cs-status-effects" class="space-y-2 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner text-[14px]">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Col: Equipment -->
-                    <div class="space-y-8">
-                        <div>
-                            <h3 class="font-headline-sm text-tertiary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">backpack</span> Active Equipment</h3>
-                            <div id="cs-equipment" class="space-y-4">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-success uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">group</span> Party Members</h3>
-                            <div id="cs-party" class="space-y-2 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        document.getElementById('cs-close').addEventListener('click', () => {
-            modal.style.display = 'none';
-            const hud = document.getElementById('game-hud');
-            if (hud) hud.style.display = 'flex';
-        });
-        modal.addEventListener('click', (e) => { 
-            if (e.target === modal) {
-                modal.style.display = 'none';
-                const hud = document.getElementById('game-hud');
-                if (hud) hud.style.display = 'flex';
-            }
-        });
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.style.display !== 'none') {
-                modal.style.display = 'none';
-                const hud = document.getElementById('game-hud');
-                if (hud) hud.style.display = 'flex';
-            }
-        });
+        this.hudManager._createCharacterSheetModal();
     }
     
     toggleCharacterSheet() {
-        const modal = document.getElementById('char-sheet-modal');
-        const hud = document.getElementById('game-hud');
-        if (!modal) return;
-        if (modal.style.display === 'none') {
-            this._updateCharacterSheet();
-            modal.style.display = '';
-            if (hud) hud.style.display = 'none';
-        } else {
-            modal.style.display = 'none';
-            if (hud) hud.style.display = 'flex';
-        }
+        this.hudManager.toggleCharacterSheet();
     }
     
     _updateCharacterSheet() {
-        const p = this.player;
-        if (!p) return;
-        
-        const stats = p.classData.stats;
-        const cd = p.classData;
-        const level = window.saveData ? window.saveData.level : 1;
-        const name = window.saveData ? window.saveData.name : 'Unknown';
-        const xp = window.saveData ? window.saveData.xp : 0;
-        const nextXp = level * 100;
-        const gold = window.saveData ? window.saveData.gold : 0;
-        const align = window.saveData ? window.saveData.alignment : 0;
-        
-        // --- Header Panel ---
-        document.getElementById('cs-name').innerText = name;
-        document.getElementById('cs-subtitle').innerText = `Level ${level} ${cd.id.charAt(0).toUpperCase() + cd.id.slice(1)}`;
-        
-        let alignText = "Neutral";
-        let alignColor = "#a0832b";
-        if (align > 20) { alignText = "Righteous"; alignColor = "#4ade80"; }
-        if (align < -20) { alignText = "Demonic"; alignColor = "#ff6b6b"; }
-        const alignEl = document.getElementById('cs-alignment');
-        alignEl.innerText = `${alignText} (${align})`;
-        alignEl.style.borderColor = alignColor;
-        alignEl.style.color = alignColor;
-        
-        document.getElementById('cs-gold').innerText = `${gold} Gold`;
-        document.getElementById('cs-xp').innerText = `${xp} / ${nextXp} XP`;
-        document.getElementById('cs-hpmp').innerText = `HP: ${p.hp}/${p.maxHp} | MP: ${p.mp}/${p.maxMp}`;
-
-        // Sprite
-        const spriteImg = document.getElementById('cs-sprite-img');
-        const frameW = cd.frameWidth || 64;
-        const frameH = cd.frameHeight || 64;
-        spriteImg.style.width = `${frameW}px`;
-        spriteImg.style.height = `${frameH}px`;
-        
-        let spritePath = '';
-        if (cd.id === 'knight') spritePath = 'GandalfHardcore FREE Warrior/GandalfHardcore Warrior.png';
-        else if (cd.id === 'wizard') spritePath = 'GandalfHardcore Wizard/GandalfHardcore Wizard/Black Wizard sheet.png';
-        else if (cd.id === 'samurai') spritePath = 'GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet black.png';
-        else if (cd.id === 'ranger') spritePath = 'GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png';
-        
-        spriteImg.style.backgroundImage = `url('src/assets/${spritePath}')`;
-        spriteImg.style.backgroundPosition = `-${cd.idleRow === undefined ? 0 : cd.idleRow * frameW}px 0px`;
-        spriteImg.style.backgroundRepeat = 'no-repeat';
-        
-        // --- Core Stats ---
-        const statColors = { vit: '#ff6b6b', str: '#ff9f43', dex: '#54a0ff', int: '#c471ed' };
-        document.getElementById('cs-core-stats').innerHTML = `
-            <div class="flex justify-between items-center"><span style="color:${statColors.vit}" class="font-bold tracking-wider">❤ VITALITY</span><span class="font-bold text-[18px]">${stats.vit}</span></div>
-            <div class="text-[12px] text-on-surface-variant mb-2">Increases Max HP.</div>
-            <div class="flex justify-between items-center"><span style="color:${statColors.str}" class="font-bold tracking-wider">⚔ STRENGTH</span><span class="font-bold text-[18px]">${stats.str}</span></div>
-            <div class="text-[12px] text-on-surface-variant mb-2">Increases Melee Damage & Jump Height.</div>
-            <div class="flex justify-between items-center"><span style="color:${statColors.dex}" class="font-bold tracking-wider">💨 DEXTERITY</span><span class="font-bold text-[18px]">${stats.dex}</span></div>
-            <div class="text-[12px] text-on-surface-variant mb-2">Increases Speed, Crit Chance & Dash.</div>
-            <div class="flex justify-between items-center"><span style="color:${statColors.int}" class="font-bold tracking-wider">✨ INTELLIGENCE</span><span class="font-bold text-[18px]">${stats.int}</span></div>
-            <div class="text-[12px] text-on-surface-variant">Increases Max MP & Magic Damage.</div>
-        `;
-        
-        // --- Combat Math ---
-        const weaponObj = p.inventory && p.inventory.weapon ? p.inventory.weapon : null;
-        const weaponBonusRaw = weaponObj ? weaponObj.damageBonus : 0;
-        const weaponBonus = typeof weaponBonusRaw === 'number' && !isNaN(weaponBonusRaw) ? weaponBonusRaw : 0;
-        
-        let baseDmgStr = "";
-        let baseDmg = 0;
-        if (cd.id === 'wizard') { baseDmg = (stats.int * 2); baseDmgStr = `(INT×2)`; }
-        else if (cd.id === 'samurai') { baseDmg = Math.floor(stats.dex * 2.5) + Math.floor(stats.str * 0.5); baseDmgStr = `(DEX×2.5 + STR×0.5)`; }
-        else if (cd.id === 'ranger') { baseDmg = (stats.dex * 2) + stats.str; baseDmgStr = `(DEX×2 + STR)`; }
-        else { baseDmg = (stats.str * 3); baseDmgStr = `(STR×3)`; }
-        
-        const rawDmg = baseDmg + weaponBonus;
-        const dmgMult = typeof p.getDamageMultiplier === 'function' ? p.getDamageMultiplier() : 1.0;
-        const finalDmg = Math.floor(rawDmg * dmgMult);
-
-        const drMult = typeof p.getDamageReduction === 'function' ? p.getDamageReduction() : 0.0;
-        const lifesteal = typeof p.getLifesteal === 'function' ? p.getLifesteal() : 0.0;
-
-        document.getElementById('cs-combat-stats').innerHTML = `
-            <div class="flex justify-between items-center mb-1"><span class="font-bold text-on-surface-variant">Max Output Damage</span><span class="font-bold text-primary text-[20px]">~${finalDmg}</span></div>
-            <div class="text-[12px] text-on-surface-variant mb-3 border-l-2 border-outline-variant pl-2 font-mono">
-                Base ${baseDmgStr}: <span class="text-on-surface">${baseDmg}</span><br>
-                Weapon Bonus: <span class="text-tertiary">+${weaponBonus}</span><br>
-                Multipliers: <span class="text-info">x${dmgMult.toFixed(2)}</span>
-            </div>
-            
-            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Critical Hit Chance</span><span class="font-bold text-secondary text-[16px]">${(p.critChance || 0).toFixed(1)}%</span></div>
-            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Damage Reduction</span><span class="font-bold text-info text-[16px]">${(drMult * 100).toFixed(0)}%</span></div>
-            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Lifesteal</span><span class="font-bold text-error text-[16px]">${(lifesteal * 100).toFixed(0)}%</span></div>
-        `;
-
-        // --- Exploration ---
-        document.getElementById('cs-exploration-stats').innerHTML = `
-            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Movement Speed</span><span class="font-bold text-[16px]">${p.speed} px/s</span></div>
-            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Dash Power</span><span class="font-bold text-[16px]">${p.dashSpeed} px/s</span></div>
-            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Jump Power</span><span class="font-bold text-[16px]">${Math.abs(p.jumpVelocity)} px/s</span></div>
-        `;
-
-        // --- Equipment ---
-        let equipHtml = "";
-        if (weaponObj) {
-            equipHtml += `
-                <div class="bg-surface-container border border-tertiary rounded p-3 flex gap-4 items-center shadow">
-                    <div class="w-12 h-12 bg-surface-container-highest rounded border border-outline-variant flex items-center justify-center" style="background-image: url('${weaponObj.iconSrc || weaponObj.imageSrc || ''}'); background-size: contain; background-repeat: no-repeat; background-position: center; image-rendering: pixelated;"></div>
-                    <div>
-                        <div class="font-bold text-tertiary uppercase tracking-wider text-[14px]">${weaponObj.name}</div>
-                        <div class="text-[12px] text-on-surface-variant">${weaponObj.desc}</div>
-                    </div>
-                </div>
-            `;
-        } else {
-            equipHtml += `<div class="text-on-surface-variant italic text-[14px]">No Weapon Equipped</div>`;
-        }
-        
-        let artObj = null;
-        if (p.inventory && p.inventory.artifacts && p.inventory.equippedArtifact >= 0) {
-            const artifactKey = p.inventory.artifacts[p.inventory.equippedArtifact];
-            artObj = window.ARTIFACTS_DATA[artifactKey];
-        }
-        
-        if (artObj) {
-            equipHtml += `
-                <div class="bg-surface-container border border-secondary rounded p-3 flex gap-4 items-center shadow mt-2">
-                    <div class="w-12 h-12 bg-surface-container-highest rounded border border-outline-variant flex items-center justify-center" style="background-image: url('${artObj.iconSrc}'); background-size: cover; image-rendering: pixelated;"></div>
-                    <div>
-                        <div class="font-bold text-secondary uppercase tracking-wider text-[14px]">${artObj.name}</div>
-                        <div class="text-[12px] text-on-surface-variant">${artObj.desc}</div>
-                    </div>
-                </div>
-            `;
-        } else {
-            equipHtml += `<div class="text-on-surface-variant italic text-[14px] mt-2">No Artifact Equipped</div>`;
-        }
-        document.getElementById('cs-equipment').innerHTML = equipHtml;
-
-        // --- Status Effects ---
-        let statusHtml = "";
-        
-        // Permanent Artifact Aura
-        if (artObj && artObj.statBoosts) {
-            statusHtml += `
-                <div class="flex justify-between items-center bg-surface border border-secondary rounded px-3 py-2 mb-2">
-                    <span style="color:#fbc531" class="font-bold uppercase flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">stars</span> Artifact Aura</span>
-                    <span class="text-on-surface-variant text-[12px]">${artObj.desc} (Permanent)</span>
-                </div>
-            `;
-        }
-        
-        if (p.statusEffects && p.statusEffects.length > 0) {
-            p.statusEffects.forEach(effect => {
-                let color = "#ff6b6b";
-                let icon = "warning";
-                if (['heal', 'buff', 'regen', 'blessing'].includes(effect.type)) { color = "#4ade80"; icon = "verified"; }
-                statusHtml += `
-                    <div class="flex justify-between items-center bg-surface border border-outline-variant rounded px-3 py-2 mb-2">
-                        <span style="color:${color}" class="font-bold uppercase flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">${icon}</span> ${effect.type}</span>
-                        <span class="text-on-surface-variant">${Math.ceil(effect.duration/1000)}s remaining</span>
-                    </div>
-                `;
-            });
-        }
-        
-        if (statusHtml === "") {
-            statusHtml = `<div class="text-on-surface-variant italic text-center py-2">No active effects</div>`;
-        }
-        document.getElementById('cs-status-effects').innerHTML = statusHtml;
-
-        // --- Party ---
-        let partyHtml = "";
-        if (this.partyMembers && this.partyMembers.length > 0) {
-            partyHtml = this.partyMembers.map((member, idx) => {
-                const memberMult = typeof member.getDamageMultiplier === 'function' ? member.getDamageMultiplier() : 1.0;
-                const mBaseDmg = member.classData.id === 'wizard' ? (member.classData.stats.int*2) : (member.classData.stats.str*3);
-                const mFinalDmg = Math.floor(mBaseDmg * memberMult);
-                const mBuffStr = memberMult > 1.0 ? ` <span style="color:#f6be3b">(+${Math.round((memberMult-1)*100)}%)</span>` : '';
-                
-                return `
-                <div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:8px;border:1px solid #3a3020;box-shadow:inset 0 0 10px rgba(0,0,0,0.5); position:relative;">
-                    <button onclick="window._gameScene.dismissPartyMember(${idx})" style="position:absolute; top:8px; right:8px; background:rgba(255,50,50,0.3); border:1px solid #ff6b6b; color:#fff; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:10px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,50,50,0.6)'" onmouseout="this.style.background='rgba(255,50,50,0.3)'">Dismiss</button>
-                    <div style="color:#a0832b;font-weight:bold;margin-bottom:4px;text-transform:capitalize;font-size:16px;">${member.npcName ? member.npcName : (member.classData.id === 'knight' ? 'Warrior' : member.classData.id)}</div>
-                    <div style="color:#888;font-size:11px;margin-bottom:8px;text-transform:uppercase;">${member.classData.id}</div>
-                    <div style="color:#ff6b6b;font-size:14px;margin-bottom:4px;">❤ HP: ${Math.round(member.hp)}/${member.maxHp}</div>
-                    <div style="color:#bbb;font-size:13px;margin-bottom:4px;">⚔️ Dmg: ~${mFinalDmg}${mBuffStr}</div>
-                    <div style="color:#f6be3b;font-size:13px;margin-bottom:12px;">🤝 Camaraderie: ${member.camaraderie || 0}</div>
-                    <button onclick="window._gameScene.startPartyChat(${idx})" style="width:100%; background:rgba(45,219,222,0.2); border:1px solid #2ddbde; color:#fff; border-radius:4px; padding:4px 0; cursor:pointer; font-size:12px; transition: background 0.2s;" onmouseover="this.style.background='rgba(45,219,222,0.5)'" onmouseout="this.style.background='rgba(45,219,222,0.2)'">💬 Chat</button>
-                </div>
-                `;
-            }).join('');
-        }
-        if (partyHtml === "") {
-            partyHtml = `<div class="text-on-surface-variant italic">No active party members</div>`;
-        }
-        document.getElementById('cs-party').innerHTML = partyHtml;
+        this.hudManager._updateCharacterSheet();
     }
     
     dismissPartyMember(index) {
-        if (!this.partyMembers || index < 0 || index >= this.partyMembers.length) return;
-        const member = this.partyMembers[index];
-        if (member && member.sprite && member.sprite.active) {
-            member.die();
-            if (this.player && this.player.sprite) {
-                this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 30, "Companion Dismissed", 0xffaa00);
-            }
-            this._updateCharacterSheet();
-            if (this.player && this.player.saveGame) {
-                this.player.saveGame();
-            }
-        }
+        this.hudManager.dismissPartyMember(index);
     }
 
     startPartyChat(index) {
-        if (!this.partyMembers || index < 0 || index >= this.partyMembers.length) return;
-        const member = this.partyMembers[index];
-        
-        // Hide character sheet
-        document.getElementById('ui-character-sheet').style.display = 'none';
-        this.isCharacterSheetOpen = false;
-        
-        if (member && member.openChat) {
-            member.openChat();
-        }
+        this.hudManager.startPartyChat(index);
     }
     
     updateHUD() {
-        if (!this.hudElements) return;
-        
-        const saveName = window.saveData ? window.saveData.name : 'Unknown Hero';
-        const saveLevel = window.saveData ? window.saveData.level : 1;
-        const saveGold = window.saveData ? window.saveData.gold : 0;
-        const saveXp = window.saveData ? (window.saveData.xp || 0) : 0;
-        const xpToNextLevel = saveLevel * 100;
-        const xpPercent = Math.min((saveXp / xpToNextLevel) * 100, 100);
-        
-        if (this.hudElements.nameLevel) {
-            // Update text but preserve the character sheet button
-            const btn = document.getElementById('btn-char-sheet');
-            this.hudElements.nameLevel.childNodes[0].textContent = `${saveName} (Lv.${saveLevel}) `;
-        }
-        if (this.hudElements.gold) this.hudElements.gold.innerText = `Gold: ${saveGold ?? 0}`;
-
-        // XP bar
-        if (this.hudElements.xpFill) this.hudElements.xpFill.style.width = `${xpPercent}%`;
-        if (this.hudElements.xpText) this.hudElements.xpText.innerText = `${saveXp}/${xpToNextLevel}`;
-        
-        // HP updates
-        if (this.player && this.hudElements.hpText && this.hudElements.hpFill) {
-            this.hudElements.hpText.innerText = `${Math.max(0, Math.floor(this.player.hp))}/${this.player.maxHp}`;
-            const hpPercent = (Math.max(0, this.player.hp) / this.player.maxHp) * 100;
-            this.hudElements.hpFill.style.width = `${hpPercent}%`;
-        }
-        
-        // MP bar
-        if (this.player && this.hudElements.mpFill) {
-            const mpPercent = (Math.max(0, this.player.mp) / (this.player.maxMp || 1)) * 100;
-            this.hudElements.mpFill.style.width = `${mpPercent}%`;
-        }
-        if (this.player && this.hudElements.mpText) {
-            this.hudElements.mpText.innerText = `${Math.floor(this.player.mp)}/${this.player.maxMp}`;
-        }
-        
-        // SP bar
-        if (this.player && this.hudElements.spFill) {
-            const spPercent = (Math.max(0, this.player.sp) / (this.player.maxSp || 1)) * 100;
-            this.hudElements.spFill.style.width = `${spPercent}%`;
-            if (window.debugSP) console.log(`SP: ${this.player.sp}, Percent: ${spPercent}%, Width set to: ${this.hudElements.spFill.style.width}`);
-        }
-
-        // Room Tracker
-        this.renderRoomTracker();
+        this.hudManager.updateHUD();
     }
 
     showLoading(isVisible) {
@@ -1041,325 +508,32 @@ class GameScene extends Phaser.Scene {
     }
 
     openTownDirectory() {
-        if (!this.player || !this.player.sprite || !this.player.sprite.active) return;
-        this.player.sprite.body.moves = false;
-        if (this.inputManager) this.inputManager.disableForInput();
-        
-        const ui = document.getElementById('ui-town-directory');
-        if (ui) ui.style.display = 'flex';
-
-        // Add ESC listener
-        this._dirEscListener = (e) => {
-            if (e.key === 'Escape') this.closeTownDirectory();
-        };
-        window.addEventListener('keydown', this._dirEscListener);
-
-        const closeBtn = document.getElementById('btn-close-directory');
-        if (closeBtn) closeBtn.onclick = () => this.closeTownDirectory();
-
-        const container = document.getElementById('directory-locations-container');
-        if (container) {
-            container.innerHTML = '';
-            Object.keys(window.INDOOR_LOCATIONS).forEach(id => {
-                const loc = window.INDOOR_LOCATIONS[id];
-                const card = `
-                    <div class="bg-surface-container-highest border border-outline-variant p-4 flex flex-col items-center gap-3 rounded hover:border-tertiary transition-colors cursor-pointer group" onclick="if(window._gameScene) window._gameScene.enterIndoorLocation('${id}')">
-                        <span class="material-symbols-outlined text-4xl text-on-surface group-hover:text-tertiary transition-colors" style="font-variation-settings: 'FILL' 1;">${loc.icon}</span>
-                        <div class="font-headline-sm text-[16px] text-tertiary font-bold text-center tracking-wider uppercase">${loc.name}</div>
-                        <div class="font-body-sm text-[11px] text-on-surface-variant text-center flex-1">${loc.desc}</div>
-                        <button class="w-full mt-2 py-2 bg-surface-container border border-tertiary text-tertiary uppercase text-[10px] font-bold tracking-widest group-hover:bg-tertiary group-hover:text-background transition-colors">Enter</button>
-                    </div>
-                `;
-                container.insertAdjacentHTML('beforeend', card);
-            });
-        }
+        this.indoorManager.openTownDirectory();
     }
 
     closeTownDirectory() {
-        if (this.player && this.player.sprite && this.player.sprite.active) {
-            this.player.sprite.body.moves = true;
-        }
-        if (this.inputManager) this.inputManager.enableForInput();
-        const ui = document.getElementById('ui-town-directory');
-        if (ui) ui.style.display = 'none';
-        if (this._dirEscListener) {
-            window.removeEventListener('keydown', this._dirEscListener);
-            this._dirEscListener = null;
-        }
+        this.indoorManager.closeTownDirectory();
     }
 
-    enterIndoorLocation(locationId) {
-        this.closeTownDirectory();
-        if (this.isTransitioning) return;
-        this.isTransitioning = true;
-        
-        const loc = window.INDOOR_LOCATIONS[locationId];
-        if (!loc) return;
-
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.isIndoors = true;
-            this.currentIndoorLocation = locationId;
-
-            // Clear town stuff
-            if (this.decorGroup) this.decorGroup.clear(true, true);
-            this.enemies.clear(true, true);
-            if (this.npcs) {
-                this.npcs.forEach(npc => {
-                    if (npc.sprite && npc.sprite.active) npc.sprite.destroy();
-                    if (npc.nameText && npc.nameText.active) npc.nameText.destroy();
-                });
-                this.npcs = [];
-            }
-            if (this.lootChests) {
-                this.lootChests.forEach(chest => {
-                    if (chest.sprite) chest.sprite.destroy();
-                    if (chest.promptText) chest.promptText.destroy();
-                });
-                this.lootChests = [];
-            }
-
-            // Hide normal backgrounds and clouds
-            this.bgLayers.forEach(bg => { if(bg && bg.active) bg.setVisible(false); });
-            if (this.clouds) this.clouds.forEach(c => { if(c && c.active) c.setVisible(false); });
-
-            // Fill the blue sky background with black so the 8px letterbox isn't noticeable
-            if (!this.indoorBlackBg) {
-                this.indoorBlackBg = this.add.rectangle(640, 360, 1280, 720, 0x000000).setDepth(-12);
-            } else {
-                this.indoorBlackBg.setVisible(true);
-            }
-
-            // Set indoor background
-            if (!this.indoorBg) {
-                // Anchor bottom-center so the visual floor aligns with the characters
-                this.indoorBg = this.add.image(640, 648, loc.bg).setOrigin(0.5, 1).setDepth(-10);
-            } else {
-                this.indoorBg.setTexture(loc.bg).setVisible(true);
-                this.indoorBg.setPosition(640, 648);
-            }
-            
-            // To fit a perfect 64px grid inside the 1280x720 canvas without clipping,
-            // the full frame will be 1280x704 (centered with an 8px top/bottom letterbox).
-            // This leaves the interior room as exactly 1152x576 (18x9 tiles).
-            this.indoorBg.displayWidth = 1152;
-            this.indoorBg.displayHeight = 576;
-            this.indoorBg.scaleX = this.indoorBg.displayWidth / this.indoorBg.width;
-            this.indoorBg.scaleY = this.indoorBg.displayHeight / this.indoorBg.height;
-
-            // Dynamically build the border frame around the room using the 7x7 tile set
-            if (!this.indoorWallBgGroup) {
-                this.indoorWallBgGroup = this.add.group();
-                
-                const corners = {
-                    tl: 14, tr: 20, bl: 84, br: 90
-                };
-                
-                const edges = {
-                    top: [15, 16, 17, 18, 19],
-                    bottom: [85, 86, 87, 88, 89],
-                    left: [28, 42, 56, 70],
-                    right: [34, 48, 62, 76]
-                };
-
-                const addTile = (x, y, frame) => {
-                    this.indoorWallBgGroup.add(
-                        this.add.image(x, y, 'house_inside_tiles', frame)
-                            .setOrigin(0, 0)
-                            .setDepth(-11)
-                            .setScale(2)
-                    );
-                };
-
-                // Draw Corners perfectly spanning 1280x704 (starting at Y=8 to center vertically)
-                addTile(0, 8, corners.tl);
-                addTile(1216, 8, corners.tr);
-                addTile(0, 648, corners.bl);
-                addTile(1216, 648, corners.br);
-
-                // Draw Top and Bottom Edges (18 tiles horizontally)
-                for (let x = 64; x < 1216; x += 64) {
-                    addTile(x, 8, Phaser.Math.RND.pick(edges.top));
-                    addTile(x, 648, Phaser.Math.RND.pick(edges.bottom));
-                }
-
-                // Draw Left and Right Edges (9 tiles vertically)
-                for (let y = 72; y < 648; y += 64) {
-                    addTile(0, y, Phaser.Math.RND.pick(edges.left));
-                    addTile(1216, y, Phaser.Math.RND.pick(edges.right));
-                }
-            } else {
-                this.indoorWallBgGroup.getChildren().forEach(img => img.setVisible(true));
-            }
-
-            // Tint the floor
-            this.platforms.getChildren().forEach(tile => {
-                tile.setTint(loc.floorTint);
-            });
-
-            // Set indoor floor collision
-            if (!this.indoorFloor) {
-                // Use a physics zone instead of an image to avoid missing texture issues
-                this.indoorFloor = this.add.zone(640, 696, 1280, 50);
-                this.physics.add.existing(this.indoorFloor, true); // true = static body
-                this.physics.add.collider(this.player.sprite, this.indoorFloor);
-
-                // Add invisible walls to prevent walking off the floor into the void
-                this.indoorLeftWall = this.add.zone(32, 360, 64, 720);
-                this.physics.add.existing(this.indoorLeftWall, true);
-                this.physics.add.collider(this.player.sprite, this.indoorLeftWall);
-
-                this.indoorRightWall = this.add.zone(1248, 360, 64, 720);
-                this.physics.add.existing(this.indoorRightWall, true);
-                this.physics.add.collider(this.player.sprite, this.indoorRightWall);
-            } else {
-                this.indoorFloor.setActive(true);
-                this.indoorFloor.body.enable = true;
-                if (this.indoorLeftWall) {
-                    this.indoorLeftWall.setActive(true);
-                    this.indoorLeftWall.body.enable = true;
-                }
-                if (this.indoorRightWall) {
-                    this.indoorRightWall.setActive(true);
-                    this.indoorRightWall.body.enable = true;
-                }
-            }
-
-            // Move player to center and scale up, spawned high enough to not clip into floor
-            if (this.player && this.player.sprite && this.player.sprite.active) {
-                this.player.sprite.setPosition(400, 500);
-                this.player.sprite.setVelocity(0, 0);
-                if (typeof this.player.setScaleWithPhysics === 'function') {
-                    this.player.setScaleWithPhysics(2.5);
-                } else {
-                    this.player.sprite.setScale(2.5);
-                }
-                this.player.facingDirection = 1;
-            }
-            if (this.partyMembers) {
-                this.partyMembers.forEach(member => {
-                    if (member && member.sprite && member.sprite.active) {
-                        member.sprite.setPosition(300, 500);
-                        member.sprite.setVelocity(0, 0);
-                        if (typeof member.setScaleWithPhysics === 'function') {
-                            member.setScaleWithPhysics(2.5);
-                        } else {
-                            member.sprite.setScale(2.5);
-                        }
-                        if (this.indoorFloor) {
-                            this.physics.add.collider(member.sprite, this.indoorFloor);
-                        }
-                    }
-                });
-            }
-
-            // Spawn Location NPC
-            const npc = new NPCController(this, 900, 500, this.player, this.geminiService, loc.npcName, loc.npcPersona, loc.npcSprite);
-            npc.isIndoorNPC = true;
-            npc.indoorAction = loc.action;
-            npc.sprite.setScale(2.5); // NPCs aren't using setScaleWithPhysics yet, just standard scale
-            if (this.indoorFloor) {
-                this.physics.add.collider(npc.sprite, this.indoorFloor);
-            }
-            this.npcs.push(npc);
-
-            // Add Leave Button to HUD
-            this._addIndoorLeaveButton();
-
-            this.isTransitioning = false;
-            this.cameras.main.fadeIn(500, 0, 0, 0);
-        });
-    }
-
-    _addIndoorLeaveButton() {
-        if (!this.indoorLeaveBtn) {
-            this.indoorLeaveBtn = document.createElement('button');
-            this.indoorLeaveBtn.innerText = 'Leave ' + window.INDOOR_LOCATIONS[this.currentIndoorLocation].name;
-            this.indoorLeaveBtn.style.cssText = 'position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(0,0,0,0.8); border: 2px solid #cc0000; color: #ffcccc; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-family: "Courier Prime", monospace; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;';
-            this.indoorLeaveBtn.onclick = () => this.exitIndoorLocation();
-            this.indoorLeaveBtn.onmouseover = () => this.indoorLeaveBtn.style.background = 'rgba(200,0,0,0.8)';
-            this.indoorLeaveBtn.onmouseout = () => this.indoorLeaveBtn.style.background = 'rgba(0,0,0,0.8)';
-            document.body.appendChild(this.indoorLeaveBtn);
-        } else {
-            this.indoorLeaveBtn.innerText = 'Leave ' + window.INDOOR_LOCATIONS[this.currentIndoorLocation].name;
-            this.indoorLeaveBtn.style.display = 'block';
-        }
+    enterIndoorLocation(locationKey) {
+        this.indoorManager.enterIndoorLocation(locationKey);
     }
 
     exitIndoorLocation() {
-        if (this.isTransitioning || !this.isIndoors) return;
-        this.isTransitioning = true;
-        
-        if (this.indoorLeaveBtn) this.indoorLeaveBtn.style.display = 'none';
-
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.isIndoors = false;
-            this.currentIndoorLocation = null;
-
-            if (this.indoorBlackBg) this.indoorBlackBg.setVisible(false);
-            if (this.indoorBg) this.indoorBg.setVisible(false);
-            if (this.indoorWallBgGroup) {
-                this.indoorWallBgGroup.getChildren().forEach(img => img.setVisible(false));
-            }
-
-            // Disable the indoor floor and walls
-            if (this.indoorFloor) {
-                this.indoorFloor.setActive(false);
-                this.indoorFloor.body.enable = false;
-            }
-            if (this.indoorLeftWall) this.indoorLeftWall.body.enable = false;
-            if (this.indoorRightWall) this.indoorRightWall.body.enable = false;
-
-            // Destroy indoor NPCs (Weapons Master, shopkeepers, etc.)
-            if (this.npcs) {
-                this.npcs.forEach(npc => {
-                    if (npc.isIndoorNPC) {
-                        if (npc.sprite && npc.sprite.active) npc.sprite.destroy();
-                        if (npc.nameText && npc.nameText.active) npc.nameText.destroy();
-                        if (npc.promptText && npc.promptText.active) npc.promptText.destroy();
-                    }
-                });
-                this.npcs = this.npcs.filter(npc => !npc.isIndoorNPC);
-            }
-
-            // Reset player scale back to normal
-            if (this.player && this.player.sprite && this.player.sprite.active) {
-                if (typeof this.player.setScaleWithPhysics === 'function') {
-                    this.player.setScaleWithPhysics(1.5);
-                } else {
-                    this.player.sprite.setScale(1.5);
-                }
-            }
-
-            // Reset party member scale back to normal
-            if (this.partyMembers) {
-                this.partyMembers.forEach(member => {
-                    if (member && member.sprite && member.sprite.active) {
-                        if (typeof member.setScaleWithPhysics === 'function') {
-                            member.setScaleWithPhysics(1.5);
-                        } else {
-                            member.sprite.setScale(1.5);
-                        }
-                    }
-                });
-            }
-
-            // Rebuild the town zone
-            const zoneData = this.worldManager.currentZoneData;
-            this.worldManager.buildZone(zoneData, 'center');
-
-            this.isTransitioning = false;
-            this.cameras.main.fadeIn(500, 0, 0, 0);
-        });
+        this.indoorManager.exitIndoorLocation();
     }
 
     transitionZone(direction) {
         if (this.isTransitioning) return;
         this.isTransitioning = true;
-        
-        const nextZoneIndex = window.saveData.currentZone + direction;
+        const currentZone = (window.saveData && window.saveData.currentZone !== undefined) ? window.saveData.currentZone : 0;
+        const nextZoneIndex = currentZone + direction;
         const spawnSide = direction === 1 ? 'left' : 'right'; // If moving right, spawn left.
+        
+        // Save active zone state (enemies) before transition
+        if (this.worldManager) {
+            this.worldManager.saveZoneState();
+        }
         
         // Auto-Save all stats, inventory, quests, and alignment
         if (this.player && this.player.saveGame) {
@@ -1391,8 +565,7 @@ class GameScene extends Phaser.Scene {
             // clear NPCs too if we had a group
             if (this.npcs) {
                 this.npcs.forEach(npc => {
-                    if (npc.sprite && npc.sprite.active) npc.sprite.destroy();
-                    if (npc.nameText && npc.nameText.active) npc.nameText.destroy();
+                    if (npc && typeof npc.destroy === 'function') npc.destroy();
                 });
                 this.npcs = [];
             }
@@ -1408,9 +581,11 @@ class GameScene extends Phaser.Scene {
             
             // Reload
             this.worldManager.loadZone(nextZoneIndex, spawnSide).then(() => {
+                if (this.isSceneDestroyed) return;
                 this.isTransitioning = false;
                 this.cameras.main.fadeIn(500, 0, 0, 0);
             }).catch(err => {
+                if (this.isSceneDestroyed) return;
                 console.error("CRITICAL: Error during loadZone transition!", err);
                 // Recover from freeze by ending the transition
                 this.isTransitioning = false;
@@ -1420,613 +595,11 @@ class GameScene extends Phaser.Scene {
     }
 
     setBiomeVisuals(biome, zoneType = 'Hostile') {
-        // Clear old background layers
-        if (this.bgLayers) {
-            this.bgLayers.forEach(bg => bg.destroy());
-        }
-        this.bgLayers = [];
-
-        // Clear old platforms
-        this.platforms.clear(true, true);
-
-        // Map Biomes to Sky Colors, Floor Tiles, and BG layers
-        let skyColor = '#87CEEB'; // Default light blue
-        let floorKey = 'floor';
-        let floorFrame = undefined;
-        let floorTint = 0xffffff; // Default no tint
-        let bgConfig = [];
-
-        if (biome === 'Forest' || !biome) {
-            skyColor = '#2d4c1e';
-            floorKey = 'floor';
-            bgConfig = [
-                { key: 'bg_forest', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Plains') {
-            skyColor = '#87CEEB';
-            floorKey = 'floor';
-            bgConfig = [
-                { key: 'bg_plains', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Desert') {
-            skyColor = '#e0a96d';
-            floorKey = 'floor_desert';
-            bgConfig = [
-                { key: 'bg_desert_1', scroll: 0.1, depth: -9 },
-                { key: 'bg_desert_2', scroll: 0.2, depth: -8 },
-                { key: 'bg_desert_3', scroll: 0.3, depth: -7 },
-                { key: 'bg_desert_4', scroll: 0.4, depth: -6 },
-                { key: 'bg_desert_5', scroll: 0.5, depth: -5 }
-            ];
-        } else if (biome === 'Cave') {
-            skyColor = '#111111';
-            floorKey = 'floor_hell';
-            floorTint = 0x555566;
-            bgConfig = [
-                { key: 'bg_dungeon', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Dungeon') {
-            skyColor = '#1a1525';
-            floorKey = 'floor_hell';
-            floorTint = 0x7777aa; // Grey-blue stone
-            bgConfig = [
-                { key: 'bg_dungeon', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Hell') {
-            skyColor = '#1a0b0b';
-            floorKey = 'floor_hell';
-            bgConfig = [
-                { key: 'bg_hell_gemini', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Deadwoods') {
-            skyColor = '#2b2a33';
-            floorKey = 'floor';
-            floorTint = 0x887788;
-            bgConfig = [
-                { key: 'bg_deadwoods_gemini', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Winter') {
-            skyColor = '#1f2937';
-            floorKey = 'floor'; // Use the main floor tileset
-            floorFrame = 109; // Frame 109 is the snow-capped top-center block
-            floorTint = 0xffffff;
-            bgConfig = [
-                { key: 'bg_winter_mountains', scroll: 0.1, depth: -9 }
-            ];
-        } else if (biome === 'Coastal') {
-            skyColor = '#87CEEB';
-            floorKey = 'floor_desert'; // Use sand tile for coast
-            floorFrame = 0;
-            floorTint = 0xffeedd;
-            bgConfig = [];
-            
-            // Build custom dynamic ocean background
-            this.waterLayers = [];
-            
-            // Create animation if it doesn't exist
-            if (!this.anims.exists('coastal_waves')) {
-                this.anims.create({
-                    key: 'coastal_waves',
-                    frames: this.anims.generateFrameNumbers('coastal_anim', { start: 0, end: 12 }),
-                    frameRate: 10,
-                    repeat: -1
-                });
-            }
-            
-            // The GIF is 1280x1280, we want it to cover the screen and scroll slowly
-            let bgSprite = this.add.sprite(640, 720, 'coastal_anim')
-                .setOrigin(0.5, 1)
-                .setScrollFactor(0.1)
-                .setDepth(-10);
-                
-            // Scale to fit height or width, since it's 1280x1280, it easily covers a 1280x720 screen
-            const scaleX = 1280 / bgSprite.width;
-            const scaleY = 720 / bgSprite.height;
-            bgSprite.setScale(Math.max(scaleX, scaleY));
-            bgSprite.setScrollFactor(0); // Pin to camera
-            
-            bgSprite.play('coastal_waves');
-            this.bgLayers.push(bgSprite);
-        }
-
-        this.cameras.main.setBackgroundColor(skyColor);
-
-        // Toggle clouds based on biome
-        const showClouds = (biome !== 'Dungeon' && biome !== 'Hell');
-        if (this.clouds) {
-            this.clouds.forEach(cloud => cloud.setVisible(showClouds));
-        }
-
-        // Build Background Layers
-        bgConfig.forEach(config => {
-            let yPos = 720 + (config.yOffset || 0);
-            let bg = this.add.image(640, yPos, config.key).setOrigin(0.5, 1).setScrollFactor(0).setDepth(config.depth);
-            // Scale appropriately based on image dimensions to completely fill the screen
-            const scaleX = 1280 / bg.width;
-            const scaleY = 720 / bg.height;
-            const scale = Math.max(scaleX, scaleY);
-            bg.setScale(scale);
-            this.bgLayers.push(bg);
-        });
-
-        // Build Floor / Platforms
-        if (zoneType === 'Safe') {
-            // Flat floor for towns (84 blocks for 3840 width)
-            for(let i = 0; i < 84; i++) {
-                let frameIdx = (floorFrame !== undefined) ? floorFrame : ((floorKey === 'floor') ? 1 : 0);
-                let block = this.platforms.create(i * 46 + 24, 696, floorKey, frameIdx).setScale(1.5).refreshBody();
-                if (floorTint !== 0xffffff) {
-                    block.setTint(floorTint);
-                }
-            }
-        } else {
-            // 2D Platforming logic
-            let currentX = 24;
-            let currentY = 696;
-            
-            // Always ensure the first and last few blocks are solid so the player/exits don't fall
-            for(let i = 0; i < 3; i++) {
-                let frameIdx = (floorFrame !== undefined) ? floorFrame : ((floorKey === 'floor') ? 1 : 0);
-                let block = this.platforms.create(i * 46 + 24, currentY, floorKey, frameIdx).setScale(1.5).refreshBody();
-                if (floorTint !== 0xffffff) block.setTint(floorTint);
-            }
-            
-            for(let i = 3; i < 81; i++) {
-                currentX = i * 46 + 24;
-                
-                // 15% chance to have a hole (skip block)
-                if (Math.random() < 0.15) continue;
-                
-                // 30% chance to change elevation
-                if (Math.random() < 0.3) {
-                    let change = (Math.random() > 0.5 ? -46 : 46) * Math.floor(Math.random() * 2 + 1);
-                    currentY += change;
-                    // Keep within reasonable bounds
-                    if (currentY < -1500) currentY = -1500;
-                    if (currentY > 696) currentY = 696; // Pin lowest platform to ground level
-                }
-                
-                let frameIdx = (floorFrame !== undefined) ? floorFrame : ((floorKey === 'floor') ? 1 : 0);
-                let block = this.platforms.create(currentX, currentY, floorKey, frameIdx).setScale(1.5).refreshBody();
-                if (floorTint !== 0xffffff) block.setTint(floorTint);
-                
-                // Sometimes add an extra floating platform above
-                if (Math.random() < 0.2) {
-                    let platY = currentY - (Math.floor(Math.random() * 3 + 2) * 46);
-                    let blockAbove = this.platforms.create(currentX, platY, floorKey, frameIdx).setScale(1.5).refreshBody();
-                    if (floorTint !== 0xffffff) blockAbove.setTint(floorTint);
-                }
-            }
-            
-            // Ensure the end blocks are solid
-            currentY = 696;
-            for(let i = 81; i < 84; i++) {
-                let frameIdx = (floorFrame !== undefined) ? floorFrame : ((floorKey === 'floor') ? 1 : 0);
-                let block = this.platforms.create(i * 46 + 24, currentY, floorKey, frameIdx).setScale(1.5).refreshBody();
-                if (floorTint !== 0xffffff) block.setTint(floorTint);
-            }
-        }
-
-        // Rebuild colliders to link the new platform instances
-        if (this.playerCollider) this.physics.world.removeCollider(this.playerCollider);
-        if (this.enemiesCollider) this.physics.world.removeCollider(this.enemiesCollider);
-        
-        this.playerCollider = this.physics.add.collider(this.heroGroup || this.player.sprite, this.platforms);
-        this.enemiesCollider = this.physics.add.collider(this.enemies, this.platforms);
+        this.levelGenerator.setBiomeVisuals(biome, zoneType);
     }
 
     createDebugPanel() {
-        if (document.getElementById('debug-panel')) return;
-        
-        const panel = document.createElement('div');
-        panel.id = 'debug-panel';
-        panel.style.cssText = 'display: none; position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 9999; width: 400px; height: 90vh; overflow-y: auto; font-family: monospace; font-size: 12px;';
-        
-        let html = '<div style="display:flex; justify-content:space-between; align-items:center;">';
-        html += '<h3 style="margin:0;">Sprite Debugger</h3>';
-        html += '<button id="debug-close" style="background:#cc0000; color:white; border:none; padding:2px 6px; cursor:pointer; font-weight:bold;">X</button>';
-        html += '</div>';
-        html += '<div style="margin-bottom: 10px; font-size: 10px; color: #aaa;">Press ` (backtick) to toggle</div>';
-        html += '<select id="debug-sprite" style="width: 100%; margin-bottom: 10px; color: black; background: white;">';
-        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant', 'house_inside_tiles'].forEach(key => {
-            html += `<option value="${key}">${key}</option>`;
-        });
-        html += '</select>';
-        
-        html += '<div style="position: relative; overflow: auto; width: 100%; height: 200px; border: 1px solid #444; margin-bottom: 10px;">';
-        html += '<canvas id="debug-canvas" width="1024" height="512"></canvas>';
-        html += '<div id="debug-hover-info" style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.8); color: #fff; padding: 3px 6px; font-weight: bold; font-size: 11px; border-radius: 4px; pointer-events: none; display: none;"></div>';
-        html += '</div>';
-
-        html += '<div id="debug-controls"></div>';
-        
-        html += '<button id="debug-apply" style="width: 100%; padding: 5px; margin-top: 10px;">Apply & Restart</button>';
-        
-        panel.innerHTML = html;
-        document.body.appendChild(panel);
-
-        const canvas = document.getElementById('debug-canvas');
-        const ctx = canvas.getContext('2d');
-        const select = document.getElementById('debug-sprite');
-        const controls = document.getElementById('debug-controls');
-        
-        // Store per-sprite column slice data
-        if (!window.sliceColData) {
-            try {
-                const saved = localStorage.getItem('sprite_slice_coldata');
-                window.sliceColData = saved ? JSON.parse(saved) : {};
-            } catch(e) { window.sliceColData = {}; }
-        }
-        // Force reset the cached slices for house_inside_tiles so the 32x32 grid applies
-        delete window.sliceColData['house_inside_tiles'];
-        if (window.sliceData) delete window.sliceData['house_inside_tiles'];
-        // Track which mode the debugger is in
-        if (!window.debugMode) window.debugMode = 'rows';
-
-        const getDefaultCols = (key) => {
-            if (key === 'house_inside_tiles') {
-                const arr = [];
-                for (let c = 0; c < 14; c++) arr.push({ x: c * 32, w: 32 });
-                return arr;
-            }
-            const colW = 102;
-            const count = 10;
-            const arr = [];
-            for (let c = 0; c < count; c++) arr.push({ x: c * colW, w: colW });
-            return arr;
-        };
-
-        const renderControls = () => {
-            const key = select.value;
-            let rowData = window.sliceData[key];
-            if (!rowData) {
-                if (key === 'house_inside_tiles') {
-                    rowData = window.sliceData[key] = [];
-                    for (let r = 0; r < 13; r++) rowData.push({ y: r * 32, h: 32 });
-                } else {
-                    rowData = window.sliceData[key] = [
-                        { y: 0, h: 85 }, { y: 85, h: 85 }, { y: 170, h: 85 }, { y: 255, h: 85 }, { y: 340, h: 85 }, { y: 425, h: 87 }
-                    ];
-                }
-            }
-            let colData = window.sliceColData[key];
-            if (!colData) colData = window.sliceColData[key] = getDefaultCols(key);
-
-            const mode = window.debugMode;
-            let html = '';
-
-            // Radio buttons
-            html += `<div style="margin-bottom: 8px; padding: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; display:flex; gap:15px; align-items:center;">`;
-            html += `<label style="cursor:pointer;"><input type="radio" name="debug-mode" value="rows" ${mode === 'rows' ? 'checked' : ''} style="margin-right:4px;">Rows (${rowData.length})</label>`;
-            html += `<label style="cursor:pointer;"><input type="radio" name="debug-mode" value="cols" ${mode === 'cols' ? 'checked' : ''} style="margin-right:4px;">Columns (${colData.length})</label>`;
-            html += `<button id="debug-add" style="margin-left:auto; padding:2px 8px; background:#0077cc; color:white; border:none; cursor:pointer; border-radius:3px; font-size:11px;">+ Add</button>`;
-            html += `<button id="debug-remove" style="padding:2px 8px; background:#cc3300; color:white; border:none; cursor:pointer; border-radius:3px; font-size:11px;">− Remove</button>`;
-            html += `</div>`;
-
-            if (mode === 'rows') {
-                for (let r = 0; r < rowData.length; r++) {
-                    html += `<div style="margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 5px;">`;
-                    html += `<b>Row ${r}</b><br>`;
-                    html += `Y: <input type="number" id="debug-${key}-r${r}-y" value="${rowData[r].y}" style="width: 60px; color: black; background: white;"> `;
-                    html += `H: <input type="number" id="debug-${key}-r${r}-h" value="${rowData[r].h}" style="width: 60px; color: black; background: white;">`;
-                    html += `</div>`;
-                }
-            } else {
-                for (let c = 0; c < colData.length; c++) {
-                    html += `<div style="margin-bottom: 5px; border-bottom: 1px solid #444; padding-bottom: 5px;">`;
-                    html += `<b>Col ${c}</b><br>`;
-                    html += `X: <input type="number" id="debug-${key}-c${c}-x" value="${colData[c].x}" style="width: 60px; color: black; background: white;"> `;
-                    html += `W: <input type="number" id="debug-${key}-c${c}-w" value="${colData[c].w}" style="width: 60px; color: black; background: white;">`;
-                    html += `</div>`;
-                }
-            }
-
-            html += `<button id="debug-apply" style="margin-top: 10px; width: 100%; padding: 8px; background: #00aa00; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">Apply & Save</button>`;
-            controls.innerHTML = html;
-
-            // Radio change handler
-            document.querySelectorAll('input[name="debug-mode"]').forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    window.debugMode = e.target.value;
-                    renderControls();
-                });
-            });
-
-            // Add button
-            document.getElementById('debug-add').addEventListener('click', () => {
-                if (mode === 'rows') {
-                    const last = rowData[rowData.length - 1];
-                    rowData.push({ y: last.y + last.h, h: last.h });
-                } else {
-                    const last = colData[colData.length - 1];
-                    colData.push({ x: last.x + last.w, w: last.w });
-                }
-                renderControls();
-            });
-
-            // Remove button
-            document.getElementById('debug-remove').addEventListener('click', () => {
-                if (mode === 'rows' && rowData.length > 1) rowData.pop();
-                else if (mode === 'cols' && colData.length > 1) colData.pop();
-                renderControls();
-            });
-
-            // Input handlers
-            if (mode === 'rows') {
-                for (let r = 0; r < rowData.length; r++) {
-                    document.getElementById(`debug-${key}-r${r}-y`).addEventListener('input', updateData);
-                    document.getElementById(`debug-${key}-r${r}-h`).addEventListener('input', updateData);
-                }
-            } else {
-                for (let c = 0; c < colData.length; c++) {
-                    const cx = document.getElementById(`debug-${key}-c${c}-x`);
-                    const cw = document.getElementById(`debug-${key}-c${c}-w`);
-                    cx.addEventListener('input', () => { colData[c].x = parseInt(cx.value) || 0; drawCanvas(); });
-                    cw.addEventListener('input', () => { colData[c].w = parseInt(cw.value) || 0; drawCanvas(); });
-                }
-            }
-
-            // Apply & Save
-            document.getElementById('debug-apply').addEventListener('click', () => {
-                localStorage.setItem('sprite_slice_data', JSON.stringify(window.sliceData));
-                localStorage.setItem('sprite_slice_coldata', JSON.stringify(window.sliceColData));
-                const btn = document.getElementById('debug-apply');
-                btn.textContent = '✓ Saved!';
-                btn.style.background = '#006600';
-                setTimeout(() => { btn.textContent = 'Apply & Save'; btn.style.background = '#00aa00'; }, 1500);
-            });
-
-            drawCanvas();
-        };
-
-        const updateData = () => {
-            const key = select.value;
-            const data = window.sliceData[key];
-            if (!data) return;
-            for (let r = 0; r < data.length; r++) {
-                data[r].y = parseInt(document.getElementById(`debug-${key}-r${r}-y`).value) || 0;
-                data[r].h = parseInt(document.getElementById(`debug-${key}-r${r}-h`).value) || 0;
-            }
-            drawCanvas();
-        };
-
-        const drawCanvas = () => {
-            const key = select.value;
-            let img = null;
-            if (key === 'lich_lord') img = this.registry.get('debug_tex_lich');
-            if (key === 'skeleton') img = this.registry.get('debug_tex_skeleton');
-            if (key === 'the_devil') img = this.registry.get('debug_tex_devil');
-            if (key === 'frost_giant') img = this.registry.get('debug_tex_frost_giant');
-            if (key === 'house_inside_tiles') img = this.registry.get('debug_tex_house_tiles');
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (img && img.src) {
-                try { ctx.drawImage(img, 0, 0); } catch(e) { console.warn("Failed to draw image to debug canvas", e); }
-            }
-            
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 1;
-            const data = window.sliceData[key];
-            if (data) {
-                for (let r = 0; r < data.length; r++) {
-                    const rowY = data[r].y;
-                    const rowH = data[r].h;
-                    
-                    // Highlight the edge if we are hovering or dragging it
-                    if (dragState.active && dragState.row === r) {
-                        ctx.strokeStyle = 'yellow';
-                        ctx.lineWidth = 2;
-                    } else {
-                        ctx.strokeStyle = 'red';
-                        ctx.lineWidth = 1;
-                    }
-                    
-                    // Draw bounding box for the entire row
-                    ctx.strokeRect(0, rowY, 1024, rowH);
-                    
-                    // Fill the box lightly so it's obvious it's a box
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                    ctx.fillRect(0, rowY, 1024, rowH);
-                    
-                    // Label the row
-                    ctx.fillStyle = 'white';
-                    ctx.font = '16px monospace';
-                    ctx.fillText(`ROW ${r}`, 10, rowY + 20);
-                    
-                    // Draw vertical guides for the columns
-                    const colData = window.sliceColData[key];
-                    if (colData) {
-                        ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // Increased opacity to make them darker/more visible
-                        ctx.lineWidth = 1.5;
-                        for (let c = 0; c < colData.length; c++) {
-                            ctx.strokeRect(colData[c].x, rowY, colData[c].w, rowH);
-                        }
-                    }
-                    ctx.strokeStyle = 'red';
-                }
-            }
-        };
-
-        let dragState = { active: false, axis: null, idx: -1, edge: null, startPos: 0, startVal: 0, startSize: 0 };
-        
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const mx = (e.clientX - rect.left) * scaleX;
-            const my = (e.clientY - rect.top) * scaleY;
-            
-            const key = select.value;
-            const rowData = window.sliceData[key];
-            const colData = window.sliceColData[key];
-            
-            // Check column edges first (left/right)
-            if (colData) {
-                for (let c = colData.length - 1; c >= 0; c--) {
-                    const colX = colData[c].x;
-                    const colRight = colData[c].x + colData[c].w;
-                    if (Math.abs(mx - colX) < 10) {
-                        dragState = { active: true, axis: 'col', idx: c, edge: 'left', startPos: mx, startVal: colX, startSize: colData[c].w };
-                        return;
-                    }
-                    if (Math.abs(mx - colRight) < 10) {
-                        dragState = { active: true, axis: 'col', idx: c, edge: 'right', startPos: mx, startVal: colX, startSize: colData[c].w };
-                        return;
-                    }
-                }
-            }
-            
-            // Check row edges (top/bottom)
-            if (rowData) {
-                for (let r = rowData.length - 1; r >= 0; r--) {
-                    const rowY = rowData[r].y;
-                    const rowBottom = rowData[r].y + rowData[r].h;
-                    if (Math.abs(my - rowY) < 10) {
-                        dragState = { active: true, axis: 'row', idx: r, edge: 'top', startPos: my, startVal: rowY, startSize: rowData[r].h };
-                        return;
-                    }
-                    if (Math.abs(my - rowBottom) < 10) {
-                        dragState = { active: true, axis: 'row', idx: r, edge: 'bottom', startPos: my, startVal: rowY, startSize: rowData[r].h };
-                        return;
-                    }
-                }
-                // Middle drag for rows
-                for (let r = rowData.length - 1; r >= 0; r--) {
-                    const rowY = rowData[r].y;
-                    const rowBottom = rowData[r].y + rowData[r].h;
-                    if (my >= rowY + 10 && my <= rowBottom - 10) {
-                        dragState = { active: true, axis: 'row', idx: r, edge: 'middle', startPos: my, startVal: rowY, startSize: rowData[r].h };
-                        return;
-                    }
-                }
-            }
-        });
-        
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const mx = (e.clientX - rect.left) * scaleX;
-            const my = (e.clientY - rect.top) * scaleY;
-            
-            const key = select.value;
-            const rowData = window.sliceData[key];
-            const colData = window.sliceColData[key];
-            
-            if (dragState.active) {
-                const i = dragState.idx;
-                if (dragState.axis === 'row') {
-                    const dy = my - dragState.startPos;
-                    if (dragState.edge === 'top') {
-                        rowData[i].y = Math.round(dragState.startVal + dy);
-                        rowData[i].h = Math.round(dragState.startSize - dy);
-                    } else if (dragState.edge === 'bottom') {
-                        rowData[i].h = Math.round(dragState.startSize + dy);
-                    } else {
-                        rowData[i].y = Math.round(dragState.startVal + dy);
-                    }
-                    const yInput = document.getElementById(`debug-${key}-r${i}-y`);
-                    const hInput = document.getElementById(`debug-${key}-r${i}-h`);
-                    if (yInput) yInput.value = rowData[i].y;
-                    if (hInput) hInput.value = rowData[i].h;
-                } else if (dragState.axis === 'col') {
-                    const dx = mx - dragState.startPos;
-                    if (dragState.edge === 'left') {
-                        colData[i].x = Math.round(dragState.startVal + dx);
-                        colData[i].w = Math.round(dragState.startSize - dx);
-                    } else if (dragState.edge === 'right') {
-                        colData[i].w = Math.round(dragState.startSize + dx);
-                    }
-                    const xInput = document.getElementById(`debug-${key}-c${i}-x`);
-                    const wInput = document.getElementById(`debug-${key}-c${i}-w`);
-                    if (xInput) xInput.value = colData[i].x;
-                    if (wInput) wInput.value = colData[i].w;
-                }
-                drawCanvas();
-            } else {
-                // Cursor hints
-                let cursor = 'default';
-                if (colData) {
-                    for (let c = 0; c < colData.length; c++) {
-                        if (Math.abs(mx - colData[c].x) < 10 || Math.abs(mx - (colData[c].x + colData[c].w)) < 10) {
-                            cursor = 'ew-resize'; break;
-                        }
-                    }
-                }
-                if (cursor === 'default' && rowData) {
-                    for (let r = 0; r < rowData.length; r++) {
-                        if (Math.abs(my - rowData[r].y) < 10 || Math.abs(my - (rowData[r].y + rowData[r].h)) < 10) {
-                            cursor = 'ns-resize'; break;
-                        }
-                    }
-                }
-                canvas.style.cursor = cursor;
-
-                // Update hover info display
-                let hoveredRow = -1;
-                let hoveredCol = -1;
-                if (rowData) {
-                    for (let r = 0; r < rowData.length; r++) {
-                        if (my >= rowData[r].y && my <= rowData[r].y + rowData[r].h) {
-                            hoveredRow = r; break;
-                        }
-                    }
-                }
-                if (colData) {
-                    for (let c = 0; c < colData.length; c++) {
-                        if (mx >= colData[c].x && mx <= colData[c].x + colData[c].w) {
-                            hoveredCol = c; break;
-                        }
-                    }
-                }
-                
-                const hoverInfo = document.getElementById('debug-hover-info');
-                if (hoverInfo) {
-                    if (hoveredRow !== -1 && hoveredCol !== -1) {
-                        hoverInfo.style.display = 'block';
-                        hoverInfo.innerText = `Row ${hoveredRow}, Col ${hoveredCol}`;
-                    } else {
-                        hoverInfo.style.display = 'none';
-                    }
-                }
-            }
-        });
-        
-        canvas.addEventListener('mouseleave', () => {
-            const hoverInfo = document.getElementById('debug-hover-info');
-            if (hoverInfo) hoverInfo.style.display = 'none';
-        });
-        
-        window.addEventListener('mouseup', () => {
-            if (dragState.active) {
-                dragState.active = false;
-                drawCanvas();
-            }
-        });
-
-        select.addEventListener('change', () => {
-            renderControls();
-            updateData();
-        });
-
-        document.getElementById('debug-close').addEventListener('click', () => {
-            panel.style.display = 'none';
-        });
-
-        if (!window._debugKeyBound) {
-            window._debugKeyBound = true;
-            document.addEventListener('keydown', (e) => {
-                if (e.key === '`' || e.key === '~') {
-                    const p = document.getElementById('debug-panel');
-                    if (p) {
-                        p.style.display = p.style.display === 'none' ? 'block' : 'none';
-                    }
-                }
-            });
-        }
-
-        renderControls();
-        updateData();
+        this.spriteDebugger.createDebugPanel();
     }
 
     update(time, delta) {
@@ -2056,6 +629,13 @@ class GameScene extends Phaser.Scene {
         this.inputManager.update();
         if (this.player) this.player.update(time, delta);
         
+        // cull enemies falling below y > 1000
+        this.enemies.getChildren().forEach(enemy => {
+            if (enemy.y > 1000) {
+                enemy.destroy();
+            }
+        });
+
         // --- GM AI LOGIC ---
         if (!this.lastGmPollTime) this.lastGmPollTime = time;
         if (time - this.lastGmPollTime > 20000 && this.geminiService && this.geminiService.isReady && !this.isIndoors && !this.isCutscene && this.zoneData && this.zoneData.type === 'Dangerous') {
@@ -2068,6 +648,7 @@ class GameScene extends Phaser.Scene {
                 activeEnemies: activeEnemies
             };
             this.geminiService.getGameMasterDecision(gameState).then(res => {
+                if (this.isSceneDestroyed) return;
                 if (res && res.action !== 'NONE') {
                     if (this.showAnnouncement) this.showAnnouncement("The Game Master", res.announcement);
                     else if (this.showFloatingText) this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, `GM: ${res.announcement}`, 0xff00ff);
@@ -2079,6 +660,7 @@ class GameScene extends Phaser.Scene {
                         this.player.hp = this.player.maxHp;
                         if (this.updateHUD) this.updateHUD();
                     } else if (res.action === 'GOLD_RUSH') {
+                        if (!window.saveData) window.saveData = {};
                         window.saveData.gold = (window.saveData.gold || 0) + 500;
                         if (this.updateHUD) this.updateHUD();
                     } else if (res.action === 'WEATHER_RAIN') {
@@ -2095,7 +677,9 @@ class GameScene extends Phaser.Scene {
         
         // Handle Zone Transitions (disabled if indoors)
         if (!this.isTransitioning && !this.isIndoors) {
-            if (this.player.sprite.x > 3800) {
+            const isTown = this.worldManager && this.worldManager.currentZoneData && this.worldManager.currentZoneData.type === 'Safe';
+            const rightBoundary = isTown ? 1800 : 3800;
+            if (this.player.sprite.x > rightBoundary) {
                 this.transitionZone(1); // Move Right
             } else if (this.player.sprite.x < 60 && !this.isIndoors) {
                 this.transitionZone(-1); // Move Left
@@ -2331,143 +915,91 @@ class GameScene extends Phaser.Scene {
     }
 
     cancelCutscene() {
-        if (this.cutsceneInterval) clearInterval(this.cutsceneInterval);
-        if (this.cutsceneTimeout1) clearTimeout(this.cutsceneTimeout1);
-        if (this.cutsceneTimeout2) clearTimeout(this.cutsceneTimeout2);
-        this.cutsceneInterval = null;
-        this.cutsceneTimeout1 = null;
-        this.cutsceneTimeout2 = null;
-        
-        const overlay = document.getElementById('cutscene-overlay');
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
-        this.isCutscene = false;
-        if (this.physics && this.physics.world && this.physics.world.isPaused) {
-            this.physics.resume();
-        }
+        this.cutsceneController.cancelCutscene();
     }
 
-    playCutscene(text, onCompleteCallback) {
-        this.cancelCutscene(); // Cancel any existing cutscene before starting a new one
-        this.isCutscene = true;
-        this.physics.pause();
-        
-        const overlay = document.getElementById('cutscene-overlay');
-        const textContainer = document.getElementById('cutscene-text');
-        
-        if (overlay && textContainer) {
-            overlay.style.display = 'flex';
-            // Trigger reflow
-            void overlay.offsetWidth;
-            overlay.style.opacity = '1';
-            
-            textContainer.innerHTML = '';
-            let i = 0;
-            this.cutsceneInterval = setInterval(() => {
-                if (i < text.length) {
-                    textContainer.innerHTML += text.charAt(i);
-                    i++;
-                } else {
-                    clearInterval(this.cutsceneInterval);
-                    this.cutsceneTimeout1 = setTimeout(() => {
-                        overlay.style.opacity = '0';
-                        this.cutsceneTimeout2 = setTimeout(() => {
-                            overlay.style.display = 'none';
-                            this.isCutscene = false;
-                            this.physics.resume();
-                            if (onCompleteCallback) onCompleteCallback();
-                        }, 500);
-                    }, 3000); // Read time
-                }
-            }, 30); // Typing speed
-        } else {
-            this.cancelCutscene();
-            if (onCompleteCallback) onCompleteCallback();
-        }
+    playCutscene(lines, onComplete) {
+        this.cutsceneController.playCutscene(lines, onComplete);
     }
 
-    grantRewards(xp, gold) {
-        // Logic to add XP and Gold to player's save data
-        if (!window.saveData) return;
-        
-        window.saveData.xp = (window.saveData.xp || 0) + xp;
-        window.saveData.gold = (window.saveData.gold || 0) + gold;
-        
-        // Show floating text for rewards above player
-        this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 40, `+${xp} XP`, 0x00ffff);
-        
-        setTimeout(() => {
-            if (this.player && this.player.sprite) {
-                this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 40, `+${gold} Gold`, 0xffff00);
-            }
-        }, 500);
+    grantRewards(xpEarned, goldEarned) {
+        this.progressionManager.grantRewards(xpEarned, goldEarned);
+    }
 
-        // Check for Level Ups
-        let currentLevel = window.saveData.level || 1;
-        let xpToNextLevel = currentLevel * 100;
-        let leveledUp = false;
-
-        // Class-specific stat growth per level
-        const growthTable = {
-            knight:   { vit: 2, str: 2, dex: 1, int: 0 },
-            wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
-            samurai: { vit: 1, str: 1, dex: 3, int: 0 },
-            ranger:   { vit: 1, str: 1, dex: 2, int: 1 }
-        };
-        const classId = window.saveData.classId || 'knight';
-        const growth = growthTable[classId] || growthTable.knight;
-
-        while (window.saveData.xp >= xpToNextLevel) {
-            window.saveData.xp -= xpToNextLevel;
-            currentLevel++;
-            window.saveData.level = currentLevel;
-            
-            // Apply class-specific stat growth
-            if (window.selectedClass && window.selectedClass.stats) {
-                window.selectedClass.stats.vit += growth.vit;
-                window.selectedClass.stats.str += growth.str;
-                window.selectedClass.stats.dex += growth.dex;
-                window.selectedClass.stats.int += growth.int;
-            }
-
-            xpToNextLevel = currentLevel * 100;
-            leveledUp = true;
+    cleanupScene() {
+        // 1. Destroy player
+        if (this.player && typeof this.player.destroy === 'function') {
+            this.player.destroy();
         }
-
-        // Persist stats to saveData so they survive reload
-        if (window.selectedClass && window.selectedClass.stats) {
-            window.saveData.stats = { ...window.selectedClass.stats };
-        }
-
-        if (leveledUp) {
-            setTimeout(() => {
-                if (this.player && this.player.sprite) {
-                    this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 60, `LEVEL UP!`, 0x00ff00);
-                    // Update Player Controller stats
-                    this.player.recalculateStats();
-                    // Fully heal on level up
-                    this.player.hp = this.player.maxHp;
-                    this.player.mp = this.player.maxMp;
-                    this.player.sp = this.player.maxSp;
+        // 2. Destroy NPCs
+        if (this.npcs) {
+            [...this.npcs].forEach(npc => {
+                if (npc && typeof npc.destroy === 'function') {
+                    npc.destroy();
                 }
-            }, 1000);
+            });
         }
-
-        // Add camaraderie for fighting alongside allies
-        if (this.partyMembers && this.partyMembers.length > 0) {
-            this.partyMembers.forEach(member => {
-                // 25% chance to gain 1 camaraderie per kill
-                if (Math.random() < 0.25) {
-                    member.camaraderie = (member.camaraderie || 0) + 1;
-                    if (this.showFloatingText && member.sprite && member.sprite.active) {
-                        this.showFloatingText(member.sprite.x, member.sprite.y - 30, "+1 Camaraderie", 0xf6be3b);
-                    }
+        // 3. Destroy party members
+        if (this.partyMembers) {
+            [...this.partyMembers].forEach(member => {
+                if (member && typeof member.destroy === 'function') {
+                    member.destroy();
                 }
             });
         }
 
-        // Update HUD
-        this.updateHUD();
+        // 4. Remove window / document event listeners
+        if (this._beforeUnloadListener) {
+            window.removeEventListener('beforeunload', this._beforeUnloadListener);
+            this._beforeUnloadListener = null;
+        }
+        if (this._csEscListener) {
+            window.removeEventListener('keydown', this._csEscListener);
+            this._csEscListener = null;
+        }
+        if (this._dirEscListener) {
+            window.removeEventListener('keydown', this._dirEscListener);
+            this._dirEscListener = null;
+        }
+        if (this._debugMouseUpListener) {
+            window.removeEventListener('mouseup', this._debugMouseUpListener);
+            this._debugMouseUpListener = null;
+        }
+        if (this._debugKeyDownListener) {
+            document.removeEventListener('keydown', this._debugKeyDownListener);
+            this._debugKeyDownListener = null;
+        }
+        window._debugKeyBound = false;
+
+        // 5. Remove modals and panels from DOM
+        const csModal = document.getElementById('char-sheet-modal');
+        if (csModal) csModal.remove();
+        
+        const charBtn = document.getElementById('btn-char-sheet');
+        if (charBtn) charBtn.remove();
+        
+        const apBtn = document.getElementById('btn-auto-play');
+        if (apBtn) apBtn.remove();
+        
+        const dbPanel = document.getElementById('debug-panel');
+        if (dbPanel) dbPanel.remove();
+        
+        if (this.indoorLeaveBtn) {
+            this.indoorLeaveBtn.remove();
+            this.indoorLeaveBtn = null;
+        }
+
+        this.indoorBlackBg = null;
+        this.indoorBg = null;
+        this.indoorWallBgGroup = null;
+        this.indoorFloor = null;
+        this.indoorLeftWall = null;
+        this.indoorRightWall = null;
+        
+        if (this.worldManager && this.worldManager.loreTimeout) {
+            clearTimeout(this.worldManager.loreTimeout);
+        }
+        this.decorGroup = null;
+        this.isSceneDestroyed = true;
     }
 }

@@ -29,8 +29,12 @@ class EnemyController {
             this.sprite.setScale(0.7);
             this.sprite.setSize(40, 100);
             this.sprite.setOffset(31, 28);
+        } else if (this.type === 'spider') {
+            this.sprite.setScale(1.5);
+            this.sprite.setSize(40, 40);
+            this.sprite.setOffset(44, 40); // Assuming 128x128 or something similar, center it
         } else {
-            this.sprite.setScale(this.type === 'spider' ? 1.5 : (this.type === 'goblin' ? 1.4 : 1.8)); // Spider boss is large
+            this.sprite.setScale(this.type === 'goblin' ? 1.4 : 1.8);
         }
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setBounce(0);
@@ -104,7 +108,17 @@ class EnemyController {
     }
 
     update(time, delta) {
-        if (!this.player || !this.player.sprite || !this.sprite.active) return;
+        if (!this.sprite || !this.sprite.active) return;
+
+        // Physics garbage collection: cull if y > 1000
+        if (this.sprite.y > 1000) {
+            if (this.hpText && this.hpText.active) this.hpText.destroy();
+            if (this.aiText && this.aiText.active) this.aiText.destroy();
+            this.sprite.destroy();
+            return;
+        }
+
+        if (!this.player || !this.player.sprite) return;
         if (this.hp <= 0) return;
         
         // Apply status effects
@@ -166,6 +180,7 @@ class EnemyController {
         };
 
         const response = await this.geminiService.getEnemyTactic(battleState);
+        if (!this.scene || this.scene.isSceneDestroyed) return;
         if (!this.sprite || !this.sprite.active) return;
         this.currentTactic = response.tactic;
         if (this.aiText && this.aiText.active) this.aiText.setText(`${this.type}\n${this.currentTactic}`);
@@ -191,24 +206,28 @@ class EnemyController {
         }
 
         switch (this.currentTactic) {
+            case "ATTACK":
+            case "MELEE_ATTACK":
+            case "RANGED_ATTACK":
             case "CHASE":
+                const enemyOnGround = this.sprite.body.touching.down || this.sprite.body.blocked.down;
                 // Special Boss Attack Logic
                 if (this.type === 'lich_lord') {
                     if (distanceX <= 80) {
-                        this.sprite.setVelocityX(0);
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
                         this.sprite.setFlipX(shouldFlip);
                         this.isAttacking = true;
                         this._playAnim(`${this.type}-attack`);
                         // AOE damage
                         this.scene.time.delayedCall(400, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 100 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 100 && Math.abs(this.player.sprite.y - this.sprite.y) < 45) {
                                 this.player.takeDamage(15);
                             }
                         });
                         break;
                     } else if (distanceX > 150 && Math.random() < 0.015) {
-                        this.sprite.setVelocityX(0);
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
                         this.sprite.setFlipX(shouldFlip);
                         this.isAttacking = true;
                         if (Math.random() < 0.5) {
@@ -224,19 +243,19 @@ class EnemyController {
 
                 if (this.type === 'the_devil') {
                     if (distanceX <= 70) {
-                        this.sprite.setVelocityX(0);
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
                         this.sprite.setFlipX(shouldFlip);
                         this.isAttacking = true;
                         this._playAnim(`${this.type}-attack`);
                         this.scene.time.delayedCall(300, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 90 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 90 && Math.abs(this.player.sprite.y - this.sprite.y) < 45) {
                                 this.player.takeDamage(20);
                             }
                         });
                         break;
                     } else if (distanceX > 100 && distanceX < 400 && Math.random() < 0.02) {
-                        this.sprite.setVelocityX(0);
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
                         this.sprite.setFlipX(shouldFlip);
                         this.isAttacking = true;
                         this._playAnim(`${this.type}-attack2`);
@@ -246,7 +265,7 @@ class EnemyController {
                 }
 
                 if (distanceX <= 65) {
-                    this.sprite.setVelocityX(0);
+                    if (enemyOnGround) this.sprite.setVelocityX(0);
                     this.sprite.setFlipX(shouldFlip);
                     this.isAttacking = true;
                     
@@ -256,7 +275,7 @@ class EnemyController {
                         this.sprite.setVelocityY(-250);
                         this.scene.time.delayedCall(300, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 45) {
                                 this.player.takeDamage(3);
                                 if (this.player.applyStatusEffect && Math.random() < 0.30) {
                                     this.player.applyStatusEffect('poison', 5000, 5); // 5 damage/sec for 5s
@@ -276,7 +295,7 @@ class EnemyController {
                         this._playAnim(`${this.type}-attack`);
                         this.scene.time.delayedCall(300, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 45) {
                                 this.player.takeDamage(5);
                                 if (this.player.applyStatusEffect) {
                                     if (this.type === 'frost_giant' && Math.random() < 0.40) {
@@ -297,9 +316,15 @@ class EnemyController {
                     this.sprite.setVelocityX(0);
                     this._playAnim(`${this.type}-idle`);
                 }
-                // Occasionally jump while chasing
-                if (Math.random() < 0.02 && this.sprite.body.touching.down) {
-                    this.sprite.setVelocityY(-400);
+                // Improve platforming AI: jump if player is significantly higher and touching ground, or if horizontally blocked
+                if (enemyOnGround) {
+                    if (this.player.sprite.y < this.sprite.y - 50) {
+                        this.sprite.setVelocityY(-600);
+                    } else if (this.sprite.body.blocked.left || this.sprite.body.blocked.right || this.sprite.body.touching.left || this.sprite.body.touching.right) {
+                        this.sprite.setVelocityY(-600);
+                    } else if (Math.random() < 0.02) {
+                        this.sprite.setVelocityY(-550);
+                    }
                 }
                 break;
             case "FLEE":
@@ -315,7 +340,7 @@ class EnemyController {
                         this._playAnim(`${this.type}-attack`);
                         this.scene.time.delayedCall(300, () => {
                             if (!this.sprite || !this.sprite.active) return;
-                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 70) {
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 70 && Math.abs(this.player.sprite.y - this.sprite.y) < 45) {
                                 this.player.takeDamage(this.type === 'lich_lord' ? 15 : 5);
                             }
                         });
@@ -328,10 +353,22 @@ class EnemyController {
                         // Just wait menacingly
                         this._playAnim(`${this.type}-idle`);
                     }
+                    
+                    // Allow cornered enemies to jump if they are stuck in a pit
+                    const enemyOnGround = this.sprite.body.touching.down || this.sprite.body.blocked.down;
+                    if (enemyOnGround && this.player.sprite.y < this.sprite.y - 50) {
+                        this.sprite.setVelocityY(-600);
+                    }
                 } else {
                     this.sprite.setVelocityX(isPlayerLeft ? this.speed : -this.speed);
                     this.sprite.setFlipX(!shouldFlip); // Fleeing means face away
                     this._playAnim(`${this.type}-move`);
+                    
+                    // Allow fleeing enemies to jump over small obstacles
+                    const enemyOnGround = this.sprite.body.touching.down || this.sprite.body.blocked.down;
+                    if (enemyOnGround && (this.sprite.body.blocked.left || this.sprite.body.blocked.right || this.sprite.body.touching.left || this.sprite.body.touching.right)) {
+                        this.sprite.setVelocityY(-600);
+                    }
                 }
                 break;
             case "IDLE":
@@ -362,13 +399,14 @@ class EnemyController {
         const hitKey = `${this.type}-hit`;
         if (this.scene.anims.exists(hitKey)) {
             this._playAnim(hitKey);
-            this.sprite.once('animationcomplete', () => {
-                this.isHit = false;
+            this.sprite.off('animationcomplete-' + hitKey);
+            this.sprite.once('animationcomplete-' + hitKey, () => {
+                if (this.sprite && this.sprite.active) this.isHit = false;
             });
         } else {
             this._playAnim(`${this.type}-idle`);
             this.scene.time.delayedCall(400, () => {
-                this.isHit = false;
+                if (this.sprite && this.sprite.active) this.isHit = false;
             });
         }
 
@@ -410,6 +448,7 @@ class EnemyController {
         
         for (let i = this.statusEffects.length - 1; i >= 0; i--) {
             const effect = this.statusEffects[i];
+            if (!effect) continue;
             effect.duration -= delta;
             
             if (!this.isHit) {
@@ -515,6 +554,7 @@ class EnemyController {
         this.currentAnimKey = null;
 
         const onDeathComplete = () => {
+            if (!this.scene || this.scene.isSceneDestroyed) return;
             if (this.sprite && this.sprite.active) this.sprite.destroy();
             if (this.hpText && this.hpText.active) this.hpText.destroy();
 
@@ -536,7 +576,8 @@ class EnemyController {
         const dieKey = `${this.type}-die`;
         if (this.scene.anims.exists(dieKey)) {
             this._playAnim(dieKey);
-            this.sprite.once('animationcomplete', onDeathComplete);
+            this.sprite.off('animationcomplete-' + dieKey);
+            this.sprite.once('animationcomplete-' + dieKey, onDeathComplete);
         } else {
             this._playAnim(`${this.type}-idle`);
             this.sprite.setTint(0x555555);

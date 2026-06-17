@@ -23,6 +23,11 @@ class WorldManager {
     }
 
     async loadZone(zoneIndex, spawnSide) {
+        if (window.saveData) {
+            window.saveData = JSON.parse(JSON.stringify(window.saveData));
+        }
+        this.currentZoneIndex = zoneIndex;
+
         // Show loading screen
         this.scene.showLoading(true);
 
@@ -48,15 +53,17 @@ class WorldManager {
         if (!zoneData) {
             // Generate via Gemini (or rich fallback)
             zoneData = await this.generateZoneWithGemini(zoneIndex);
-            window.saveData.zones[zoneIndex] = zoneData;
+            if (!this.scene || this.scene.isSceneDestroyed) return;
+            window.saveData.zones[zoneIndex] = JSON.parse(JSON.stringify(zoneData));
             
             // Save to localStorage
             const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
             const saveIndex = saves.findIndex(s => s.id === window.saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
             if (saveIndex > -1) {
-                saves[saveIndex] = window.saveData;
+                saves[saveIndex] = clonedSave;
             } else {
-                saves.push(window.saveData);
+                saves.push(clonedSave);
             }
             localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
         }
@@ -65,19 +72,44 @@ class WorldManager {
         try {
             this.buildZone(zoneData, spawnSide);
         } catch (e) {
-            console.error("Error in buildZone:", e);
+            console.error("Error in buildZone: " + e.stack);
             const errEl = document.getElementById('debug-content');
             if (errEl) errEl.innerHTML += `<br><span style="color:red">CRITICAL ERROR in buildZone: ${e.message}<br>${e.stack}</span>`;
         }
         this.scene.showLoading(false);
     }
 
+    saveZoneState() {
+        if (!window.saveData) return;
+        if (!window.saveData.zones) window.saveData.zones = {};
+        if (typeof this.currentZoneIndex === 'undefined') return;
+        const zoneData = window.saveData.zones[this.currentZoneIndex];
+        if (!zoneData || zoneData.type === 'Safe') return;
+
+        const aliveEnemies = [];
+        if (this.scene && this.scene.enemies) {
+            this.scene.enemies.getChildren().forEach(sprite => {
+                if (sprite && sprite.active && sprite.controller) {
+                    aliveEnemies.push({
+                        type: sprite.controller.type || 'slime',
+                        x: sprite.x,
+                        hp: sprite.controller.hp || 100,
+                        speed: sprite.controller.speed || 100
+                    });
+                }
+            });
+        }
+        zoneData.enemies = aliveEnemies;
+    }
+
     async generateZoneWithGemini(zoneIndex) {
-        // Prompt Gemini to create a zone
-        this.scene.loadingText.setText("Gemini is forging the world...");
+        if (!this.scene || this.scene.isSceneDestroyed) return null;
+        if (this.scene.loadingText) {
+            this.scene.loadingText.setText("Gemini is forging the world...");
+        }
         
-        const playerLevel = window.saveData.level || 1;
-        const playerClassId = window.saveData.classId || 'knight';
+        const playerLevel = (window.saveData && window.saveData.level) || 1;
+        const playerClassId = (window.saveData && window.saveData.classId) || 'knight';
         
         // Zone 0 is always a town; after that, a town appears every 4 zones in either direction
         const absIdx = Math.abs(zoneIndex);
@@ -142,7 +174,7 @@ class WorldManager {
         this.scene.setBiomeVisuals(visualBiome, zoneData.type);
 
         // Spawn Decor
-        if (this.scene.decorGroup) {
+        if (this.scene.decorGroup && this.scene.decorGroup.scene) {
             this.scene.decorGroup.clear(true, true);
         } else {
             this.scene.decorGroup = this.scene.add.group();
@@ -160,9 +192,10 @@ class WorldManager {
                 // Update cache
                 const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
                 if (window.saveData && window.saveData.zones) {
-                    window.saveData.zones[this.currentZoneIndex] = zoneData;
+                    window.saveData.zones[this.currentZoneIndex] = JSON.parse(JSON.stringify(zoneData));
                     const idx = saves.findIndex(s => s.id === window.saveData.id);
-                    if (idx > -1) saves[idx] = window.saveData; else saves.push(window.saveData);
+                    const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+                    if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
                     localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
                 }
             }
@@ -219,7 +252,8 @@ class WorldManager {
                 // Persist back to localStorage
                 const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
                 const idx = saves.findIndex(s => s.id === window.saveData.id);
-                if (idx > -1) saves[idx] = window.saveData; else saves.push(window.saveData);
+                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+                if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
                 localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
             }
 
@@ -260,7 +294,7 @@ class WorldManager {
                 zoneData.npcs.forEach(nData => {
                     const rawKey = nData.spriteKey || nData.type || 'npc';
                     const spriteKey = ['blacksmith', 'alchemist', 'knight', 'samurai', 'sage', 'ranger', 'wizard'].includes(rawKey) ? rawKey : 'npc';
-                    const npc = new NPCController(this.scene, nData.x, 696, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
+                    const npc = new NPCController(this.scene, nData.x, 100, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
                     this.scene.physics.add.collider(npc.sprite, this.scene.platforms);
                     this.scene.npcs.push(npc);
                     this.scene.decorGroup.add(npc.nameText);
@@ -272,7 +306,7 @@ class WorldManager {
             if (this.currentZoneIndex === 0) {
                 const hasSage = this.scene.npcs.find(n => n.npcName === 'Elara the Sage' || n.spriteKey === 'sage');
                 if (!hasSage) {
-                    const sage = new NPCController(this.scene, 500, 696, this.scene.player, this.geminiService, 'Elara the Sage', 'Elara is a wise and mysterious sage...', 'sage');
+                    const sage = new NPCController(this.scene, 500, 100, this.scene.player, this.geminiService, 'Elara the Sage', 'Elara is a wise and mysterious sage...', 'sage');
                     this.scene.physics.add.collider(sage.sprite, this.scene.platforms);
                     this.scene.npcs.push(sage);
                     this.scene.decorGroup.add(sage.nameText);
@@ -510,7 +544,8 @@ class WorldManager {
                 zoneData.decorLayout = layout;
                 const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
                 const idx = saves.findIndex(s => s.id === window.saveData.id);
-                if (idx > -1) saves[idx] = window.saveData; else saves.push(window.saveData);
+                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+                if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
                 localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
             }
 
@@ -535,7 +570,7 @@ class WorldManager {
 
             // 10% chance to spawn a Spider Boss if this is dangerous
             if (zoneData.type !== 'Safe' && !zoneData.enemies.find(e => e.type === 'spider') && Math.random() < 0.10) {
-                const playerLevel = window.saveData.level || 1;
+                const playerLevel = (window.saveData && window.saveData.level) || 1;
                 zoneData.enemies.push({
                     type: 'spider',
                     x: 600 + Math.random() * 400,
@@ -548,7 +583,7 @@ class WorldManager {
             let rivalClass = 'knight_rival';
             let isMegaboss = false;
 
-            const defeatedCount = (window.saveData.defeatedRivals || []).length;
+            const defeatedCount = (window.saveData && window.saveData.defeatedRivals || []).length;
             
             // Base encounter chance for first rival is 50%, drops 10% per kill down to 10% for the Megaboss
             const encounterChance = Math.max(0.10, 0.50 - (defeatedCount * 0.10));
@@ -557,7 +592,7 @@ class WorldManager {
                 isRivalEncounter = true;
                 const rivalClasses = ['knight_rival', 'wizard_rival', 'samurai_rival', 'ranger_rival'];
                 
-                if (defeatedCount >= 4 && !window.saveData.isSavior) {
+                if (defeatedCount >= 4 && !(window.saveData && window.saveData.isSavior)) {
                     isMegaboss = true;
                     rivalClass = 'megaboss_rival';
                 } else {
@@ -592,8 +627,8 @@ class WorldManager {
                 const hp = (eData.hp !== undefined && !isNaN(Number(eData.hp))) ? Number(eData.hp) : 100;
                 const speed = (eData.speed !== undefined && !isNaN(Number(eData.speed))) ? Number(eData.speed) : 100;
 
-                // Spawn from above so they don't fall through the floor!
-                const enemy = new EnemyController(this.scene, spawnX, 300, this.scene.player, this.geminiService, type);
+                // Spawn from above so they don't fall through the floor or spawn inside platforms!
+                const enemy = new EnemyController(this.scene, spawnX, 100, this.scene.player, this.geminiService, type);
                 enemy.maxHp = hp;
                 enemy.hp = hp;
                 enemy.speed = speed;
@@ -602,14 +637,14 @@ class WorldManager {
 
             if (isRivalEncounter) {
                 const spawnX = spawnSide === 'left' ? 800 : 400; // Spawn opposite to player
-                this.scene.spawnHeroAI(rivalClass, spawnX, 600, 'hostile', 'Rival Hero', 'A cocky and aggressive rival adventurer who hates the player.', 0);
+                this.scene.spawnHeroAI(rivalClass, spawnX, 100, 'hostile', 'Rival Hero', 'A cocky and aggressive rival adventurer who hates the player.', 0);
                 
                 if (isMegaboss) {
                     // Spawn all 4 base rivals as backup
-                    this.scene.spawnHeroAI('knight_rival', spawnX - 80, 600, 'hostile', 'Rival Knight');
-                    this.scene.spawnHeroAI('wizard_rival', spawnX + 80, 600, 'hostile', 'Rival Wizard');
-                    this.scene.spawnHeroAI('samurai_rival', spawnX - 160, 600, 'hostile', 'Rival Samurai');
-                    this.scene.spawnHeroAI('ranger_rival', spawnX + 160, 600, 'hostile', 'Rival Ranger');
+                    this.scene.spawnHeroAI('knight_rival', spawnX - 80, 100, 'hostile', 'Rival Knight');
+                    this.scene.spawnHeroAI('wizard_rival', spawnX + 80, 100, 'hostile', 'Rival Wizard');
+                    this.scene.spawnHeroAI('samurai_rival', spawnX - 160, 100, 'hostile', 'Rival Samurai');
+                    this.scene.spawnHeroAI('ranger_rival', spawnX + 160, 100, 'hostile', 'Rival Ranger');
                 }
 
                 // Trigger the cutscene
@@ -619,20 +654,24 @@ class WorldManager {
                 }
 
                 this.geminiService.getGameMasterResponse(this.scene.player, prompt, zoneData).then(res => {
+                    if (!this.scene || this.scene.isSceneDestroyed) return;
                     if (this.scene.playCutscene) {
                         this.scene.playCutscene(`[Rival]: ${res.storyText}`, () => {});
                     }
-                }).catch(e => console.error("GM cutscene error:", e));
+                }).catch(e => {
+                    if (!this.scene || this.scene.isSceneDestroyed) return;
+                    console.error("GM cutscene error:", e);
+                });
             }
 
             // Inject quest-target enemies if player has active kill quests
-            if (zoneData.type === 'Dangerous' && window.saveData.quests && window.saveData.quests.length > 0) {
+            if (zoneData.type === 'Dangerous' && window.saveData && window.saveData.quests && window.saveData.quests.length > 0) {
                 const spawnedTypes = zoneData.enemies.map(e => (e.type || 'slime').toLowerCase().replace(/\s+/g, '_'));
                 window.saveData.quests.forEach(quest => {
                     if (quest.targetType && !spawnedTypes.includes(quest.targetType)) {
                         const playerLevel = window.saveData.level || 1;
                         const questEnemy = new EnemyController(
-                            this.scene, 400 + Math.floor(Math.random() * 500), 600,
+                            this.scene, 400 + Math.floor(Math.random() * 500), 100,
                             this.scene.player, this.geminiService, quest.targetType
                         );
                         questEnemy.maxHp = 80 + (playerLevel * 20);
@@ -676,7 +715,7 @@ class WorldManager {
                 // Spawn the valid wandering heroes in the wilderness
                 zoneData.npcs.forEach(nData => {
                     const spriteKey = nData.spriteKey || 'ranger';
-                    const npc = new NPCController(this.scene, nData.x, 696, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
+                    const npc = new NPCController(this.scene, nData.x, 100, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
                     this.scene.physics.add.collider(npc.sprite, this.scene.platforms);
                     this.scene.npcs.push(npc);
                     this.scene.decorGroup.add(npc.nameText);

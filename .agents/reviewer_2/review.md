@@ -1,82 +1,78 @@
 # Independent Code Review and Adversarial Challenge Report
 
-**Review Verdict**: FAIL (REQUEST_CHANGES)
+**Review Verdict**: REQUEST_CHANGES
 
 ---
 
 ## Review Summary
 
-- **Overall Status**: **FAIL**
-- **Rationale**: The code changes introduce a critical runtime crash during gameplay (resting or brewing at NPCs will call a non-existent method on `PlayerController` and crash), a memory leak in companion/party chat event listeners, an incorrect save persistence key on player death, and minor key capture restoration issues.
+- **Overall Status**: **REQUEST_CHANGES**
+- **Rationale**: While the refactored codebase successfully unlinks save data reference loops (deep cloning inventory/quests), resolves asset preloader duplicates, and implements clean companion chat teardown, we identified a critical regression in scene restart transitions. Specifically, dynamically created indoor assets and collision zones (e.g., `indoorBg`, `indoorFloor`, `indoorWallBgGroup`) are not set to `null` or cleared during `cleanupScene()`. Because Phaser destroys their underlying game objects during a scene restart but recycles the scene instance, subsequent indoor transitions attempt to interact with these destroyed objects, causing runtime crashes. Additionally, several unguarded direct accesses to `window.saveData` pose a medium risk of null pointer crashes in testbed or sandbox scenarios.
 
 ---
 
-## Findings
+## Quality Review Findings
 
-### [Critical] Finding 1: Runtime Crash on NPC Activities (Rest / Brew)
-- **What**: The code calls `this.player.updateHUD()` during the `rest` and `brew` actions.
-- **Where**: `src/NPCController.js` — lines 394 and 405.
-- **Why**: `PlayerController` (the class of `this.player`) has no `updateHUD` method. The `updateHUD` method is only defined in `GameScene` (and can be accessed via `this.scene.updateHUD()`). Executing rest or brew at an NPC will throw a `TypeError: this.player.updateHUD is not a function` and crash the game.
-- **Suggestion**: Replace `this.player.updateHUD()` with `if (this.scene && this.scene.updateHUD) this.scene.updateHUD();` (matching the pattern used on lines 431 and 439).
+### [Critical] Finding 1: Runtime Crash on Scene Restart and Indoor Transitions
+- **What**: Recycled properties of destroyed Phaser GameObjects/groups cause TypeErrors when transitioning indoors.
+- **Where**: `src/scenes/GameScene.js` — lines 1133-1158, 1207-1227, and `cleanupScene()` in lines 2514-2571.
+- **Why**: When a player dies or manual restart is triggered, `cleanupScene()` runs, and the scene restarts. All Phaser game objects are destroyed. However, the scene object instance itself is recycled. Because properties like `this.indoorBg`, `this.indoorBlackBg`, `this.indoorWallBgGroup`, `this.indoorFloor`, `this.indoorLeftWall`, and `this.indoorRightWall` are not nullified during cleanup, they remain defined (as truthy destroyed objects). On subsequent indoor entry, checks like `if (!this.indoorBg)` evaluate to false, skipping creation and directly attempting to invoke `.setTexture()` or `.setActive()` on the destroyed entities, throwing a fatal TypeError.
+- **Suggestion**: Set all indoor-related scene properties to `null` inside the `cleanupScene()` method:
+  ```javascript
+  this.indoorBlackBg = null;
+  this.indoorBg = null;
+  this.indoorWallBgGroup = null;
+  this.indoorFloor = null;
+  this.indoorLeftWall = null;
+  this.indoorRightWall = null;
+  ```
+  Alternatively, update the conditional checks to verify that the object exists *and* has a valid scene context (e.g. `if (!this.indoorBg || !this.indoorBg.scene)`).
 
-### [Major] Finding 2: Memory Leak in Companion/Party Chat
-- **What**: Event listeners are registered on global DOM elements (`chatSubmitBtn` and `chatInput`) but never removed.
-- **Where**: `src/PlayerController.js` — lines 2707-2708.
-- **Why**: When opening chat with a party member/companion, `PlayerController` registers `chatSubmitHandler` and `chatKeyHandler`. However, `closeChat()` and the companion's `die()` method (called on dismissal) do not remove these listeners, leaving dangling references to dismissed companions and leaking memory.
-- **Suggestion**: Add a cleanup sequence in `closeChat()` and/or a `destroy()` method in `PlayerController` to remove these event listeners from the DOM.
-
-### [Major] Finding 3: Defect in Save Key Persistence on Player Death
-- **What**: Player death state is saved using the wrong local storage key.
-- **Where**: `src/PlayerController.js` — line 2668.
-- **Why**: The player death handler writes to `localStorage.setItem('rpg_save', ...)` which is never read by the save slot loader (which uses `'elden_soul_saves'`). If the player refreshes after dying, they will load their last slot save from before death, losing their XP penalty and respawning in the wrong zone.
-- **Suggestion**: Replace `localStorage.setItem('rpg_save', JSON.stringify(window.saveData));` with `this._persistToLocalStorage();` to correctly save the death/respawn state.
-
-### [Minor] Finding 4: Key Capture Restoration Discrepancy
-- **What**: Key captures for movement and spacing are not restored when closing chat.
-- **Where**: `src/NPCController.js` — lines 236-243 & 285-288.
-- **Why**: In `openChat()`, captures are disabled via `removeCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT')`. In `closeChat()`, the code calls `this.player.inputManager.enableForInput()` which only captures the specific combat/hotkeys (`_capturedKeys` inside `InputManager.js` which does not include arrow keys or `SPACE`). This can cause unexpected browser scrolling when pressing arrow keys or SPACE after exiting chat.
-- **Suggestion**: Call `this.scene.input.keyboard.addCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT')` inside `NPCController.js`'s `closeChat()`.
+### [Medium] Finding 2: Unguarded `window.saveData` Accesses
+- **What**: Accessing properties on `window.saveData` directly without first checking if the object is defined.
+- **Where**:
+  - `src/PlayerController.js` — line 271 (`window.saveData.quests`), lines 2893 and 2932 (`window.saveData.level`).
+  - `src/NPCController.js` — lines 357, 360-362, 508, 511-513, 647.
+- **Why**: While normal gameplay bootstraps `window.saveData` from the menu selection, sandbox environments, automated test beds, or direct developers scene launches might load the scene with `window.saveData` set to `undefined`/`null`. Direct property accesses on undefined will immediately crash the JS update loop.
+- **Suggestion**: Protect all accesses using safe navigation or default fallbacks, e.g.:
+  ```javascript
+  this.quests = (window.saveData && window.saveData.quests) ? JSON.parse(JSON.stringify(window.saveData.quests)) : [];
+  ```
 
 ---
 
 ## Verified Claims
 
-- **Tailwind CSS compilation** → Verified by executing `npx tailwindcss -i ./src/input.css -o ./src/output.css` → **PASS** (Rebuild complete in 558ms).
-- **Duplicate asset removal in AssetManager.js** → Verified by inspecting lines 34-35 and confirming removal of duplicates at 175-176 → **PASS**.
-- **Heavy Knight image path crash prevention** → Verified path updated to `'src/assets/Heavy Knight/Heavy Knight/Black heavy.png'` to match valid asset directory → **PASS**.
-- **Game Master ambush instantiation fix** → Verified usage of `this.spawnHeroAI()` on line 2017 of `GameScene.js` → **PASS**.
-- **Space key registration** → Verified `space: Phaser.Input.Keyboard.KeyCodes.SPACE` inside `InputManager.js` → **PASS**.
+- **Save Data Deep Cloning & Serialization** → Verified in `PlayerController.js` (lines 252, 271, 558, 559) and `main.js`. Live gameplay variables (`inventory`, `quests`, `stats`) are cleanly decoupled from the shared global save state, resolving reference loops and state bleed → **PASS**.
+- **Heavy Knight Spritesheet Alignment** → Verified in `PlayerController.js` lines 279-340 and `main.js` lines 127-149. The metadata and animation mappings are correctly standardized to the 91px layout structures with 5 columns, matching physical texture files -> **PASS**.
+- **Companion Event Listener Cleanup** → Verified in `PlayerController.js` lines 591-596 and 2736-2741. Keyboard keypress and click event handlers are now unregistered on destruction or before re-registration -> **PASS**.
 
 ---
 
 ## Coverage Gaps
-- **Companion/Party Chat memory cleanup** — Risk Level: **Medium** — Recommendation: Investigate and implement listener cleanup in `PlayerController.js` to avoid browser DOM accumulation and leakages.
-- **Unverified Death Persistence** — Risk Level: **High** — Recommendation: Correct the storage key to guarantee save consistency upon reload.
+- **Indoor Object Lifecycle Management** — Risk Level: **High** — Recommendation: Clear all dynamic scene references in `cleanupScene()` to avoid crashes on restarts.
+- **Save State Protection** — Risk Level: **Medium** — Recommendation: Add fallback checks to all direct `window.saveData` accesses.
 
 ---
 
-## Challenge Summary
+## Adversarial Review & Challenges
 
-- **Overall Risk Assessment**: **CRITICAL**
+### [High] Challenge 1: Recycled Reference Invocation on Destroyed GameObjects
+- **Assumption Challenged**: Phaser GameObject references stored on the scene instance are safe to reuse across restarts if the scene instance is not replaced.
+- **Attack Scenario**: Play the game, enter a building (Sage or Blacksmith) successfully. Die, respawn at a town (triggering scene restart), then try to enter a building again.
+- **Blast Radius**: The game crashes immediately with a `TypeError: Cannot read properties of null (reading 'setTexture')` or a crash on setting the active/enable flags of body variables, freezing the game loop.
+- **Mitigation**: Clear references in the scene shutdown handler.
 
-## Challenges
-
-### [Critical] Challenge 1: Invalid Method Invocations on Game State Update
-- **Assumption Challenged**: Implicit assumption that `this.player` exposes an `updateHUD` method.
-- **Attack Scenario**: Player triggers NPC activity 'rest' or 'brew'.
-- **Blast Radius**: Throws TypeError, breaks Phaser main update cycle, hangs game canvas.
-- **Mitigation**: Route HUD updates through the scene context: `this.scene.updateHUD()`.
-
-### [High] Challenge 2: Out of Memory / Garbage Collection Blocked via DOM References
-- **Assumption Challenged**: Dismissed party members are successfully garbage-collected when spliced from `partyMembers`.
-- **Attack Scenario**: Player hires and dismisses multiple companions repeatedly.
-- **Blast Radius**: `PlayerController` instances and their associated sprites/sub-components are retained in memory via references in the DOM `window` event queue, leading to high memory footprint.
-- **Mitigation**: Unregister DOM listeners upon closing chat and dismissing party members.
+### [Medium] Challenge 2: Developer Testbed Crash via Undefined Save Object
+- **Assumption Challenged**: `window.saveData` will always be defined during player companion and NPC interaction events.
+- **Attack Scenario**: Run a development sandbox scene directly targeting `GameScene` using mock classes but omitting menu initialization. Trigger dialogue with a companion or NPC.
+- **Blast Radius**: Uncaught TypeError throws during state construction when reading `window.saveData.level`, freezing the dialogue interface.
+- **Mitigation**: Standardize guard clauses for all `window.saveData` property read actions.
 
 ---
 
-## Stress Test Results
+## Stress Test Predictions
 
-- **NPC Rest/Brew Trigger** → Expect HUD update and state change → **FAIL** (TypeError, `this.player.updateHUD is not a function`).
-- **Companion Dismissal** → Companion removed and references cleaned → **FAIL** (DOM listener leak).
-- **Tailwind CSS compilation** → Rebuild successfully → **PASS**.
+- **Restart Game & Enter House** → Expect no crashes and correct rendering → **FAIL** (crashes due to destroyed game objects references `indoorBg`, `indoorFloor`, etc.).
+- **Companion Chat in Mock Scene** → Expect successful NPC text output → **FAIL** (crashes due to undefined `window.saveData.level` access).
+- **Infinite Zone Transition Save/Load** → Transition right or left 10 times → **PASS** (Correct state unlinking and deep cloning keeps save records clean).

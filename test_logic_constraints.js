@@ -7,6 +7,13 @@ console.log("=== STARTING RPG-SCROLLER DEEPER LOGIC & CONSTRAINT TESTS ===");
 const srcDir = path.join(__dirname, 'src');
 const npcControllerCode = fs.readFileSync(path.join(srcDir, 'NPCController.js'), 'utf8');
 const inputManagerCode = fs.readFileSync(path.join(srcDir, 'InputManager.js'), 'utf8');
+const statsManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'StatsManager.js'), 'utf8');
+const inventoryManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'InventoryManager.js'), 'utf8');
+const shopManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'ShopManager.js'), 'utf8');
+const combatControllerCode = fs.readFileSync(path.join(srcDir, 'player', 'CombatController.js'), 'utf8');
+const companionAiCode = fs.readFileSync(path.join(srcDir, 'player', 'CompanionAI.js'), 'utf8');
+const questAlignmentManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'QuestAlignmentManager.js'), 'utf8');
+const chatManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'ChatManager.js'), 'utf8');
 const playerControllerCode = fs.readFileSync(path.join(srcDir, 'PlayerController.js'), 'utf8');
 const enemyControllerCode = fs.readFileSync(path.join(srcDir, 'EnemyController.js'), 'utf8');
 
@@ -89,6 +96,7 @@ function createMockSprite() {
         clearTint: () => { s.tint = null; },
         on: (event, cb) => { s.listeners[event] = cb; },
         once: (event, cb) => { s.listeners[event] = cb; },
+        off: (event, cb) => { delete s.listeners[event]; },
         setSize: () => {},
         setOffset: () => {},
         x: 0,
@@ -107,7 +115,8 @@ function createMockSprite() {
             velocity: { x: 0, y: 0 },
             touching: { down: true },
             blocked: { left: false, right: false },
-            onFloor: () => true
+            onFloor: () => true,
+            setAllowGravity: () => {}
         }
     };
     s.setVelocityX = s.setVelocityX.bind(s);
@@ -202,6 +211,20 @@ try {
     sandbox.NPCController = vm.runInContext('NPCController', sandbox);
     vm.runInContext(inputManagerCode, sandbox, { filename: 'InputManager.js' });
     sandbox.InputManager = vm.runInContext('InputManager', sandbox);
+    vm.runInContext(statsManagerCode, sandbox, { filename: 'StatsManager.js' });
+    sandbox.StatsManager = vm.runInContext('StatsManager', sandbox);
+    vm.runInContext(inventoryManagerCode, sandbox, { filename: 'InventoryManager.js' });
+    sandbox.InventoryManager = vm.runInContext('InventoryManager', sandbox);
+    vm.runInContext(shopManagerCode, sandbox, { filename: 'ShopManager.js' });
+    sandbox.ShopManager = vm.runInContext('ShopManager', sandbox);
+    vm.runInContext(combatControllerCode, sandbox, { filename: 'CombatController.js' });
+    sandbox.CombatController = vm.runInContext('CombatController', sandbox);
+    vm.runInContext(companionAiCode, sandbox, { filename: 'CompanionAI.js' });
+    sandbox.CompanionAI = vm.runInContext('CompanionAI', sandbox);
+    vm.runInContext(questAlignmentManagerCode, sandbox, { filename: 'QuestAlignmentManager.js' });
+    sandbox.QuestAlignmentManager = vm.runInContext('QuestAlignmentManager', sandbox);
+    vm.runInContext(chatManagerCode, sandbox, { filename: 'ChatManager.js' });
+    sandbox.ChatManager = vm.runInContext('ChatManager', sandbox);
     vm.runInContext(playerControllerCode, sandbox, { filename: 'PlayerController.js' });
     sandbox.PlayerController = vm.runInContext('PlayerController', sandbox);
     vm.runInContext(enemyControllerCode, sandbox, { filename: 'EnemyController.js' });

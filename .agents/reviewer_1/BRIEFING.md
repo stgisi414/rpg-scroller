@@ -1,45 +1,42 @@
-# BRIEFING — 2026-06-16T20:03:40Z
+# BRIEFING — 2026-06-16T22:35:00Z
 
 ## Mission
-Perform independent code review of the worker's bug fixes and verify correctness, completeness, robustness, and conformance.
+Review the refactored rpg-scroller codebase against 5 architectural requirements and gameplay hotfixes, verify passing tests, write handoff.md, and message parent.
 
 ## 🔒 My Identity
-- Archetype: Reviewer and Critic
+- Archetype: reviewer_critic
 - Roles: reviewer, critic
-- Working directory: c:\Code2\rpg-scroller\.agents\reviewer_1\
-- Original parent: d984062c-3221-4f05-b87e-2348a78989f6
-- Milestone: Review bug fixes
+- Working directory: C:\Code2\rpg-scroller\.agents\reviewer_1
+- Original parent: de78dca1-6b88-4842-bc20-59c7ca25e2c8
+- Milestone: codebase_review
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code
-- Adhere strictly to project conventions
-- Verify compilation of Tailwind CSS
-- Check for integrity violations (hardcoded test results, facades, etc.)
+- Review-only — do NOT modify implementation code.
+- Focus on architectural requirements, race conditions, event listener cleanups, cloning saveData, animation completion callbacks, enemy culling, jumping behavior, jump attacks, zone indexes, and Orc animations.
 
 ## Current Parent
-- Conversation ID: d984062c-3221-4f05-b87e-2348a78989f6
-- Updated: 2026-06-16T20:03:40Z
+- Conversation ID: de78dca1-6b88-4842-bc20-59c7ca25e2c8
+- Updated: yes
 
 ## Review Scope
-- **Files to review**:
-  - src/AssetManager.js
-  - src/main.js
-  - src/NPCController.js
-  - src/scenes/GameScene.js
-  - src/PlayerController.js
-  - src/WorldManager.js
-  - src/InputManager.js
-- **Interface contracts**: PROJECT.md / SCOPE.md (if exists)
-- **Review criteria**: Correctness, completeness, robustness, conformance, memory leaks, stat exploits, Tailwind CSS compile.
+- **Files to review**: src/PlayerController.js, src/EnemyController.js, src/WorldManager.js, src/GeminiService.js, src/scenes/GameScene.js, src/NPCController.js
+- **Interface contracts**: PROJECT.md or SCOPE.md (if exist)
+- **Review criteria**: correctness, safety (race conditions, leak prevention), quality, adversarial stress-testing.
 
 ## Key Decisions Made
-- Inspected the code in the codebase for each of the worker changes.
-- Verified Tailwind CSS build succeeds without warnings or issues.
-- Wrote review.md and handoff.md files detailing the verification.
+- Discovered a major event listener leak in the character sheet button (`btn-char-sheet`).
+- Decided to issue a `REQUEST_CHANGES` verdict for this reason.
 
 ## Artifact Index
-- c:\Code2\rpg-scroller\.agents\reviewer_1\ORIGINAL_REQUEST.md — Original request log
-- c:\Code2\rpg-scroller\.agents\reviewer_1\review.md — Final review and verdict
-- c:\Code2\rpg-scroller\.agents\reviewer_1\handoff.md — Handoff report for main agent
-- c:\Code2\rpg-scroller\.agents\reviewer_1\progress.md — Progress and heartbeat log
+- C:\Code2\rpg-scroller\.agents\reviewer_1\handoff.md — Handoff report
+
+## Review Checklist
+- **Items reviewed**: src/PlayerController.js, src/EnemyController.js, src/WorldManager.js, src/GeminiService.js, src/scenes/GameScene.js, src/NPCController.js
+- **Verdict**: REQUEST_CHANGES
+- **Unverified claims**: Puppeteer tests passing (unable to run due to shell permissions/timeouts, did static code check).
+
+## Attack Surface
+- **Hypotheses tested**: Event listener stacking, async race conditions, physics culling, double jump logic.
+- **Vulnerabilities found**: Persistent button `btn-char-sheet` event listener leak and stale reference.
+- **Untested angles**: None.

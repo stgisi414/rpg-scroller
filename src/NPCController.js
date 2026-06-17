@@ -18,14 +18,15 @@ class NPCController {
         this.sprite.setScale(1.5);
         this.sprite.setDepth(1);
         this.sprite.setCollideWorldBounds(true);
-        this.sprite.body.immovable = true;
+        this.sprite.body.immovable = false;
+        this.sprite.body.setAllowGravity(true);
         // Frame is 64x64 (or 80x64 for knight), displayed at 1.5x.
         // Body: 36w × 80h, offset (30, 16) keeps feet on the ground.
         if (spriteKey === 'knight') {
-            this.sprite.body.setSize(36, 80);
+            this.sprite.body.setSize(36, 48);
             this.sprite.body.setOffset(22, 16);
         } else {
-            this.sprite.body.setSize(36, 80);
+            this.sprite.body.setSize(36, 48);
             this.sprite.body.setOffset(30, 16);
         }
         
@@ -97,25 +98,8 @@ class NPCController {
             if (this.isShopOpen) this.closeShop();
         };
 
-        if (this.chatSubmitBtn) {
-            this.chatSubmitBtn.addEventListener('click', this.onSubmitClick);
-        }
-        if (this.chatInput) {
-            this.chatInput.addEventListener('keypress', this.onKeyPress);
-        }
-        
         this.chatTradeBtn = document.getElementById('chat-trade');
-        if (this.chatTradeBtn) {
-            this.chatTradeBtn.addEventListener('click', this.onTradeClick);
-        }
-
         this.chatActivityBtn = document.getElementById('chat-activity');
-        if (this.chatActivityBtn) {
-            this.chatActivityBtn.addEventListener('click', this.onActivityClick);
-        }
-
-        // Setup key to close chat or shop
-        this.scene.input.keyboard.on('keydown-ESC', this.onEscKeyDown);
     }
 
     update(time, delta) {
@@ -209,9 +193,47 @@ class NPCController {
         }
     }
 
+    registerChatListeners() {
+        this.unregisterChatListeners(); // Avoid duplicate registrations
+        if (this.chatSubmitBtn) {
+            this.chatSubmitBtn.addEventListener('click', this.onSubmitClick);
+        }
+        if (this.chatInput) {
+            this.chatInput.addEventListener('keypress', this.onKeyPress);
+        }
+        if (this.chatTradeBtn) {
+            this.chatTradeBtn.addEventListener('click', this.onTradeClick);
+        }
+        if (this.chatActivityBtn) {
+            this.chatActivityBtn.addEventListener('click', this.onActivityClick);
+        }
+        if (this.scene && this.scene.input && this.scene.input.keyboard) {
+            this.scene.input.keyboard.on('keydown-ESC', this.onEscKeyDown);
+        }
+    }
+
+    unregisterChatListeners() {
+        if (this.chatSubmitBtn) {
+            this.chatSubmitBtn.removeEventListener('click', this.onSubmitClick);
+        }
+        if (this.chatInput) {
+            this.chatInput.removeEventListener('keypress', this.onKeyPress);
+        }
+        if (this.chatTradeBtn) {
+            this.chatTradeBtn.removeEventListener('click', this.onTradeClick);
+        }
+        if (this.chatActivityBtn) {
+            this.chatActivityBtn.removeEventListener('click', this.onActivityClick);
+        }
+        if (this.scene && this.scene.input && this.scene.input.keyboard) {
+            this.scene.input.keyboard.off('keydown-ESC', this.onEscKeyDown);
+        }
+    }
+
     openShop() {
         this.isShopOpen = true;
         this.player.isTalking = true;
+        this.registerChatListeners();
         if (this.player.inputManager) {
             this.scene.input.keyboard.removeCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT');
         }
@@ -223,6 +245,7 @@ class NPCController {
     closeShop() {
         this.isShopOpen = false;
         this.player.isTalking = false;
+        this.unregisterChatListeners();
         document.getElementById('ui-shop').style.display = 'none';
         if (this.player.inputManager) {
             this.scene.input.keyboard.addCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT');
@@ -235,6 +258,7 @@ class NPCController {
         this.player.isTalking = true;
         this.uiContainer.style.display = 'block';
         this.npcNameDiv.innerText = this.npcName;
+        this.registerChatListeners();
 
         // Release Phaser's key capture so ALL keys flow through to the HTML input
         if (this.player.inputManager) {
@@ -278,6 +302,7 @@ class NPCController {
         this.isChatOpen = false;
         this.isIntroCutscene = false;
         this.player.isTalking = false;
+        this.unregisterChatListeners();
         this.uiContainer.style.display = 'none';
         this.chatInput.blur();
 
@@ -329,12 +354,12 @@ class NPCController {
         const state = {
             zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
             player: {
-                level: window.saveData.level || 1,
+                level: (window.saveData && window.saveData.level) || 1,
                 class: p.classData ? p.classData.id : "adventurer",
                 hp: `${p.hp}/${p.maxHp}`,
-                gold: window.saveData.gold || 0,
-                alignment: window.saveData.alignment || 0,
-                isSavior: window.saveData.isSavior || false,
+                gold: (window.saveData && window.saveData.gold) || 0,
+                alignment: (window.saveData && window.saveData.alignment) || 0,
+                isSavior: (window.saveData && window.saveData.isSavior) || false,
                 inventory: p.inventory,
                 quests: p.quests
             }
@@ -342,26 +367,35 @@ class NPCController {
 
         this.geminiService.getNpcResponse(this.npcPersona, this.chatHistory, `[SYSTEM ACTIVITY TRIGGER] ${prompt}`, state)
             .then(res => {
+                if (!this.scene || this.scene.isSceneDestroyed) return;
+                if (!this.sprite || !this.sprite.active) return;
                 const reply = res.response;
                 const cleanReply = reply.replace(/\[ACTION_SUCCESS\]/g, '').trim();
                 if (reply.includes('[ACTION_SUCCESS]')) {
                     this.executeActivityEffect();
                 }
-                document.getElementById(loadingId).innerText = cleanReply;
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) {
+                    loadingElement.innerText = cleanReply;
+                }
                 this.chatHistory.push({ role: 'model', content: cleanReply });
-                this.chatInput.disabled = false;
-                this.chatSubmitBtn.disabled = false;
-                this.chatActivityBtn.disabled = false;
-                this.chatInput.focus();
+                if (this.chatInput) this.chatInput.disabled = false;
+                if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
+                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
+                if (this.chatInput) this.chatInput.focus();
                 // If there's a UI scroll method
                 const chatHistoryDiv = document.getElementById('chat-history');
                 if (chatHistoryDiv) chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
             })
             .catch(err => {
-                document.getElementById(loadingId).innerText = "[Error generating response]";
-                this.chatInput.disabled = false;
-                this.chatSubmitBtn.disabled = false;
-                this.chatActivityBtn.disabled = false;
+                if (!this.scene || this.scene.isSceneDestroyed) return;
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) {
+                    loadingElement.innerText = "[Error generating response]";
+                }
+                if (this.chatInput) this.chatInput.disabled = false;
+                if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
+                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
                 console.error(err);
             });
     }
@@ -471,12 +505,12 @@ class NPCController {
         const state = {
             zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
             player: {
-                level: window.saveData.level || 1,
+                level: (window.saveData && window.saveData.level) || 1,
                 class: p.classData ? p.classData.id : "adventurer",
                 hp: `${p.hp}/${p.maxHp}`,
-                gold: window.saveData.gold || 0,
-                alignment: window.saveData.alignment || 0,
-                isSavior: window.saveData.isSavior || false,
+                gold: (window.saveData && window.saveData.gold) || 0,
+                alignment: (window.saveData && window.saveData.alignment) || 0,
+                isSavior: (window.saveData && window.saveData.isSavior) || false,
                 inventory: p.inventory,
                 quests: p.quests
             }
@@ -484,6 +518,8 @@ class NPCController {
 
         // 3. Ask Gemini
         const response = await this.geminiService.getNpcResponse(this.npcPersona, this.chatHistory, text, state);
+        if (!this.scene || this.scene.isSceneDestroyed) return;
+        if (!this.sprite || !this.sprite.active) return;
         
         // Handle activity success from normal chat
         const cleanReply = response.response.replace(/\[ACTION_SUCCESS\]/g, '').trim();
@@ -608,13 +644,15 @@ class NPCController {
         const p = this.player;
         const state = {
             zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            player: { level: window.saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` },
+            player: { level: (window.saveData && window.saveData.level) || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` },
             inventory: p.inventory ? { gold: p.inventory.gold, items: "Potions" } : null,
             alignment: p.alignment
         };
         
         try {
             const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
+            if (!this.scene || this.scene.isSceneDestroyed) return;
+            if (!this.sprite || !this.sprite.active) return;
             
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
@@ -626,33 +664,21 @@ class NPCController {
             this.chatHistory.push({ sender: displayName, text: response.response });
             
         } catch (err) {
+            if (!this.scene || this.scene.isSceneDestroyed) return;
+            if (!this.sprite || !this.sprite.active) return;
             console.error("AI Intro failed:", err);
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
             this.addMessageToUI(displayName, "Welcome to Willowbrook. I am the Sage.");
         }
 
-        this.chatInput.disabled = false;
-        this.chatSubmitBtn.disabled = false;
-        this.chatInput.focus();
+        if (this.chatInput) this.chatInput.disabled = false;
+        if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
+        if (this.chatInput) this.chatInput.focus();
     }
 
     destroy() {
-        if (this.chatSubmitBtn) {
-            this.chatSubmitBtn.removeEventListener('click', this.onSubmitClick);
-        }
-        if (this.chatInput) {
-            this.chatInput.removeEventListener('keypress', this.onKeyPress);
-        }
-        if (this.chatTradeBtn) {
-            this.chatTradeBtn.removeEventListener('click', this.onTradeClick);
-        }
-        if (this.chatActivityBtn) {
-            this.chatActivityBtn.removeEventListener('click', this.onActivityClick);
-        }
-        if (this.scene && this.scene.input && this.scene.input.keyboard) {
-            this.scene.input.keyboard.off('keydown-ESC', this.onEscKeyDown);
-        }
+        this.unregisterChatListeners();
 
         if (this.nameText) this.nameText.destroy();
         if (this.promptText) this.promptText.destroy();

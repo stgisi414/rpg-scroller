@@ -278,6 +278,8 @@ function selectClass(classId) {
         const tempImg = new Image();
         tempImg.src = data.image;
         tempImg.onload = () => {
+            const currentContainer = document.getElementById('create-class-image');
+            if (!currentContainer || currentContainer !== container) return;
             container.style.backgroundSize = `${tempImg.width * scale}px ${tempImg.height * scale}px`;
             container.style.backgroundImage = `url('${data.image}')`;
             
@@ -354,7 +356,7 @@ function startGame(saveData) {
 
     // We pass both the base class data and the specific save data
     window.selectedClass = classesData[saveData.classId];
-    window.saveData = saveData;
+    window.saveData = JSON.parse(JSON.stringify(saveData));
 
     const config = {
         type: Phaser.AUTO,
@@ -387,10 +389,11 @@ window.returnToMainMenu = function() {
         if (window.saveData) {
             const saves = getSaves();
             const saveIndex = saves.findIndex(s => s.id === window.saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
             if (saveIndex > -1) {
-                saves[saveIndex] = window.saveData;
+                saves[saveIndex] = clonedSave;
             } else {
-                saves.push(window.saveData);
+                saves.push(clonedSave);
             }
             saveSaves(saves);
         }
