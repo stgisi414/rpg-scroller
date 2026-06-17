@@ -145,6 +145,7 @@ class WorldManager {
         this.scene.player.sprite.setVelocityY(0);
         this.scene.player.sprite.setVelocityX(0);
 
+        const isTown = zoneData.type === 'Safe';
         if (spawnSide === 'left') {
             this.scene.player.sprite.setX(100);
             if (this.scene.partyMembers) {
@@ -155,10 +156,11 @@ class WorldManager {
                 });
             }
         } else if (spawnSide === 'right') {
-            this.scene.player.sprite.setX(3740);
+            const spawnX = isTown ? 1740 : 3740;
+            this.scene.player.sprite.setX(spawnX);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
-                    hero.sprite.setX(3740 + 60 + (i * 60));
+                    hero.sprite.setX(spawnX + 60 + (i * 60));
                     hero.sprite.setY(600);
                     hero.sprite.setVelocity(0, 0);
                 });
@@ -269,9 +271,19 @@ class WorldManager {
 
             // Render from the saved layout
             zoneData.decorLayout.forEach(item => {
+                let targetY = item.y;
+                if (this.scene.platforms && this.scene.platforms.getChildren().length > 0) {
+                    const blocksAtX = this.scene.platforms.getChildren().filter(block => Math.abs(block.x - item.x) <= 23 && block.y < 800);
+                    if (blocksAtX.length > 0) {
+                        const highestBlock = blocksAtX.reduce((highest, current) => current.y < highest.y ? current : highest, blocksAtX[0]);
+                        const offsetY = item.y - 696;
+                        targetY = highestBlock.y + offsetY;
+                    }
+                }
+
                 const img = (item.frame !== undefined) ? 
-                    this.scene.add.image(item.x, item.y, item.asset, item.frame) : 
-                    this.scene.add.image(item.x, item.y, item.asset);
+                    this.scene.add.image(item.x, targetY, item.asset, item.frame) : 
+                    this.scene.add.image(item.x, targetY, item.asset);
                 
                 img.setOrigin(0.5, 1).setScale(item.scale).setDepth(item.depth);
                 if (item.tint !== undefined) img.setTint(item.tint);
@@ -557,9 +569,22 @@ class WorldManager {
                     if (finalDepth === -6) finalDepth = -4;
                     if (finalDepth === -5) finalDepth = -3;
 
+                    let targetY = item.y;
+                    if (this.scene.platforms && this.scene.platforms.getChildren().length > 0) {
+                        const blocksAtX = this.scene.platforms.getChildren().filter(block => Math.abs(block.x - item.x) <= 23 && block.y < 800);
+                        if (blocksAtX.length > 0) {
+                            const highestBlock = blocksAtX.reduce((highest, current) => current.y < highest.y ? current : highest, blocksAtX[0]);
+                            const offsetY = item.y - 696;
+                            targetY = highestBlock.y + offsetY;
+                        } else {
+                            // Skip rendering decor if there is no platform under it (pit/gap)
+                            return;
+                        }
+                    }
+
                     const img = (item.frame !== undefined)
-                        ? this.scene.add.image(item.x, item.y, item.asset, item.frame)
-                        : this.scene.add.image(item.x, item.y, item.asset);
+                        ? this.scene.add.image(item.x, targetY, item.asset, item.frame)
+                        : this.scene.add.image(item.x, targetY, item.asset);
                     img.setOrigin(0.5, 1).setScale(item.scale).setDepth(finalDepth);
                     if (item.tint) {
                         img.setTint(item.tint);
@@ -708,9 +733,10 @@ class WorldManager {
                 }
             }
 
-            // Scrub Mira/goddess from old cached wilderness zones and spawn
+            // Scrub town NPCs from wilderness zones
             if (zoneData.type !== 'Safe' && zoneData.npcs && zoneData.npcs.length > 0) {
-                zoneData.npcs = zoneData.npcs.filter(n => n.spriteKey !== 'npc');
+                const validHeroes = ['ranger', 'knight', 'samurai', 'wizard'];
+                zoneData.npcs = zoneData.npcs.filter(n => validHeroes.includes(n.spriteKey));
                 
                 // Spawn the valid wandering heroes in the wilderness
                 zoneData.npcs.forEach(nData => {
@@ -721,6 +747,17 @@ class WorldManager {
                     this.scene.decorGroup.add(npc.nameText);
                     this.scene.decorGroup.add(npc.promptText);
                 });
+            }
+
+            // If it's a dangerous zone and there are NO enemies (player cleared it), 50% chance to respawn a few enemies
+            if (zoneData.type !== 'Safe' && zoneData.enemies.length === 0 && Math.random() > 0.5) {
+                const types = ['slime', 'goblin', 'bat', 'spider', 'skeleton'];
+                for(let i=0; i<3; i++) {
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    const enemy = new EnemyController(this.scene, 200 + Math.random() * 3000, 100, this.scene.player, this.geminiService, type);
+                    this.scene.enemies.add(enemy.sprite);
+                    zoneData.enemies.push({ type: type, x: enemy.sprite.x, hp: enemy.maxHp, speed: enemy.speed });
+                }
             }
         }
     }

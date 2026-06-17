@@ -682,8 +682,8 @@ class PlayerController {
             return;
         }
 
-        // Instant death if falling off platforms
-        if (this.sprite.y > 1000) {
+        // Instant death if falling into the deep abyss
+        if (this.sprite.y > 1400) {
             this.takeDamage(this.hp);
             return;
         }
@@ -760,6 +760,13 @@ class PlayerController {
         let speedMultiplier = 1.0;
         const freezeEffect = this.statusEffects.find(e => e.type === 'freeze');
         if (freezeEffect) speedMultiplier = 1.0 - (freezeEffect.strength / 100);
+
+        // Cancel dash early if stuck against a wall to prevent transparent lock-up
+        if (this.isDashing && Math.abs(this.sprite.body.velocity.x) < 5) {
+            this.isDashing = false;
+            this.sprite.body.setAllowGravity(true);
+            if (!this.invulnerable) this.sprite.setAlpha(1.0);
+        }
 
         if (this.isDashing || this.isAttacking) return;
         

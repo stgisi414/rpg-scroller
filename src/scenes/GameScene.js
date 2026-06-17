@@ -396,8 +396,8 @@ class GameScene extends Phaser.Scene {
         }
         this.player.sprite.setPosition(safeSpawnX, safeSpawnY);
         
-        // Set camera bounds (Width 3840, height 2720 to pin bottom edge at y=720)
-        this.cameras.main.setBounds(0, -2000, 3840, 2720);
+        // Set camera bounds (Width 3840, height 4000 to allow falling into deep pits)
+        this.cameras.main.setBounds(0, -2000, 3840, 4000);
         
         // Start following player
         this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
@@ -629,12 +629,31 @@ class GameScene extends Phaser.Scene {
         this.inputManager.update();
         if (this.player) this.player.update(time, delta);
         
-        // cull enemies falling below y > 1000
+        // cull entities falling into the deep abyss (below y > 1400)
         this.enemies.getChildren().forEach(enemy => {
-            if (enemy.y > 1000) {
+            if (enemy.y > 1400) {
                 enemy.destroy();
             }
         });
+        
+        if (this.player && this.player.sprite && this.player.sprite.y > 1400) {
+            this.player.hp = 0; // The abyss claims them!
+        }
+        
+        // Dynamically adjust camera bounds so it doesn't show underground unless falling
+        if (this.player && this.player.sprite && this.player.sprite.active) {
+            const widthTiles = this.zoneData && this.zoneData.type === 'Safe' ? 40 : 84;
+            const targetHeight = (this.player.sprite.y < 700) ? 2720 : 4000;
+            
+            if (typeof this.currentCameraHeight === 'undefined') {
+                this.currentCameraHeight = targetHeight;
+            } else {
+                const factor = Math.min(1, 0.05 * (delta / 16.666));
+                this.currentCameraHeight = this.currentCameraHeight + (targetHeight - this.currentCameraHeight) * factor;
+            }
+            
+            this.cameras.main.setBounds(0, -2000, widthTiles * 46, this.currentCameraHeight);
+        }
 
         // --- GM AI LOGIC ---
         if (!this.lastGmPollTime) this.lastGmPollTime = time;

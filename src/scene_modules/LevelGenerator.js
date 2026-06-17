@@ -144,28 +144,49 @@ class LevelGenerator {
 
         // Build Floor / Platforms
         const widthTiles = type === 'Safe' ? 40 : 84;
-        const totalWidth = widthTiles * 46;
-        scene.physics.world.setBounds(0, -2000, totalWidth, 4000);
-        scene.cameras.main.setBounds(0, -2000, totalWidth, 2720);
+        // Set world bounds depending on biome height (Width totalWidth, height 4000 to allow falling into pits)
+        scene.physics.world.setBounds(0, -2000, widthTiles * 46, 4000);
+        scene.cameras.main.setBounds(0, -2000, widthTiles * 46, 4000);
 
         if (type === 'Safe') {
             // Flat floor for towns (40 blocks for 1840 width)
             for(let i = 0; i < widthTiles; i++) {
+                let currentX = i * 46 + 24;
                 let frameIdx = (floorFrame !== undefined) ? floorFrame : ((floorKey === 'floor') ? 1 : 0);
-                let block = scene.platforms.create(i * 46 + 24, 696, floorKey, frameIdx).setScale(1.5).refreshBody();
+                let block = scene.platforms.create(currentX, 696, floorKey, frameIdx).setScale(1.5).refreshBody();
                 if (floorTint !== 0xffffff) {
                     block.setTint(floorTint);
+                }
+                
+                // Fill dirt below for towns so they don't float!
+                let dirtTint = 0x443322; // default dark brown dirt
+                if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
+                else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
+                
+                for (let dy = 696 + 46; dy <= 1500; dy += 46) {
+                    const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                    scene.bgLayers.push(rect);
                 }
             }
         } else {
             // 2D Platforming logic
             let currentY = 696;
             
-            // Build a safety floor at y = 800 across the entire zone
-            for(let i = 0; i < 84; i++) {
+            // Build a safety floor at y = 820 across the entire zone
+            for(let i = 0; i < widthTiles; i++) {
                 let frameIdx = (floorFrame !== undefined) ? floorFrame : ((floorKey === 'floor') ? 1 : 0);
-                let block = scene.platforms.create(i * 46 + 24, 800, floorKey, frameIdx).setScale(1.5).refreshBody();
+                let block = scene.platforms.create(i * 46 + 24, 820, floorKey, frameIdx).setScale(1.5).refreshBody();
                 if (floorTint !== 0xffffff) block.setTint(floorTint);
+                
+                // Fill dirt below the safety floor to the bottom of the world (1500)
+                let dirtTint = 0x443322;
+                if (floorKey === 'floor_hell') dirtTint = 0x221122;
+                else if (floorKey === 'floor_desert') dirtTint = 0x886633;
+                
+                for (let dy = 820 + 46; dy <= 1500; dy += 46) {
+                    const rect = scene.add.rectangle(i * 46 + 24, dy, 46, 46, dirtTint).setDepth(-8);
+                    scene.bgLayers.push(rect);
+                }
             }
 
             // Always ensure the first few blocks are solid so the player doesn't fall
@@ -180,8 +201,9 @@ class LevelGenerator {
                 if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
                 else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
                 
-                for (let dy = currentY + 46; dy <= 800; dy += 46) {
-                    scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                for (let dy = currentY + 46; dy <= 1500; dy += 46) {
+                    const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                    scene.bgLayers.push(rect);
                 }
             }
 
@@ -218,8 +240,9 @@ class LevelGenerator {
                     if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
                     else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
                     
-                    for (let dy = currentY + 46; dy <= 800; dy += 46) {
-                        scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                    for (let dy = currentY + 46; dy <= 1500; dy += 46) {
+                        const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                        scene.bgLayers.push(rect);
                     }
                     
                     // 15% chance of a higher floating platform block above this one
@@ -245,8 +268,9 @@ class LevelGenerator {
                 if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
                 else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
                 
-                for (let dy = 696 + 46; dy <= 800; dy += 46) {
-                    scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                for (let dy = 696 + 46; dy <= 1500; dy += 46) {
+                    const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
+                    scene.bgLayers.push(rect);
                 }
             }
         }

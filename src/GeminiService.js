@@ -72,7 +72,10 @@ Return ONLY a valid JSON object in this exact format:
 (If no dialogue is appropriate, return an empty string for dialogue).`;
 
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await Promise.race([
+                this.model.generateContent(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
+            ]);
             const text = result.response.text();
             return JSON.parse(text);
         } catch (e) {
@@ -110,7 +113,10 @@ Return ONLY a valid JSON object:
 }`;
 
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await Promise.race([
+                this.model.generateContent(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+            ]);
             const text = result.response.text();
             console.log("Game Master Decision:", text);
             return JSON.parse(text);
@@ -186,7 +192,10 @@ Return ONLY a valid JSON object in this format:
 If you do NOT want to give a quest, simply omit the "quest" field.`;
 
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await Promise.race([
+                this.model.generateContent(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+            ]);
             const text = result.response.text();
             console.log("Gemini NPC Decision:", text);
             return JSON.parse(text);
@@ -335,7 +344,10 @@ Return ONLY a valid JSON object in this exact format:
 }`;
 
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await Promise.race([
+                this.model.generateContent(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 20000))
+            ]);
             const text = result.response.text();
             console.log("Gemini Generated Zone:", text);
             return JSON.parse(text);
@@ -387,7 +399,10 @@ Output your response as JSON in this exact format:
 Keep it short, punchy, and atmospheric.`;
 
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await Promise.race([
+                this.model.generateContent(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+            ]);
             let text = result.response.text();
             // Clean up any markdown code blocks
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
