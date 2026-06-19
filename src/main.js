@@ -80,7 +80,7 @@ window.INDOOR_LOCATIONS = {
         npcName: 'Weapons Master',
         npcPersona: 'A disciplined warrior who trains adventurers through combat drills.',
         floorTint: 0xAA9966,
-        action: 'spar'
+        action: 'train'
     }
 };
 
@@ -221,15 +221,15 @@ const classesData = {
 };
 
 // Derived rival and boss classes
-classesData.knight_rival = { ...classesData.heavy_knight, id: 'knight_rival', stats: { vit: 30, str: 25, dex: 15, int: 8 } };
+classesData.knight_rival = { ...classesData.heavy_knight, id: 'knight_rival', stats: { vit: 30, str: 25, dex: 15, int: 8 }, animFrames: JSON.parse(JSON.stringify(classesData.heavy_knight.animFrames || {})) };
 classesData.knight_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
-classesData.wizard_rival = { ...classesData.wizard, id: 'wizard_rival', stats: { vit: 20, str: 10, dex: 15, int: 30 } };
+classesData.wizard_rival = { ...classesData.wizard, id: 'wizard_rival', stats: { vit: 20, str: 10, dex: 15, int: 30 }, animFrames: JSON.parse(JSON.stringify(classesData.wizard.animFrames || {})) };
 classesData.wizard_rival.image = 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Red Wizard sheet.png';
-classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival', stats: { vit: 25, str: 20, dex: 30, int: 5 } };
+classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival', stats: { vit: 25, str: 20, dex: 30, int: 5 }, animFrames: JSON.parse(JSON.stringify(classesData.samurai.animFrames || {})) };
 classesData.samurai_rival.image = 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png';
-classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival', stats: { vit: 25, str: 15, dex: 25, int: 15 } };
+classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival', stats: { vit: 25, str: 15, dex: 25, int: 15 }, animFrames: JSON.parse(JSON.stringify(classesData.ranger.animFrames || {})) };
 classesData.ranger_rival.image = 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png';
-classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 } };
+classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 }, animFrames: JSON.parse(JSON.stringify(classesData.heavy_knight.animFrames || {})) };
 classesData.megaboss_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
 
 function showTitleScreen() {
@@ -375,6 +375,7 @@ function startGame(saveData) {
     };
 
     game = new Phaser.Game(config);
+    window.game = game;
 }
 
 window.returnToMainMenu = function() {
@@ -400,6 +401,7 @@ window.returnToMainMenu = function() {
         
         game.destroy(true);
         game = null;
+        window.game = null;
     }
     
     // Hide game HUD, show title screen

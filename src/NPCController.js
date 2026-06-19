@@ -12,6 +12,7 @@ class NPCController {
         // Chat state
         this.chatHistory = [];
         this.isChatOpen = false;
+        this.isShopOpen = false;
 
         // Create the physics sprite using the appropriate sprite key
         this.sprite = this.scene.physics.add.sprite(x, y, spriteKey);
@@ -44,9 +45,10 @@ class NPCController {
                 wizard: { start: 0, end: 5 },
                 ranger: { start: 0, end: 4 },
                 knight: { start: 0, end: 4 },
-                samurai: { start: 84, end: 88 },
+                samurai: { start: 0, end: 4 },
                 blacksmith: { start: 0, end: 4 },
-                alchemist: { start: 0, end: 4 }
+                alchemist: { start: 0, end: 4 },
+                sage: { start: 0, end: 5 }
             };
             const config = idleConfig[spriteKey] || { start: 0, end: 4 };
             
@@ -148,42 +150,48 @@ class NPCController {
             if (this.isShopOpen) this.closeShop();
         }
 
-        // Handle NPC Wandering if they are indoors and not talking to the player
-        if (this.isIndoorNPC && !this.isChatOpen && !this.isShopOpen) {
+        // Handle NPC Wandering if they are not talking to the player
+        const isStaticNPC = ['sage', 'npc'].includes(this.spriteKey);
+        if (!this.isChatOpen && !this.isShopOpen && !isStaticNPC) {
             if (!this.wanderTimer) {
-                this.wanderTimer = time + Phaser.Math.Between(2000, 5000);
+                this.wanderTimer = time + Phaser.Math.Between(15000, 25000); // 20s interval
                 this.wanderState = 0; // 0: idle, 1: walk left, 2: walk right
             }
 
             if (time > this.wanderTimer) {
                 // Change state
-                this.wanderState = Phaser.Math.Between(0, 2);
-                this.wanderTimer = time + Phaser.Math.Between(1500, 4000);
+                if (this.wanderState === 0) {
+                    this.wanderState = Phaser.Math.Between(1, 2);
+                    this.wanderTimer = time + Phaser.Math.Between(2000, 4000); // walk for 2-4 seconds
+                } else {
+                    this.wanderState = 0;
+                    this.wanderTimer = time + Phaser.Math.Between(15000, 25000); // idle for 20s
+                }
                 
-                // If hitting walls, bounce
-                if (this.sprite.x < 300) this.wanderState = 2;
-                if (this.sprite.x > 1000) this.wanderState = 1;
+                // If hitting generic bounds, turn around
+                if (this.sprite.x < 150) this.wanderState = 2;
+                if (this.sprite.x > 1700) this.wanderState = 1;
             }
 
-            // Only run if the run animation exists, otherwise fallback to idle
             const runAnim = this.spriteKey + '_run';
-            const hasRunAnim = this.scene.anims.exists(runAnim);
+            const walkAnim = this.spriteKey + '_walk';
+            const idleAnim = this.spriteKey + '_idle';
+            const activeAnim = this.scene.anims.exists(runAnim) ? runAnim : (this.scene.anims.exists(walkAnim) ? walkAnim : idleAnim);
 
-            if (this.wanderState === 1 && hasRunAnim) {
+            if (this.wanderState === 1) {
                 this.sprite.setVelocityX(-60);
                 this.sprite.setFlipX(isLeftFacing ? false : true);
-                if (this.sprite.anims.currentAnim?.key !== runAnim) this.sprite.play(runAnim, true);
-            } else if (this.wanderState === 2 && hasRunAnim) {
+                if (this.sprite.anims.currentAnim?.key !== activeAnim) this.sprite.play(activeAnim, true);
+            } else if (this.wanderState === 2) {
                 this.sprite.setVelocityX(60);
                 this.sprite.setFlipX(isLeftFacing ? true : false);
-                if (this.sprite.anims.currentAnim?.key !== runAnim) this.sprite.play(runAnim, true);
+                if (this.sprite.anims.currentAnim?.key !== activeAnim) this.sprite.play(activeAnim, true);
             } else {
                 this.sprite.setVelocityX(0);
                 // Only flip to face player if idle
                 if (distanceToPlayer < 200) {
                     this.sprite.setFlipX(this.player.sprite.x < this.sprite.x ? (isLeftFacing ? false : true) : (isLeftFacing ? true : false));
                 }
-                const idleAnim = this.spriteKey + '_idle';
                 if (this.sprite.anims.currentAnim?.key !== idleAnim) this.sprite.play(idleAnim, true);
             }
         } else {
@@ -365,7 +373,7 @@ class NPCController {
             }
         };
 
-        this.geminiService.getNpcResponse(this.npcPersona, this.chatHistory, `[SYSTEM ACTIVITY TRIGGER] ${prompt}`, state)
+        this.geminiService.getNpcResponse(this.persona, this.chatHistory, `[SYSTEM ACTIVITY TRIGGER] ${prompt}`, state)
             .then(res => {
                 if (!this.scene || this.scene.isSceneDestroyed) return;
                 if (!this.sprite || !this.sprite.active) return;
@@ -378,7 +386,7 @@ class NPCController {
                 if (loadingElement) {
                     loadingElement.innerText = cleanReply;
                 }
-                this.chatHistory.push({ role: 'model', content: cleanReply });
+                this.chatHistory.push({ sender: this.npcName, text: cleanReply });
                 if (this.chatInput) this.chatInput.disabled = false;
                 if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
                 if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
@@ -402,20 +410,27 @@ class NPCController {
 
     executeActivityEffect() {
         if (this.indoorAction === 'train') {
-            const EnemyController = window.EnemyController || this.scene.EnemyController; // Assuming EnemyController is accessible globally or on scene
             if (!this.scene.anims.exists('training_dummy-idle')) {
-                this.scene.anims.create({ key: 'training_dummy-idle', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 0, end: 7 }), frameRate: 8, repeat: -1 });
-                this.scene.anims.create({ key: 'training_dummy-hit', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 8, end: 15 }), frameRate: 12, repeat: 0 });
-                this.scene.anims.create({ key: 'training_dummy-die', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 8, end: 15 }), frameRate: 12, repeat: 0 });
+                this.scene.anims.create({ key: 'training_dummy-idle', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+                this.scene.anims.create({ key: 'training_dummy-hit', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 4, end: 7 }), frameRate: 12, repeat: 0 });
+                this.scene.anims.create({ key: 'training_dummy-die', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 4, end: 7 }), frameRate: 12, repeat: 0 });
             }
-            if (this.scene.EnemyController) {
-                const dummy = new this.scene.EnemyController(this.scene, 600, 680, 'training_dummy', this.player);
-                dummy.stats = { hp: 5000, maxHp: 5000, atk: 0, def: 5, spd: 0, xp: 50 }; // High HP for training
+            if (EnemyController) {
+                // Spawn at Y=500 so the 279px tall sprite's bottom edge starts above the Y=700 floor
+                const dummy = new EnemyController(this.scene, 600, 500, this.player, this.geminiService, 'training_dummy');
+                dummy.maxHp = 999999;
+                dummy.hp = 999999;
+                dummy.stats = { hp: 999999, maxHp: 999999, atk: 0, def: 5, spd: 0, xp: 50 }; // High HP for training
                 dummy.isDummy = true;
                 dummy.isHit = false;
-                dummy.sprite.setScale(0.8);
-                this.scene.enemies.push(dummy);
-                this.scene.createDamageText(this.player.sprite.x, this.player.sprite.y - 50, "Training Dummy Spawned!", '#ffff00');
+                dummy.sprite.setScale(0.5);
+                if (this.scene.enemies && this.scene.enemies.add) this.scene.enemies.add(dummy.sprite);
+                if (this.scene.isIndoors && this.scene.indoorFloor) {
+                    this.scene.physics.add.collider(dummy.sprite, this.scene.indoorFloor);
+                } else {
+                    this.scene.physics.add.collider(dummy.sprite, this.scene.platforms);
+                }
+                if (this.scene.showFloatingText) this.scene.showFloatingText(this.player.sprite.x, this.player.sprite.y - 50, "Training Dummy Spawned!", 0xffff00);
             }
             return;
         }
@@ -477,7 +492,7 @@ class NPCController {
         }
 
         if (rewardText) {
-            this.scene.createDamageText(this.player.sprite.x, this.player.sprite.y - 50, rewardText, '#00ff00');
+            if (this.scene.showFloatingText) this.scene.showFloatingText(this.player.sprite.x, this.player.sprite.y - 50, rewardText, 0x00ff00);
         }
     }
 
@@ -517,7 +532,7 @@ class NPCController {
         };
 
         // 3. Ask Gemini
-        const response = await this.geminiService.getNpcResponse(this.npcPersona, this.chatHistory, text, state);
+        const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, text, state);
         if (!this.scene || this.scene.isSceneDestroyed) return;
         if (!this.sprite || !this.sprite.active) return;
         
@@ -558,6 +573,7 @@ class NPCController {
         // Re-enable input
         this.chatInput.disabled = false;
         this.chatSubmitBtn.disabled = false;
+        if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
         this.chatInput.focus();
 
         // 7. Handle Party / Hostile Morphs
@@ -678,6 +694,9 @@ class NPCController {
     }
 
     destroy() {
+        if (this.isChatOpen) this.closeChat();
+        if (this.isShopOpen) this.closeShop();
+        
         this.unregisterChatListeners();
 
         if (this.nameText) this.nameText.destroy();

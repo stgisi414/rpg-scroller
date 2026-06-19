@@ -23,6 +23,9 @@ class GameScene extends Phaser.Scene {
         this.events.on('destroy', this.cleanupScene, this);
         this.assetManager.create();
 
+        // Only register animations once — they're global in Phaser and persist across scene restarts.
+        // Without this guard, every zone transition produces 100+ 'key already exists' warnings.
+        if (!this.anims.exists('slime-idle')) {
         // Slime Animations (sheet is 256x96, frames 32x32 = 8 per row, 3 rows)
         // Row 0 (frames 0-7): Idle/Bounce (usually 4 frames)
         // Row 1 (frames 8-15): Hit/Jump (usually 4 frames)
@@ -37,6 +40,7 @@ class GameScene extends Phaser.Scene {
         this.anims.create({ key: 'goblin-move', frames: this.anims.generateFrameNumbers('goblin', { start: 6, end: 9 }), frameRate: 12, repeat: -1 });
         this.anims.create({ key: 'goblin-hit',  frames: this.anims.generateFrameNumbers('goblin', { start: 18, end: 19 }), frameRate: 10, repeat: 0 });
         this.anims.create({ key: 'goblin-die',  frames: this.anims.generateFrameNumbers('goblin', { start: 24, end: 27 }), frameRate: 8, repeat: 0 });
+        this.anims.create({ key: 'goblin-attack', frames: this.anims.generateFrameNumbers('goblin', { start: 12, end: 17 }), frameRate: 10, repeat: 0 });
 
         // Bat: 64x64, 6 cols.
         this.anims.create({ key: 'bat-idle', frames: this.anims.generateFrameNumbers('bat', { start: 0, end: 3 }), frameRate: 12, repeat: -1 });
@@ -95,18 +99,24 @@ class GameScene extends Phaser.Scene {
         if (this.textures.exists('house_inside_tiles')) {
             this.registry.set('debug_tex_house_tiles', this.textures.get('house_inside_tiles').getSourceImage());
         }
+        if (this.textures.exists('training_dummy')) {
+            this.registry.set('debug_tex_training_dummy', this.textures.get('training_dummy').getSourceImage());
+        }
 
         // Load custom slice data from localStorage if available, otherwise use defaults
         const defaultSliceData = {
             lich_lord: [ { y: 0, h: 85 }, { y: 85, h: 85 }, { y: 170, h: 85 }, { y: 255, h: 85 }, { y: 340, h: 85 }, { y: 425, h: 87 } ],
-            skeleton: [ { y: 0, h: 85 }, { y: 85, h: 85 }, { y: 170, h: 85 }, { y: 255, h: 85 } ],
+            skeleton: [ { y: 0, h: 128 }, { y: 128, h: 128 }, { y: 256, h: 128 }, { y: 384, h: 128 } ],
             frost_giant: [ { y: 0, h: 128 }, { y: 128, h: 128 }, { y: 256, h: 128 }, { y: 384, h: 128 } ]
         };
         try {
             const savedData = localStorage.getItem('sprite_slice_data');
             window.sliceData = savedData ? JSON.parse(savedData) : defaultSliceData;
-            // Force reset skeleton if it incorrectly has 6 rows from an old save
-            if (window.sliceData.skeleton && window.sliceData.skeleton.length !== 4) {
+            // Force reset skeleton if it has wrong row count or old 85px row heights
+            if (window.sliceData.skeleton && (
+                window.sliceData.skeleton.length !== 4 ||
+                window.sliceData.skeleton[0].h < 100  // Old 85px rows — need 128px
+            )) {
                 window.sliceData.skeleton = defaultSliceData.skeleton;
             }
             // Ensure defaults exist
@@ -189,10 +199,14 @@ class GameScene extends Phaser.Scene {
         // Projectile animations
         this.anims.create({ key: 'projectile_blue_anim', frames: this.anims.generateFrameNumbers('projectile_blue', { start: 0, end: 5 }), frameRate: 15, repeat: -1 });
         
-        // Skeleton animations
+        // Skeleton animations (1024x512 sheet, 4 rows of 128px, 10 cols of ~102px)
+        // Row 0: Idle (5 frames), Row 1: Walk (10 frames), Row 2: Run (8 frames)
+        // Row 3: Attack/Hit/Die (10 frames — sword swings + slash effects + hit)
         this.anims.create({ key: 'skeleton-idle', frames: getFrames('skeleton', 0, 4), frameRate: 8, repeat: -1 });
         this.anims.create({ key: 'skeleton-move', frames: getFrames('skeleton', 10, 17), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'skeleton-attack', frames: getFrames('skeleton', 30, 39), frameRate: 15, repeat: 0 });
+        this.anims.create({ key: 'skeleton-attack', frames: getFrames('skeleton', 30, 35), frameRate: 15, repeat: 0 });
+        this.anims.create({ key: 'skeleton-hit', frames: getFrames('skeleton', 36, 37), frameRate: 10, repeat: 0 });
+        this.anims.create({ key: 'skeleton-die', frames: getFrames('skeleton', 36, 39), frameRate: 8, repeat: 0 });
 
         // Bandit animations
         this.anims.create({ key: 'bandit-idle', frames: this.anims.generateFrameNumbers('bandit', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
@@ -261,6 +275,7 @@ class GameScene extends Phaser.Scene {
         if (this.textures.exists('loot_chest')) {
             this.anims.create({ key: 'loot_chest_open', frames: this.anims.generateFrameNumbers('loot_chest', { start: 0, end: 12 }), frameRate: 12, repeat: 0 });
         }
+        } // End of animation registration guard
 
         // Setup world bounds (allowing vertical exploration and wider zones)
         this.physics.world.setBounds(0, -2000, 3840, 4000);
@@ -462,7 +477,8 @@ class GameScene extends Phaser.Scene {
         if (window.saveData) {
             const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
             const idx = saves.findIndex(s => s.id === window.saveData.id);
-            if (idx > -1) saves[idx] = window.saveData; else saves.push(window.saveData);
+            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
             localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
         }
     }
@@ -545,9 +561,9 @@ class GameScene extends Phaser.Scene {
             const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
             const saveIndex = saves.findIndex(s => s.id === window.saveData.id);
             if (saveIndex > -1) {
-                saves[saveIndex] = window.saveData;
+                saves[saveIndex] = JSON.parse(JSON.stringify(window.saveData));
             } else {
-                saves.push(window.saveData);
+                saves.push(JSON.parse(JSON.stringify(window.saveData)));
             }
             localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
         }
@@ -557,14 +573,24 @@ class GameScene extends Phaser.Scene {
 
         // Fade out
         this.cameras.main.fadeOut(500, 0, 0, 0);
+        // Safety timeout: if camerafadeoutcomplete never fires, force-complete after 5s
+        this._transitionSafetyTimer = this.time.delayedCall(5000, () => {
+            if (this.isTransitioning) {
+                console.warn('Zone transition safety timeout triggered — forcing completion.');
+                this.isTransitioning = false;
+                this.cameras.main.fadeIn(500, 0, 0, 0);
+            }
+        });
         this.cameras.main.once('camerafadeoutcomplete', () => {
+            // Cancel safety timer since fade completed normally
+            if (this._transitionSafetyTimer) this._transitionSafetyTimer.destroy();
             // Restart Scene and pass data (or just reload via save data)
             // Since WorldManager is persistent within GameScene, we can just clear groups
             this.enemies.clear(true, true);
             
             // clear NPCs too if we had a group
             if (this.npcs) {
-                this.npcs.forEach(npc => {
+                [...this.npcs].forEach(npc => {
                     if (npc && typeof npc.destroy === 'function') npc.destroy();
                 });
                 this.npcs = [];
@@ -578,6 +604,17 @@ class GameScene extends Phaser.Scene {
                 });
                 this.lootChests = [];
             }
+
+            // Clean up angel statue prompt text
+            if (this.angelPromptText) {
+                this.angelPromptText.destroy();
+                this.angelPromptText = null;
+            }
+            if (this.angelStatueZone) {
+                this.angelStatueZone.destroy();
+                this.angelStatueZone = null;
+            }
+            this.angelStatue = null;
             
             // Reload
             this.worldManager.loadZone(nextZoneIndex, spawnSide).then(() => {
@@ -642,7 +679,7 @@ class GameScene extends Phaser.Scene {
         
         // Dynamically adjust camera bounds so it doesn't show underground unless falling
         if (this.player && this.player.sprite && this.player.sprite.active) {
-            const widthTiles = this.zoneData && this.zoneData.type === 'Safe' ? 40 : 84;
+            const widthTiles = this.worldManager && this.worldManager.currentZoneData && this.worldManager.currentZoneData.type === 'Safe' ? 40 : 84;
             const targetHeight = (this.player.sprite.y < 700) ? 2720 : 4000;
             
             if (typeof this.currentCameraHeight === 'undefined') {
@@ -657,24 +694,32 @@ class GameScene extends Phaser.Scene {
 
         // --- GM AI LOGIC ---
         if (!this.lastGmPollTime) this.lastGmPollTime = time;
-        if (time - this.lastGmPollTime > 20000 && this.geminiService && this.geminiService.isReady && !this.isIndoors && !this.isCutscene && this.zoneData && this.zoneData.type === 'Dangerous') {
+        if (time - this.lastGmPollTime > 20000 && this.geminiService && this.geminiService.isReady && !this.isIndoors && !this.isCutscene && this.worldManager && this.worldManager.currentZoneData && this.worldManager.currentZoneData.type === 'Dangerous') {
             this.lastGmPollTime = time;
             let activeEnemies = 0;
             this.enemies.children.iterate(e => { if (e && e.active) activeEnemies++; });
             const gameState = {
                 player: { level: this.player.level, hp: this.player.hp, maxHp: this.player.maxHp },
-                zone: { name: this.zoneData.name, biome: this.zoneData.biome },
+                zone: { name: this.worldManager.currentZoneData.name, biome: this.worldManager.currentZoneData.biome },
                 activeEnemies: activeEnemies
             };
             this.geminiService.getGameMasterDecision(gameState).then(res => {
                 if (this.isSceneDestroyed) return;
+                // Re-check zone type — the async call may resolve after player transitioned to a safe zone
+                if (!this.worldManager || !this.worldManager.currentZoneData || this.worldManager.currentZoneData.type !== 'Dangerous') return;
                 if (res && res.action !== 'NONE') {
-                    if (this.showAnnouncement) this.showAnnouncement("The Game Master", res.announcement);
-                    else if (this.showFloatingText) this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, `GM: ${res.announcement}`, 0xff00ff);
+                    if (this.showFloatingText) this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, `GM: ${res.announcement}`, 0xff00ff);
                     
                     if (res.action === 'AMBUSH') {
-                        // Spawn a rival
-                        this.spawnHeroAI('samurai_rival', this.player.sprite.x + (Math.random() > 0.5 ? 250 : -250), 600, 'hostile');
+                        // Cap: don't spawn if there are already 2+ hostile hero AIs
+                        const activeHostiles = (this.partyMembers || []).filter(m => m && m.aiState === 'hostile' && m.hp > 0).length;
+                        const now = this.time.now;
+                        if (activeHostiles < 2 && (!this._lastAmbushTime || now - this._lastAmbushTime > 60000)) {
+                            this._lastAmbushTime = now;
+                            const rivalTypes = ['knight_rival', 'wizard_rival', 'samurai_rival', 'ranger_rival'];
+                            const randomRival = rivalTypes[Math.floor(Math.random() * rivalTypes.length)];
+                            this.spawnHeroAI(randomRival, this.player.sprite.x + (Math.random() > 0.5 ? 250 : -250), 600, 'hostile');
+                        }
                     } else if (res.action === 'HEAL') {
                         this.player.hp = this.player.maxHp;
                         if (this.updateHUD) this.updateHUD();
@@ -685,9 +730,23 @@ class GameScene extends Phaser.Scene {
                     } else if (res.action === 'WEATHER_RAIN') {
                         // Just as an example, this requires an environment manager but we don't have one globally.
                         // For now we will just log it or apply a global tint
-                        this.cameras.main.setTint(0x888888);
+                        if (!this._weatherOverlay) {
+                            this._weatherOverlay = this.add.rectangle(this.cameras.main.centerX, this.cameras.main.centerY, this.cameras.main.width * 3, this.cameras.main.height * 3, 0x000000, 0.2);
+                            this._weatherOverlay.setScrollFactor(0);
+                            this._weatherOverlay.setDepth(999);
+                        } else {
+                            this._weatherOverlay.setFillStyle(0x000000, 0.2);
+                            this._weatherOverlay.setVisible(true);
+                        }
                     } else if (res.action === 'WEATHER_FOG') {
-                        this.cameras.main.setTint(0xaaddff);
+                        if (!this._weatherOverlay) {
+                            this._weatherOverlay = this.add.rectangle(this.cameras.main.centerX, this.cameras.main.centerY, this.cameras.main.width * 3, this.cameras.main.height * 3, 0xaaddff, 0.15);
+                            this._weatherOverlay.setScrollFactor(0);
+                            this._weatherOverlay.setDepth(999);
+                        } else {
+                            this._weatherOverlay.setFillStyle(0xaaddff, 0.15);
+                            this._weatherOverlay.setVisible(true);
+                        }
                     }
                 }
             });
@@ -841,12 +900,20 @@ class GameScene extends Phaser.Scene {
             this.partyMembers.push(hero);
             if (this.heroGroup) this.heroGroup.add(hero.sprite);
             this.showFloatingText(x, y, "Joined Party!", 0x00ff00);
-            this.physics.add.collider(hero.sprite, this.platforms);
+            if (this.isIndoors && this.indoorFloor) {
+                this.physics.add.collider(hero.sprite, this.indoorFloor);
+            } else {
+                this.physics.add.collider(hero.sprite, this.platforms);
+            }
         } else {
             // Hostile
             this.enemies.add(hero.sprite);
             hero.sprite.controller = hero; // So takeDamage works
-            this.physics.add.collider(hero.sprite, this.platforms);
+            if (this.isIndoors && this.indoorFloor) {
+                this.physics.add.collider(hero.sprite, this.indoorFloor);
+            } else {
+                this.physics.add.collider(hero.sprite, this.platforms);
+            }
             this.showFloatingText(x, y, "HOSTILE!", 0xff0000);
         }
     }

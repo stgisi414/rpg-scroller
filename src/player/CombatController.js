@@ -22,7 +22,7 @@ class CombatController {
                 return;
             }
             player.mp -= 2;
-            if (player.updatePlayerUI) player.updatePlayerUI();
+    
             
             // Ranged Attack
             player.scene.time.delayedCall(100, () => {
@@ -210,6 +210,182 @@ class CombatController {
         });
     }
 
+    megaComboSpell() {
+        const player = this.player;
+        const cd = player.classData;
+        
+        if (cd.id !== 'wizard' && cd.id !== 'wizard_rival') return;
+        
+        // Mana check - mega AoE costs 10 MP
+        if (player.mp < 10) {
+            if (!player.isAI && player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, 'No Mana!', 0x4488ff);
+            return;
+        }
+        player.mp -= 10;
+        
+        player.isAttacking = true;
+        
+        const comboKey = cd.id + '_combo';
+        if (cd.isSheet && player.scene.anims.exists(comboKey)) {
+            player._playAnim(comboKey);
+        }
+
+        // Trigger massive AoE explosion around the player
+        player.scene.time.delayedCall(400, () => {
+            const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
+            const damage = (cd.stats.int * 8) + weaponBonus + 30; // Mega damage
+            
+            // Screen shake for impact
+            player.scene.cameras.main.shake(300, 0.015);
+            
+            if (!player.isAI && player.scene.showFloatingText) {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "MEGA SPELL!", 0xff00ff);
+            }
+
+            // Visual effect - circle of magic bolts expanding
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                const dist = 120;
+                const px = player.sprite.x + Math.cos(angle) * dist;
+                const py = player.sprite.y + Math.sin(angle) * dist;
+                const effect = player.scene.add.sprite(player.sprite.x, player.sprite.y, 'magic_bolt').setScale(0.5);
+                effect.setTint(0xff00ff);
+                
+                player.scene.tweens.add({
+                    targets: effect,
+                    x: px,
+                    y: py,
+                    scaleX: 2.5,
+                    scaleY: 2.5,
+                    alpha: 0,
+                    duration: 600,
+                    ease: 'Quad.easeOut',
+                    onComplete: () => effect.destroy()
+                });
+            }
+
+            // Damage area calculation
+            const hitRadius = 250;
+            const targets = player.isAI ? [player.scene.player.sprite] : player.scene.enemies.getChildren();
+            
+            targets.forEach(targetSprite => {
+                if (targetSprite && targetSprite.active && targetSprite.body) {
+                    const dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);
+                    if (dist <= hitRadius) {
+                        const dir = targetSprite.x > player.sprite.x ? 1 : -1;
+                        if (player.isAI) {
+                            if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
+                                targetSprite.controller.takeDamage(damage, dir);
+                            }
+                        } else {
+                            if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
+                                targetSprite.controller.takeDamage(damage, dir);
+                                this.applyLifesteal(damage);
+                                if (Math.random() < 0.50 && targetSprite.controller.applyStatusEffect) {
+                                    targetSprite.controller.applyStatusEffect('burn', 5000, 15);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Finish attack
+            player.scene.time.delayedCall(500, () => {
+                player.isAttacking = false;
+            });
+        });
+    }
+
+    summonComboSpell() {
+        const player = this.player;
+        const cd = player.classData;
+        
+        if (cd.id !== 'wizard' && cd.id !== 'wizard_rival') return;
+        
+        // Mana check - summon costs 30 MP (massive heal)
+        if (player.mp < 30) {
+            if (!player.isAI && player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, 'Not Enough Mana (30)!', 0x4488ff);
+            return;
+        }
+        player.mp -= 30;
+        
+        player.isAttacking = true;
+        
+        // Use the same combo anim or idle
+        const comboKey = cd.id + '_combo';
+        if (cd.isSheet && player.scene.anims.exists(comboKey)) {
+            player._playAnim(comboKey);
+        }
+
+        player.scene.time.delayedCall(300, () => {
+            // Screen effect
+            player.scene.cameras.main.flash(500, 255, 255, 255);
+            
+            if (!player.isAI && player.scene.showFloatingText) {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "ANGELIC SUMMON!", 0xffff00);
+            }
+
+            // Spawn the angel sprite floating above the player
+            const angel = player.scene.add.sprite(player.sprite.x, player.sprite.y - 120, 'summon_angel');
+            angel.setScale(2.0);
+            angel.setDepth(10);
+            angel.setAlpha(0);
+            
+            // Try to play animation
+            if (!player.scene.anims.exists('summon_angel_anim')) {
+                player.scene.anims.create({
+                    key: 'summon_angel_anim',
+                    frames: player.scene.anims.generateFrameNumbers('summon_angel', { start: 0, end: 9 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+            }
+            angel.play('summon_angel_anim', true);
+            
+            // Fade in and float up
+            player.scene.tweens.add({
+                targets: angel,
+                alpha: 1,
+                y: player.sprite.y - 150,
+                duration: 1000,
+                ease: 'Sine.easeOut',
+                onComplete: () => {
+                    // Heal the player
+                    player.hp = player.maxHp;
+                    if (player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, "FULL HEAL!", 0x00ff00);
+                    
+                    // Heal the party
+                    if (player.scene.partyMembers) {
+                        player.scene.partyMembers.forEach(member => {
+                            if (member && member.hp > 0 && member.aiState === 'party') {
+                                member.hp = member.maxHp;
+                                if (player.scene.showFloatingText) player.scene.showFloatingText(member.sprite.x, member.sprite.y - 30, "FULL HEAL!", 0x00ff00);
+                            }
+                        });
+                    }
+
+                    if (!player.isAI && player.scene.updateHUD) player.scene.updateHUD();
+
+                    // Fade out
+                    player.scene.tweens.add({
+                        targets: angel,
+                        alpha: 0,
+                        y: player.sprite.y - 200,
+                        duration: 1000,
+                        delay: 500,
+                        onComplete: () => angel.destroy()
+                    });
+                }
+            });
+            
+            // Finish attack early so player can move while angel finishes
+            player.scene.time.delayedCall(600, () => {
+                player.isAttacking = false;
+            });
+        });
+    }
+
     superComboSpell() {
         const player = this.player;
         const cd = player.classData;
@@ -248,7 +424,7 @@ class CombatController {
             player.sp -= spCost;
         }
 
-        if (player.updatePlayerUI) player.updatePlayerUI();
+
         
         player.isAttacking = true;
         
@@ -503,10 +679,11 @@ class CombatController {
             return;
         }
         player.sp -= 15;
-        if (player.updatePlayerUI) player.updatePlayerUI();
+
         
         player.isDashing = true;
-        player.sprite.setVelocityX(player.dashSpeed * directionMultiplier);
+        const dSpd = (typeof player.dashSpeed === 'number' && !isNaN(player.dashSpeed)) ? player.dashSpeed : 500;
+        player.sprite.setVelocityX(dSpd * directionMultiplier);
         player.sprite.setVelocityY(0);
         player.sprite.body.allowGravity = false;
         
@@ -584,9 +761,32 @@ class CombatController {
             player._playAnim(hitKey);
         }
 
-        if (player.updatePlayerUI) player.updatePlayerUI();
+
         if (!player.isAI && player.scene && player.scene.updateHUD) {
             player.scene.updateHUD();
+        }
+
+        // --- Auto-Potion Artifact: use HP potion automatically when below 30% HP ---
+        if (!player.isAI && player.hp <= player.maxHp * 0.30) {
+            if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
+                const apKey = player.inventory.artifacts[player.inventory.equippedArtifact];
+                const apDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[apKey] : null;
+                if (apDef && apDef.special === 'auto-potion') {
+                    const now = player.scene ? player.scene.time.now : Date.now();
+                    if (!player._lastAutoPotTime || now - player._lastAutoPotTime > 3000) {
+                        if (player.inventory.potions > 0) {
+                            player._lastAutoPotTime = now;
+                            player.inventory.potions--;
+                            player.hp = Math.min(player.maxHp, player.hp + 50);
+                            if (player.scene && player.scene.showFloatingText) {
+                                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 50, '+50 HP (Auto)', 0x44ff44);
+                            }
+                            if (player.inventoryManager) player.inventoryManager.updateInventoryUI();
+                            if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
+                        }
+                    }
+                }
+            }
         }
 
         if (player.hp <= 0) {
@@ -642,7 +842,7 @@ class CombatController {
                     if (player.scene && player.scene.showFloatingText) {
                         player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `+${healAmount} HP`, 0x00ff00);
                     }
-                    if (player.updatePlayerUI) player.updatePlayerUI();
+            
                     if (!player.isAI && player.scene && player.scene.updateHUD) {
                         player.scene.updateHUD();
                     }
@@ -720,7 +920,7 @@ class CombatController {
                         const color = effect.type === 'poison' ? 0x00ff00 : 0xff6600;
                         player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `-${effect.strength}`, color);
                     }
-                    if (player.updatePlayerUI) player.updatePlayerUI();
+            
                     if (!player.isAI && player.scene && player.scene.updateHUD) player.scene.updateHUD();
 
                     if (player.hp <= 0) {

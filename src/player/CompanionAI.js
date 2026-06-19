@@ -242,7 +242,7 @@ class CompanionAI {
                 if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
                     player.aiInput.up = true;
                     player._stuckTicks = 0; // Reset after jumping
-                } else if (player.doubleJumpsLeft > 0 && player.sprite.body.velocity.y > -50) {
+                } else if (player.jumps < 2 && player.sprite.body.velocity.y > -50) {
                     player.aiInput.up = true;
                     player._stuckTicks = 0;
                 }
@@ -252,14 +252,14 @@ class CompanionAI {
             if (!isVirtual && target.y < player.sprite.y - 40) {
                 if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
                     player.aiInput.up = true;
-                } else if (player.doubleJumpsLeft > 0 && player.sprite.body.velocity.y > -50) {
+                } else if (player.jumps < 2 && player.sprite.body.velocity.y > -50) {
                     player.aiInput.up = true;
                 }
             }
             
             // Double jump across pits! If we are falling fast, and still trying to move left/right
             if (player.sprite.body.velocity.y > 50 && (player.aiInput.left || player.aiInput.right)) {
-                if (player.doubleJumpsLeft > 0) {
+                if (player.jumps < 2) {
                     player.aiInput.up = true;
                 }
             }

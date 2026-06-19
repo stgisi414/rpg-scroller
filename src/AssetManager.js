@@ -156,7 +156,8 @@ class AssetManager {
         this.scene.load.image('bg_dark_forest_2', 'src/assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/Dark Forest Background/Dark Forest Background Top.png');
 
         // Load Enemy Assets
-        this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 128, frameHeight: 279 });
+        this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 256, frameHeight: 279 });
+        this.scene.load.spritesheet('summon_angel', 'src/assets/GandalfHardcore Angel/GandalfHardcore Angel/GandalfHardcore Angel.png', { frameWidth: 96, frameHeight: 96 });
         this.scene.load.spritesheet('slime', 'src/assets/GandalfHardcore Slime Enemy/GandalfHardcore Slime Enemy/Slime green.png', { frameWidth: 32, frameHeight: 32 });
         this.scene.load.spritesheet('goblin', 'src/assets/GandalfHardcore Goblin sheet/GandalfHardcore Goblin sheet/Goblin enemy green sheet.png', { frameWidth: 84, frameHeight: 64 });
         this.scene.load.spritesheet('bat', 'src/assets/GandalfHardcore Pixel Art Enemies/GandalfHardcore Pixel Art Enemies/Bat sheet.png', { frameWidth: 64, frameHeight: 64 });

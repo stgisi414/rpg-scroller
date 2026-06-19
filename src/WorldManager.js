@@ -53,7 +53,11 @@ class WorldManager {
         if (!zoneData) {
             // Generate via Gemini (or rich fallback)
             zoneData = await this.generateZoneWithGemini(zoneIndex);
-            if (!this.scene || this.scene.isSceneDestroyed) return;
+            if (!this.scene || this.scene.isSceneDestroyed) {
+                // BUG-21: ensure loading overlay is hidden before early abort
+                if (this.scene && !this.scene.isSceneDestroyed && this.scene.showLoading) this.scene.showLoading(false);
+                return;
+            }
             window.saveData.zones[zoneIndex] = JSON.parse(JSON.stringify(zoneData));
             
             // Save to localStorage
@@ -451,6 +455,22 @@ class WorldManager {
                     while (layout.length < 15) {
                         layout.push({ asset: 'statue', x: Math.floor(Math.random() * 1280), y: 696, scale: 0.5, depth: -4, tint: 0x334455 });
                     }
+                } else if (biome === 'Cave') {
+                    // Cave interior: stalagmites (using rocks), maybe a few dead trees or statues
+                    const rockFrames = [0, 1, 2, 3, 6, 7, 8, 9];
+                    const rockCount = Math.floor(Math.random() * 8) + 6;
+                    for (let i = 0; i < rockCount; i++) {
+                        const frame = rockFrames[Math.floor(Math.random() * rockFrames.length)];
+                        layout.push({ asset: 'desert_pack', frame: frame, x: 50 + Math.floor(Math.random() * 1180), y: 696, scale: 1.5 + Math.random() * 0.5, depth: -3, tint: 0x888899 });
+                    }
+                    const statueCount = Math.floor(Math.random() * 3) + 1;
+                    for (let i = 0; i < statueCount; i++) {
+                        layout.push({ asset: 'statue', x: Math.floor(Math.random() * 1280), y: 696, scale: 0.8, depth: -4, tint: 0x555566 });
+                    }
+                    // Pad to 15
+                    while (layout.length < 15) {
+                        layout.push({ asset: 'desert_pack', frame: 0, x: Math.floor(Math.random() * 1280), y: 696, scale: 1.0, depth: -4, tint: 0x666677 });
+                    }
                 } else if (biome === 'Dungeon') {
                     // NO TREES in the dungeon! Just a few scattered statues
                     const statueCount = Math.floor(Math.random() * 4) + 3;
@@ -610,8 +630,8 @@ class WorldManager {
 
             const defeatedCount = (window.saveData && window.saveData.defeatedRivals || []).length;
             
-            // Base encounter chance for first rival is 50%, drops 10% per kill down to 10% for the Megaboss
-            const encounterChance = Math.max(0.10, 0.50 - (defeatedCount * 0.10));
+            // Base encounter chance for first rival is 25%, drops 5% per kill down to 5% for the Megaboss
+            const encounterChance = Math.max(0.05, 0.25 - (defeatedCount * 0.05));
 
             if (zoneData.type !== 'Safe' && Math.random() < encounterChance) {
                 isRivalEncounter = true;
@@ -654,9 +674,13 @@ class WorldManager {
 
                 // Spawn from above so they don't fall through the floor or spawn inside platforms!
                 const enemy = new EnemyController(this.scene, spawnX, 100, this.scene.player, this.geminiService, type);
-                enemy.maxHp = hp;
-                enemy.hp = hp;
-                enemy.speed = speed;
+                // Only override HP/speed for non-boss enemies (BUG-18: bosses have carefully tuned stats in constructor)
+                const bossTypes = ['lich_lord', 'the_devil', 'spider', 'frost_giant'];
+                if (!bossTypes.includes(type)) {
+                    enemy.maxHp = hp;
+                    enemy.hp = hp;
+                    enemy.speed = speed;
+                }
                 this.scene.enemies.add(enemy.sprite);
             });
 

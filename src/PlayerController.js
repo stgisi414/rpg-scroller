@@ -14,7 +14,8 @@ window.ARTIFACTS_DATA = {
     'artifact-demonic': { key: 'artifact-demonic', name: 'Demonic Sigil', desc: '+50% Dmg, 10% Lifesteal (Align < -50)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon11.png', type: 'artifact', alignmentReq: { min: -100, max: -51 }, statBoosts: { damageMultiplier: 1.5, lifesteal: 0.10 } },
     'artifact-scales': { key: 'artifact-scales', name: 'Scales of Balance', desc: '+20% All Stats (Align -20 to 20)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon12.png', type: 'artifact', alignmentReq: { min: -20, max: 20 }, statBoosts: { damageMultiplier: 1.2, speedMultiplier: 1.2, maxHp: 20, maxMp: 20 } },
     'artifact-teleporter': { key: 'artifact-teleporter', name: 'Town Portal Stone', desc: 'Teleport to town at <15% HP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon13.png', type: 'artifact', special: 'auto-teleport' },
-    'artifact-commander': { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png', type: 'artifact', special: 'party-boost' }
+    'artifact-commander': { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png', type: 'artifact', special: 'party-boost' },
+    'artifact-autopot': { key: 'artifact-autopot', name: 'Elixir of Last Resort', desc: 'Auto-uses HP potion at <30% HP (3s CD)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon15.png', type: 'artifact', special: 'auto-potion' }
 };
 class PlayerController {
     constructor(scene, x, y, inputManager, options = {}) {
@@ -255,10 +256,7 @@ class PlayerController {
         // Physics stats influenced by Class Stats
         this.hp = this.classData.stats.vit * 10;
         this.maxHp = this.hp;
-        this.stamina = 100;
-        this.maxStamina = 100;
-        this.mana = 100;
-        this.maxMana = 100;
+        // mp and sp are initialized by recalculateStats() via StatsManager
         this.statusEffects = []; // Array of active status effects // ms
         this.jumps = 0;
         this._aiUpWasPressed = false;
@@ -309,6 +307,7 @@ class PlayerController {
             this.renderQuests();
         } else {
             this.inventory = { weapon: { key: 'weapon-stick', damageBonus: 5 }, potions: 2 }; // Basic fallback for AI damage calculations
+            this.recalculateStats(); // Ensure stats are fully initialized for AI companions too!
         }
     }
 
@@ -515,6 +514,10 @@ class PlayerController {
         if (this.chatInput && this.chatKeyHandler) {
             this.chatInput.removeEventListener('keypress', this.chatKeyHandler);
         }
+        if (this.reticle) {
+            this.reticle.destroy();
+            this.reticle = null;
+        }
         if (this.sprite) {
             this.sprite.destroy();
         }
@@ -610,6 +613,12 @@ class PlayerController {
     }
     consumeSuperSpell() {
         return this.isAI ? false : (this.inputManager.keys.superSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.superSpell));
+    }
+    consumeMegaSpell() {
+        return this.isAI ? false : (this.inputManager.keys.megaSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.megaSpell));
+    }
+    consumeSummonSpell() {
+        return this.isAI ? false : (this.inputManager.keys.summonSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.summonSpell));
     }
     updateAI(time, delta) {
         this.companionAI.updateAI(time, delta);
@@ -712,7 +721,7 @@ class PlayerController {
                             if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, "Already in a town!", 0xff4444);
                         } else {
                             this.mp -= 80;
-                            if (this.updatePlayerUI) this.updatePlayerUI();
+                            // (Removed dead updatePlayerUI)
                             if (this.scene.showFloatingText) this.scene.showFloatingText(this.sprite.x, this.sprite.y - 60, "Town Portal!", 0x4488ff);
                             
                             this.scene.isTransitioning = true;
@@ -801,6 +810,20 @@ class PlayerController {
             }
             this.superComboSpell();
         }
+        // Mega Spell (Wizard AoE)
+        if (this.consumeMegaSpell() && !this.isAttacking) {
+            if (onGround) {
+                this.sprite.setVelocityX(0);
+            }
+            this.megaComboSpell();
+        }
+        // Summon Spell (Wizard Angel Heal)
+        if (this.consumeSummonSpell() && !this.isAttacking) {
+            if (onGround) {
+                this.sprite.setVelocityX(0);
+            }
+            this.summonComboSpell();
+        }
         if (this.isAttacking) {
             if (onGround) {
                 this.sprite.setVelocityX(0);
@@ -864,14 +887,13 @@ class PlayerController {
         if (onGround) {
             this.jumps = 0;
         }
-
         // Detect jump input (discrete press)
         let jumpPressed = false;
         if (this.isAI) {
-            if (this.aiInput.up && !this._aiUpWasPressed) {
+            if (this.aiInput.up) {
                 jumpPressed = true;
+                this.aiInput.up = false; // Consume the jump request
             }
-            this._aiUpWasPressed = !!this.aiInput.up;
         } else {
             const upJustDown = keys.up ? Phaser.Input.Keyboard.JustDown(keys.up) : false;
             const spaceJustDown = keys.space ? Phaser.Input.Keyboard.JustDown(keys.space) : false;
@@ -881,11 +903,12 @@ class PlayerController {
         }
 
         if (jumpPressed) {
+            const jSpd = (typeof this.jumpVelocity === 'number' && !isNaN(this.jumpVelocity)) ? this.jumpVelocity : -400;
             if (onGround) {
-                this.sprite.setVelocityY(this.jumpVelocity);
+                this.sprite.setVelocityY(jSpd);
                 this.jumps = 1;
             } else if (this.jumps < 2) {
-                this.sprite.setVelocityY(this.jumpVelocity);
+                this.sprite.setVelocityY(jSpd);
                 this.jumps++;
             }
         }
@@ -910,13 +933,6 @@ class PlayerController {
 
         this.updateAiming();
         
-        // Recover stamina
-        if (this.stamina < this.maxStamina) {
-            this.stamina += 20 * (delta / 1000);
-            if (this.stamina > this.maxStamina) this.stamina = this.maxStamina;
-            if (this.updatePlayerUI) this.updatePlayerUI();
-        }
-        
         // Passive MP/SP regen (MP: 1 every 5s = 0.2/sec. SP: 8/sec)
         if (typeof delta === 'number') {
             const regenRate = delta / 1000; // delta is ms
@@ -940,7 +956,7 @@ class PlayerController {
                 const now = this.scene.time.now;
                 if (!this.lastStatUIRefresh || now - this.lastStatUIRefresh > 100) {
                     this.lastStatUIRefresh = now;
-                    if (this.updatePlayerUI) this.updatePlayerUI();
+                    // (Removed dead updatePlayerUI)
                 }
             }
             
@@ -962,6 +978,12 @@ class PlayerController {
 
     superComboSpell() {
         this.combatController.superComboSpell();
+    }
+    megaComboSpell() {
+        this.combatController.megaComboSpell();
+    }
+    summonComboSpell() {
+        this.combatController.summonComboSpell();
     }
 
     startDash(directionMultiplier) {

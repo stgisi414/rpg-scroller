@@ -65,7 +65,8 @@ class EnemyController {
         // Tactic tracking
         this.currentTactic = "CHASE";
         this.lastTacticTime = 0;
-        this.tacticInterval = 2000; // Ask Gemini every 2s
+        this._isFetchingTactic = false;
+        this.tacticInterval = 4000; // Ask Gemini every 4s
 
         // Stats
         this.speed = 100;
@@ -73,10 +74,13 @@ class EnemyController {
             this.maxHp = 2000;
         } else if (this.type === 'spider' || this.type === 'the_devil') {
             this.maxHp = this.type === 'the_devil' ? 1500 : 400; // other bosses
+        } else if (this.type === 'training_dummy') {
+            this.maxHp = 999999;
         } else {
             this.maxHp = 100;
         }
         this.hp = this.maxHp;
+        if (this.type === 'training_dummy') console.log(`[DEBUG] EnemyController spawned training_dummy. HP set to: ${this.hp}/${this.maxHp}`);
         // State tracking
         this.isHit = false;
         this.isAttacking = false;
@@ -160,9 +164,10 @@ class EnemyController {
         this.executeTactic();
 
         // Ask Gemini for new tactic periodically
-        if (time - this.lastTacticTime > this.tacticInterval) {
+        if (time - this.lastTacticTime > this.tacticInterval && !this._isFetchingTactic) {
             this.lastTacticTime = time;
-            this.askGeminiForTactic();
+            this._isFetchingTactic = true;
+            this.askGeminiForTactic().finally(() => { this._isFetchingTactic = false; });
         }
     }
 
@@ -322,13 +327,13 @@ class EnemyController {
                         this.sprite.setVelocityY(-600);
                     } else if (this.sprite.body.blocked.left || this.sprite.body.blocked.right || this.sprite.body.touching.left || this.sprite.body.touching.right) {
                         this.sprite.setVelocityY(-600);
-                    } else if (Math.random() < 0.02) {
+                    } else if (Math.random() < 0.003) {
                         this.sprite.setVelocityY(-550);
                     }
                 }
                 break;
             case "FLEE":
-                const inCorner = this.sprite.body.blocked.left || this.sprite.body.blocked.right || this.sprite.x <= 40 || this.sprite.x >= 760;
+                const inCorner = this.sprite.body.blocked.left || this.sprite.body.blocked.right || this.sprite.x <= 40 || this.sprite.x >= (this.scene.physics.world.bounds.width - 40);
                 
                 if (inCorner) {
                     this.sprite.setVelocityX(0);
@@ -388,8 +393,10 @@ class EnemyController {
 
         this.hp -= amount;
 
-        this.sprite.setVelocityY(-200);
-        this.sprite.setVelocityX(200 * knockbackDirection);
+        if (this.type !== 'training_dummy') {
+            this.sprite.setVelocityY(-200);
+            this.sprite.setVelocityX(200 * knockbackDirection);
+        }
 
         this.isHit = true;
         this.currentAnimKey = null;
@@ -419,8 +426,15 @@ class EnemyController {
             this.scene.showFloatingText(this.sprite.x, this.sprite.y - 20, amount, 0xff0000);
         }
 
+        if (this.type === 'training_dummy') console.log(`[DEBUG] Training Dummy hit! Took ${amount} damage. Current HP: ${this.hp}`);
+
         if (this.hp <= 0) {
-            this.die();
+            if (this.type === 'training_dummy') {
+                console.log(`[DEBUG] Training Dummy HP hit 0. Resetting to ${this.maxHp} to prevent death!`);
+                this.hp = this.maxHp || 999999;
+            } else {
+                this.die();
+            }
         }
     }
 
@@ -475,7 +489,11 @@ class EnemyController {
                     }
 
                     if (this.hp <= 0) {
-                        this.die();
+                        if (this.type === 'training_dummy') {
+                            this.hp = this.maxHp || 9999;
+                        } else {
+                            this.die();
+                        }
                         return;
                     }
                 }
@@ -543,7 +561,9 @@ class EnemyController {
     }
 
     die() {
+        if (this.type === 'training_dummy') console.log(`[DEBUG] CRITICAL: Training Dummy die() called! This should not happen! Y-coord: ${this.sprite.y}`);
         this.isHit = true;
+        this.isDead = true;
         if (this.aiText) this.aiText.destroy();
 
         // We leave the sprite in the enemies group so it doesn't fall through the floor!
@@ -555,12 +575,23 @@ class EnemyController {
 
         const onDeathComplete = () => {
             if (!this.scene || this.scene.isSceneDestroyed) return;
+            // Cache position BEFORE destroying the sprite (BUG-04 fix)
+            const deathX = (this.sprite && this.sprite.active) ? this.sprite.x : 600;
             if (this.sprite && this.sprite.active) this.sprite.destroy();
             if (this.hpText && this.hpText.active) this.hpText.destroy();
 
             // Wait to be fully dead to grant xp
             if (typeof this.scene.grantRewards === 'function') {
-                this.scene.grantRewards(50, 10);
+                // Scale rewards by enemy type (BUG-19 fix: was flat 50/10 for everything)
+                const rewards = {
+                    slime: [20, 5], bat: [20, 5], mushroom: [25, 8],
+                    goblin: [35, 10], orc: [50, 15], bandit: [45, 12],
+                    skeleton: [40, 10], mummy: [45, 12], scarab_beetle: [30, 8],
+                    spider: [200, 50], the_devil: [500, 100], lich_lord: [750, 150],
+                    frost_giant: [400, 80], training_dummy: [0, 0]
+                };
+                const [xp, gold] = rewards[this.type] || [50, 10];
+                this.scene.grantRewards(xp, gold);
             }
             if (this.player && this.player.progressQuest) {
                 this.player.progressQuest(this.type);
@@ -568,8 +599,8 @@ class EnemyController {
             
             // 15% chance to drop a loot chest
             if (Math.random() < 0.15 && this.scene && this.scene.spawnLootChest) {
-                // Drop chest at enemy position, on the floor
-                this.scene.spawnLootChest(this.sprite.x, 620);
+                // Drop chest at cached enemy position, on the floor
+                this.scene.spawnLootChest(deathX, 620);
             }
         };
 

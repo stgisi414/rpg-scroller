@@ -109,7 +109,10 @@ class StatsManager {
             }
         }
         
-        // Final safety: if STILL somehow NaN, reset to max
+        // Final safety: if STILL somehow NaN, reset to max/defaults
+        if (typeof player.speed !== 'number' || isNaN(player.speed)) player.speed = 200;
+        if (typeof player.jumpVelocity !== 'number' || isNaN(player.jumpVelocity)) player.jumpVelocity = -400;
+        if (typeof player.dashSpeed !== 'number' || isNaN(player.dashSpeed)) player.dashSpeed = 500;
         if (typeof player.mp !== 'number' || isNaN(player.mp)) player.mp = player.maxMp;
         if (typeof player.sp !== 'number' || isNaN(player.sp)) player.sp = player.maxSp;
 

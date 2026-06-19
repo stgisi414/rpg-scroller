@@ -67,11 +67,15 @@ class IndoorManager {
             scene.isIndoors = true;
             scene.currentIndoorLocation = locationId;
 
+            // Stop camera follow and center it on the room
+            scene.cameras.main.stopFollow();
+            scene.cameras.main.setScroll(0, 0);
+
             // Clear town stuff
             if (scene.decorGroup && scene.decorGroup.scene) scene.decorGroup.clear(true, true);
             scene.enemies.clear(true, true);
             if (scene.npcs) {
-                scene.npcs.forEach(npc => {
+                [...scene.npcs].forEach(npc => {
                     if (npc && typeof npc.destroy === 'function') npc.destroy();
                 });
                 scene.npcs = [];
@@ -280,7 +284,7 @@ class IndoorManager {
 
             // Destroy indoor NPCs (Weapons Master, shopkeepers, etc.)
             if (scene.npcs) {
-                scene.npcs.forEach(npc => {
+                [...scene.npcs].forEach(npc => {
                     if (npc.isIndoorNPC) {
                         if (npc && typeof npc.destroy === 'function') npc.destroy();
                     }
@@ -315,6 +319,10 @@ class IndoorManager {
             scene.worldManager.buildZone(zoneData, 'center');
 
             scene.isTransitioning = false;
+            
+            // Resume camera follow
+            scene.cameras.main.startFollow(scene.player.sprite, true, 0.1, 0.1);
+            
             scene.cameras.main.fadeIn(500, 0, 0, 0);
         });
     }

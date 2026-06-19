@@ -294,7 +294,7 @@ The player is Level ${playerLevel}.
 Rules:
 1. "type" MUST be either "Safe" or "Dangerous".
 ${forceTown ? 
-`2. CRITICAL: This zone MUST be a Town/Castle. "type" MUST be "Safe". Safe zones MUST have exactly 3 NPCs:
+`2. CRITICAL: This zone MUST be a Town/Castle. "type" MUST be "Safe". Safe zones MUST have exactly 4 NPCs:
    - One with spriteKey "npc" (the Sage/Elder who offers lore and quests).
    - One with spriteKey "blacksmith" (a weapon merchant).
    - One with spriteKey "alchemist" (a potion and mystery chest merchant).
@@ -362,7 +362,8 @@ Return ONLY a valid JSON object in this exact format:
             const fallbackTownNpcs = [
                 { name: "Elara the Sage", persona: "A wise elder who offers counsel on magical threats.", x: 300, spriteKey: "npc" },
                 { name: "Brom the Hammer", persona: "A gruff blacksmith who forged his weapons in dragon fire.", x: 600, spriteKey: "blacksmith" },
-                { name: "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 900, spriteKey: "alchemist" }
+                { name: "Orion the Hunter", persona: "A quiet tracker who knows the paths through the wilderness. He sells provisions and maps.", x: 900, spriteKey: "ranger" },
+                { name: "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 1200, spriteKey: "alchemist" }
             ];
 
             return {

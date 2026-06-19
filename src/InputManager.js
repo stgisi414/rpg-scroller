@@ -20,6 +20,8 @@ class InputManager {
             skill5: Phaser.Input.Keyboard.KeyCodes.FIVE,
             skill6: Phaser.Input.Keyboard.KeyCodes.SIX,
             superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA,
+            megaSpell: Phaser.Input.Keyboard.KeyCodes.FORWARD_SLASH,
+            summonSpell: Phaser.Input.Keyboard.KeyCodes.M,
             space: Phaser.Input.Keyboard.KeyCodes.SPACE
         });
 
@@ -62,6 +64,9 @@ class InputManager {
             Phaser.Input.Keyboard.KeyCodes.TWO,
             Phaser.Input.Keyboard.KeyCodes.THREE,
             Phaser.Input.Keyboard.KeyCodes.FOUR,
+            Phaser.Input.Keyboard.KeyCodes.FIVE,
+            Phaser.Input.Keyboard.KeyCodes.SIX,
+            Phaser.Input.Keyboard.KeyCodes.SPACE,
             Phaser.Input.Keyboard.KeyCodes.COMMA
         ];
     }

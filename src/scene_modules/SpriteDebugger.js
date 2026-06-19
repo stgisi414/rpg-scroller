@@ -16,7 +16,7 @@ class SpriteDebugger {
         html += '</div>';
         html += '<div style="margin-bottom: 10px; font-size: 10px; color: #aaa;">Press ` (backtick) to toggle</div>';
         html += '<select id="debug-sprite" style="width: 100%; margin-bottom: 10px; color: black; background: white;">';
-        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant', 'house_inside_tiles'].forEach(key => {
+        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant', 'house_inside_tiles', 'training_dummy'].forEach(key => {
             html += `<option value="${key}">${key}</option>`;
         });
         html += '</select>';
@@ -71,6 +71,10 @@ class SpriteDebugger {
                 if (key === 'house_inside_tiles') {
                     rowData = window.sliceData[key] = [];
                     for (let r = 0; r < 13; r++) rowData.push({ y: r * 32, h: 32 });
+                } else if (key === 'skeleton' || key === 'frost_giant') {
+                    rowData = window.sliceData[key] = [
+                        { y: 0, h: 128 }, { y: 128, h: 128 }, { y: 256, h: 128 }, { y: 384, h: 128 }
+                    ];
                 } else {
                     rowData = window.sliceData[key] = [
                         { y: 0, h: 85 }, { y: 85, h: 85 }, { y: 170, h: 85 }, { y: 255, h: 85 }, { y: 340, h: 85 }, { y: 425, h: 87 }
@@ -186,6 +190,7 @@ class SpriteDebugger {
             if (key === 'the_devil') img = this.scene.registry.get('debug_tex_devil');
             if (key === 'frost_giant') img = this.scene.registry.get('debug_tex_frost_giant');
             if (key === 'house_inside_tiles') img = this.scene.registry.get('debug_tex_house_tiles');
+            if (key === 'training_dummy') img = this.scene.registry.get('debug_tex_training_dummy');
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (img && img.src) {
