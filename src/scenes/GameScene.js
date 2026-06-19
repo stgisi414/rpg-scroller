@@ -102,6 +102,9 @@ class GameScene extends Phaser.Scene {
         if (this.textures.exists('training_dummy')) {
             this.registry.set('debug_tex_training_dummy', this.textures.get('training_dummy').getSourceImage());
         }
+        if (this.textures.exists('summon_angel')) {
+            this.registry.set('debug_tex_summon_angel', this.textures.get('summon_angel').getSourceImage());
+        }
 
         // Load custom slice data from localStorage if available, otherwise use defaults
         const defaultSliceData = {
@@ -232,6 +235,36 @@ class GameScene extends Phaser.Scene {
         this.anims.create({ key: 'scarab_beetle-hit', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 15, end: 16 }), frameRate: 10, repeat: 0 });
         this.anims.create({ key: 'scarab_beetle-die', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 15, end: 19 }), frameRate: 10, repeat: 0 });
 
+        // Zombie Animations (80x64, 8 cols x 8 rows, 4 color variants)
+        // Row 0: Walk, Row 1: Regular Attack, Row 2: Bite Attack,
+        // Row 3: Quick Attack + Hit (auto-counter), Row 4: First Defeat,
+        // Row 5: Transform to Crawler, Row 6: Crawl Bite, Row 7: Final Death
+        const zombieVariants = ['zombie', 'zombie_v2', 'zombie_v3', 'zombie_v1'];
+        for (const zType of zombieVariants) {
+            if (!this.textures.exists(zType)) continue;
+            // Row 0: Walk (frames 0-7) — also used as idle
+            this.anims.create({ key: zType + '-idle', frames: this.anims.generateFrameNumbers(zType, { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+            this.anims.create({ key: zType + '-move', frames: this.anims.generateFrameNumbers(zType, { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
+            // Row 1: Regular Attack (frames 8-15)
+            this.anims.create({ key: zType + '-attack', frames: this.anims.generateFrameNumbers(zType, { start: 8, end: 15 }), frameRate: 12, repeat: 0 });
+            // Row 2: Bite Attack (frames 16-23)
+            this.anims.create({ key: zType + '-attack2', frames: this.anims.generateFrameNumbers(zType, { start: 16, end: 23 }), frameRate: 12, repeat: 0 });
+            // Row 3: Quick Attack / Hit reaction — auto-counter (frames 24-31)
+            this.anims.create({ key: zType + '-hit', frames: this.anims.generateFrameNumbers(zType, { start: 24, end: 31 }), frameRate: 14, repeat: 0 });
+            // Row 4: First Defeat — standing to laying (frames 32-39)
+            this.anims.create({ key: zType + '-die', frames: this.anims.generateFrameNumbers(zType, { start: 32, end: 39 }), frameRate: 8, repeat: 0 });
+            // Row 5: Transform — laying to crawling (frames 40-47)
+            this.anims.create({ key: zType + '-transform', frames: this.anims.generateFrameNumbers(zType, { start: 40, end: 47 }), frameRate: 8, repeat: 0 });
+            // Row 6: Crawl Bite (frames 48-55)
+            this.anims.create({ key: zType + '-crawl-attack', frames: this.anims.generateFrameNumbers(zType, { start: 48, end: 55 }), frameRate: 10, repeat: 0 });
+            // Row 7: Final Death (frames 56-63)
+            this.anims.create({ key: zType + '-final-die', frames: this.anims.generateFrameNumbers(zType, { start: 56, end: 63 }), frameRate: 8, repeat: 0 });
+            // Crawl idle — just use the last frame of transform as a static pose
+            this.anims.create({ key: zType + '-crawl-idle', frames: this.anims.generateFrameNumbers(zType, { start: 47, end: 47 }), frameRate: 1, repeat: -1 });
+            // Crawl move — use transform row reversed as crawling motion
+            this.anims.create({ key: zType + '-crawl-move', frames: this.anims.generateFrameNumbers(zType, { start: 44, end: 47 }), frameRate: 8, repeat: -1 });
+        }
+
         // Build generic demon/damned animations from standard format
         const damnedStandard = ['old_demon', 'male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'burning_skull', 'burning_skull_blue', 'imp', 'cheeky_devil', 'bloated_damned'];
         for (const type of damnedStandard) {
@@ -322,9 +355,10 @@ class GameScene extends Phaser.Scene {
         const cloudTypes = ['cloud1', 'cloud2', 'cloud3', 'cloud4', 'cloud5', 'cloud6'];
         for(let i = 0; i < 12; i++) {
             let cx = Math.random() * 1400 - 100;
-            let cy = 20 + (Math.random() * 200);
+            // Place clouds higher up so they don't cover the horizon.
+            let cy = -150 + Math.random() * 350;
             let cloudType = cloudTypes[Math.floor(Math.random() * cloudTypes.length)];
-            let cloud = this.add.image(cx, cy, cloudType).setScrollFactor(0).setDepth(-3);
+            let cloud = this.add.image(cx, cy, cloudType).setScrollFactor(0, 1).setDepth(-3);
             cloud.setScale(0.5 + Math.random() * 1.0);
             cloud.setAlpha(0.6 + (Math.random() * 0.4));
             cloud.floatSpeed = 0.1 + Math.random() * 0.3;
@@ -340,7 +374,10 @@ class GameScene extends Phaser.Scene {
 
         // Initialize Input Manager
         this.inputManager = new InputManager(this);
-
+        this.worldManager = new WorldManager(this);
+        this.arenaManager = new ArenaManager(this);
+        this.weatherManager = new WeatherManager(this);
+        
         // Set initial zone index from save or 0
         const startZone = window.saveData && window.saveData.currentZone !== undefined ? window.saveData.currentZone : 0;
         
@@ -355,6 +392,7 @@ class GameScene extends Phaser.Scene {
         this.npcs = [];
         this.partyMembers = [];
         this.lootChests = [];
+        this.activeRescuee = null; // Rescuee NPC for rescue quests
 
         // Initialize World Manager
         this.worldManager = new WorldManager(this, this.geminiService);
@@ -468,6 +506,20 @@ class GameScene extends Phaser.Scene {
             if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
             this.toggleCharacterSheet();
         });
+        
+        // Spawn Party Member Cheat (P)
+        this.input.keyboard.on('keydown-P', (event) => {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+            if (!this.partyMembers) this.partyMembers = [];
+            if (this.partyMembers.length >= 6) return;
+            
+            // Random class
+            const classes = ['knight', 'wizard', 'samurai', 'ranger'];
+            const randomClass = classes[Math.floor(Math.random() * classes.length)];
+            
+            this.spawnHeroAI(randomClass, this.player.sprite.x + 30, this.player.sprite.y - 10, 'party');
+        });
+
         this._lastDebugUpdate = 0;
     }
     
@@ -542,6 +594,21 @@ class GameScene extends Phaser.Scene {
     transitionZone(direction) {
         if (this.isTransitioning) return;
         this.isTransitioning = true;
+        
+        // STOP player immediately so they don't walk off the cliff during fade
+        if (this.player && this.player.sprite && this.player.sprite.body) {
+            this.player.sprite.setVelocity(0, 0);
+            this.player.sprite.body.setAllowGravity(false);
+        }
+        if (this.partyMembers) {
+            this.partyMembers.forEach(hero => {
+                if (hero.sprite && hero.sprite.body) {
+                    hero.sprite.setVelocity(0, 0);
+                    hero.sprite.body.setAllowGravity(false);
+                }
+            });
+        }
+        
         const currentZone = (window.saveData && window.saveData.currentZone !== undefined) ? window.saveData.currentZone : 0;
         const nextZoneIndex = currentZone + direction;
         const spawnSide = direction === 1 ? 'left' : 'right'; // If moving right, spawn left.
@@ -588,6 +655,16 @@ class GameScene extends Phaser.Scene {
             // Since WorldManager is persistent within GameScene, we can just clear groups
             this.enemies.clear(true, true);
             
+            // Save rescuee state before clearing (if following)
+            if (this.activeRescuee && this.activeRescuee.state === 'following') {
+                window.saveData.activeRescuee = this.activeRescuee.getSaveData();
+                this.activeRescuee.destroy();
+                this.activeRescuee = null;
+            } else if (this.activeRescuee) {
+                this.activeRescuee.destroy();
+                this.activeRescuee = null;
+            }
+            
             // clear NPCs too if we had a group
             if (this.npcs) {
                 [...this.npcs].forEach(npc => {
@@ -632,7 +709,33 @@ class GameScene extends Phaser.Scene {
     }
 
     setBiomeVisuals(biome, zoneType = 'Hostile') {
+        // Build floor and background layers
         this.levelGenerator.setBiomeVisuals(biome, zoneType);
+
+        // Set basic sky color
+        let bgColor = '#87CEEB'; // default sky
+        if (biome === 'Desert') bgColor = '#f4a460';
+        if (biome === 'Winter') bgColor = '#a9a9a9';
+        if (biome === 'Cave' || biome === 'Dungeon' || biome === 'Deadwoods' || biome === 'Hell') bgColor = '#1a1a1a';
+        this.cameras.main.setBackgroundColor(bgColor);
+
+        // Determine weather intelligently based on biome
+        if (this.weatherManager) {
+            let weather = 'clear';
+            const roll = Math.random();
+            
+            if (biome === 'Winter') {
+                weather = 'snow'; // Always snows in winter
+            } else if (biome === 'Forest' || biome === 'Plains') {
+                if (roll < 0.3) weather = 'rain'; // 30% chance of rain
+            } else if (biome === 'Coastal') {
+                if (roll < 0.4) weather = 'rain'; // 40% chance of rain near coast
+            } else if (biome === 'Deadwoods') {
+                if (roll < 0.5) weather = 'rain'; // 50% chance of rain in spooky woods
+            }
+            
+            this.weatherManager.setWeather(weather);
+        }
     }
 
     createDebugPanel() {
@@ -642,19 +745,7 @@ class GameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.isTransitioning) return;
 
-        // Animate clouds
-        if (this.clouds) {
-            this.clouds.forEach(cloud => {
-                cloud.x += cloud.floatSpeed * (delta / 16); // Normalizes speed to 60fps
-                if (cloud.x > 1400) {
-                    cloud.x = -200;
-                    cloud.y = 20 + Math.random() * 200;
-                    cloud.floatSpeed = 0.1 + Math.random() * 0.3;
-                    const cloudTypes = ['cloud1', 'cloud2', 'cloud3', 'cloud4', 'cloud5', 'cloud6'];
-                    cloud.setTexture(cloudTypes[Math.floor(Math.random() * cloudTypes.length)]);
-                }
-            });
-        }
+        // Clouds are now animated in the manual parallax section at the bottom of update()
         
         // Animate Water Layers
         if (this.waterLayers && this.waterLayers.length > 0) {
@@ -665,6 +756,8 @@ class GameScene extends Phaser.Scene {
 
         this.inputManager.update();
         if (this.player) this.player.update(time, delta);
+        if (this.arenaManager) this.arenaManager.update();
+        if (this.weatherManager) this.weatherManager.update(time, delta);
         
         // cull entities falling into the deep abyss (below y > 1400)
         this.enemies.getChildren().forEach(enemy => {
@@ -763,6 +856,29 @@ class GameScene extends Phaser.Scene {
                 this.transitionZone(-1); // Move Left
             }
         }
+        
+        // Horizontal float animation and manual parallax for clouds
+        const camX = this.cameras.main.scrollX;
+        const lastCamX = this.lastCamX || camX;
+        this.lastCamX = camX;
+        const deltaCamX = camX - lastCamX;
+
+        if (this.clouds && this.clouds.length > 0) {
+            this.clouds.forEach(cloud => {
+                // Noticeable drift speed
+                if (cloud.floatSpeed === undefined) cloud.floatSpeed = 0.5 + Math.random() * 0.5;
+                
+                // Float drift
+                cloud.x -= cloud.floatSpeed * delta * 0.06;
+                
+                // Manual parallax (since scrollFactorX is 0, cloud.x is a screen coordinate)
+                cloud.x -= deltaCamX * 0.05;
+
+                // Screen wrapping
+                if (cloud.x < -300) cloud.x = 1500;
+                if (cloud.x > 1500) cloud.x = -300;
+            });
+        }
 
         this.enemies.getChildren().forEach(enemy => {
             if (enemy.controller && enemy.controller.update) {
@@ -777,6 +893,11 @@ class GameScene extends Phaser.Scene {
 
         // Update NPCs (proximity detection, text tracking)
         this.npcs.forEach(npc => npc.update(time, delta));
+
+        // Update Active Rescuee NPC
+        if (this.activeRescuee && this.activeRescuee.update) {
+            this.activeRescuee.update(time, delta);
+        }
 
         // Update Loot Chests
         if (this.lootChests && this.lootChests.length > 0) {
@@ -795,7 +916,7 @@ class GameScene extends Phaser.Scene {
                     if (!chest.promptText.visible) chest.promptText.setVisible(true);
                     
                     // Interact
-                    if (this.inputManager.keys.interact.isDown && time - (this._lastChestInteractTime || 0) > 500) {
+                    if (this.player.isInteractDown() && time - (this._lastChestInteractTime || 0) > 500) {
                         this._lastChestInteractTime = time;
                         chest.isOpen = true;
                         chest.promptText.destroy();
@@ -855,7 +976,7 @@ class GameScene extends Phaser.Scene {
                     this.angelPromptText.setVisible(true);
                 }
 
-                if (this.inputManager.keys.interact.isDown && time - (this._lastStatueInteractTime || 0) > 500) {
+                if (this.player.isInteractDown() && time - (this._lastStatueInteractTime || 0) > 500) {
                     this._lastStatueInteractTime = time;
                     if (this.openTownDirectory) this.openTownDirectory();
                 }

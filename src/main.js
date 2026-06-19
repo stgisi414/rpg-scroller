@@ -23,9 +23,20 @@ window.INDOOR_LOCATIONS = {
         desc: 'Forge and upgrade weapons',
         npcSprite: 'blacksmith',
         npcName: 'Master Smith',
-        npcPersona: 'A burly dwarf who can forge and upgrade any weapon — for a price.',
-        floorTint: 0x555555,
+        npcPersona: 'A master blacksmith who creates weapons of legend.',
+        floorTint: 0x4A4A4A,
         action: 'forge'
+    },
+    coliseum: {
+        name: 'Coliseum',
+        icon: 'swords',
+        bg: 'bg_colliseum',
+        desc: 'Fight infinite waves of enemies',
+        npcSprite: 'king',
+        npcName: 'The King',
+        npcPersona: 'The King who oversees the brutal arena games. He respects strength and rewards those who survive the endless waves.',
+        floorTint: 0x666666,
+        action: 'arena'
     },
     apothecary: {
         name: 'Apothecary',

@@ -22,7 +22,14 @@ class ShopManager {
                 { key: 'weapon-diamond-sword', name: 'Obsidian Blade', desc: '+15 Damage', price: 500, type: 'weapon', damageBonus: 15, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_04.png' },
                 { key: 'weapon-iron-axe', name: 'Heavy Battleaxe', desc: '+6 Damage', price: 200, type: 'weapon', damageBonus: 6, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_01.png' },
                 { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', price: 1500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png' },
-                { key: 'artifact-strength', name: 'Ring of Strength', desc: '+20% Damage', price: 400, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon1.png' }
+                { key: 'artifact-strength', name: 'Ring of Strength', desc: '+20% Damage', price: 400, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon1.png' },
+                { key: 'weapon-crimson-axe', name: 'Crimson War Axe', desc: '+20 Damage', price: 800, type: 'weapon', damageBonus: 20, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_01.png' },
+                { key: 'weapon-runic-greataxe', name: 'Runic Greataxe', desc: '+28 Damage', price: 1200, type: 'weapon', damageBonus: 28, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_03.png' },
+                { key: 'weapon-dragon-cleaver', name: 'Dragon Cleaver', desc: '+35 Damage', price: 1800, type: 'weapon', damageBonus: 35, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_06.png' },
+                { key: 'weapon-worldbreaker', name: 'Worldbreaker', desc: '+45 Damage', price: 3000, type: 'weapon', damageBonus: 45, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_07.png' },
+                { key: 'artifact-wooden-buckler', name: 'Wooden Buckler', desc: '5% Damage Reduction', price: 150, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_01.png' },
+                { key: 'artifact-iron-shield', name: 'Iron Kite Shield', desc: '12% Damage Reduction', price: 500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_02.png' },
+                { key: 'artifact-crystal-aegis', name: 'Crystal Aegis', desc: '20% DR, +30 Max HP', price: 1200, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_03.png' }
             ];
         } else if (shopType === 'alchemist') {
             items = [
@@ -34,7 +41,11 @@ class ShopManager {
                 { key: 'item-chest', name: 'Mystery Chest', desc: 'Contains random loot!', price: 100, type: 'chest', isSpritesheet: true, imageSrc: 'src/assets/GandalfHardcore Chests/GandalfHardcore Chests/chest sheet 1.png' },
                 { key: 'artifact-teleporter', name: 'Town Portal Stone', desc: 'Teleport to town at <15% HP', price: 1000, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon13.png' },
                 { key: 'artifact-antidote', name: 'Antidote Vial', desc: 'Immunity to Poison', price: 300, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon7.png' },
-                { key: 'artifact-autopot', name: 'Elixir of Last Resort', desc: 'Auto-uses HP potion at <30% HP', price: 500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon15.png' }
+                { key: 'artifact-autopot', name: 'Elixir of Last Resort', desc: 'Auto-uses HP potion at <30% HP', price: 500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon15.png' },
+                { key: 'weapon-crystal-staff', name: 'Crystal Staff', desc: '+10 Damage', price: 350, type: 'weapon', damageBonus: 10, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_05.png' },
+                { key: 'weapon-arcane-scepter', name: 'Arcane Scepter', desc: '+16 Damage', price: 600, type: 'weapon', damageBonus: 16, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_06.png' },
+                { key: 'weapon-infernal-staff', name: 'Infernal Staff', desc: '+24 Damage', price: 1000, type: 'weapon', damageBonus: 24, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_03.png' },
+                { key: 'weapon-void-staff', name: 'Staff of the Void', desc: '+32 Damage', price: 1600, type: 'weapon', damageBonus: 32, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_04.png' }
             ];
         } else if (shopType === 'ranger') {
             items = [
@@ -43,23 +54,40 @@ class ShopManager {
                 { key: 'weapon-shortbow', name: 'Shortbow', desc: '+4 Damage', price: 80, type: 'weapon', damageBonus: 4, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_01.png' },
                 { key: 'weapon-elven-longbow', name: 'Elven Longbow', desc: '+10 Damage', price: 350, type: 'weapon', damageBonus: 10, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_02.png' },
                 { key: 'item-meat', name: 'Boar Meat', desc: 'Restores 20 HP', price: 10, type: 'meat', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png' },
-                { key: 'item-fur', name: 'Wolf Pelt', desc: 'Warm fur.', price: 50, type: 'junk', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon45.png' }
+                { key: 'item-fur', name: 'Wolf Pelt', desc: 'Warm fur.', price: 50, type: 'junk', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon45.png' },
+                { key: 'weapon-shadow-fang', name: 'Shadow Fang', desc: '+14 Damage', price: 450, type: 'weapon', damageBonus: 14, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_03.png' },
+                { key: 'weapon-serpent-blade', name: 'Serpent Blade', desc: '+20 Damage', price: 750, type: 'weapon', damageBonus: 20, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_04.png' },
+                { key: 'weapon-voidsteel-tanto', name: 'Voidsteel Tanto', desc: '+28 Damage', price: 1100, type: 'weapon', damageBonus: 28, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_05.png' },
+                { key: 'weapon-dragonslayer-katana', name: 'Dragonslayer Katana', desc: '+36 Damage', price: 1700, type: 'weapon', damageBonus: 36, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_10.png' },
+                { key: 'weapon-storm-tomahawk', name: 'Storm Tomahawk', desc: '+17 Damage', price: 600, type: 'weapon', damageBonus: 17, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_01.png' },
+                { key: 'weapon-void-throwing-axe', name: 'Void Throwing Axe', desc: '+24 Damage', price: 950, type: 'weapon', damageBonus: 24, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_02.png' },
+                { key: 'weapon-phoenix-shuriken', name: 'Phoenix Shuriken', desc: '+32 Damage', price: 1400, type: 'weapon', damageBonus: 32, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_03.png' }
             ];
         } else if (shopType === 'wizard') {
             items = [
                 { key: 'item-potion', name: 'Health Potion', desc: 'Restores 50 HP', price: 25, type: 'potion', isSpritesheet: true, imageSrc: 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png' },
                 { key: 'item-mp-potion', name: 'Mana Potion', desc: 'Restores 50 MP', price: 25, type: 'mp_potion', isSpritesheet: true, imageSrc: 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png' },
                 { key: 'weapon-stick', name: 'Oak Wand', desc: '+2 Damage', price: 60, type: 'weapon', damageBonus: 2, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_01.png' },
+                { key: 'weapon-crystal-staff', name: 'Crystal Staff', desc: '+10 Damage', price: 350, type: 'weapon', damageBonus: 10, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_05.png' },
+                { key: 'weapon-arcane-scepter', name: 'Arcane Scepter', desc: '+16 Damage', price: 600, type: 'weapon', damageBonus: 16, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_06.png' },
+                { key: 'weapon-infernal-staff', name: 'Infernal Staff', desc: '+24 Damage', price: 1000, type: 'weapon', damageBonus: 24, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_03.png' },
+                { key: 'weapon-void-staff', name: 'Staff of the Void', desc: '+32 Damage', price: 1600, type: 'weapon', damageBonus: 32, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_04.png' }
             ];
         } else if (shopType === 'samurai') {
             items = [
                 { key: 'weapon-iron-dagger', name: 'Iron Dagger', desc: '+3 Damage', price: 50, type: 'weapon', damageBonus: 3, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_01.png' },
                 { key: 'item-meat', name: 'Boar Meat', desc: 'Restores 20 HP', price: 15, type: 'meat', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png' },
+                { key: 'weapon-shadow-fang', name: 'Shadow Fang', desc: '+14 Damage', price: 450, type: 'weapon', damageBonus: 14, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_03.png' },
+                { key: 'weapon-serpent-blade', name: 'Serpent Blade', desc: '+20 Damage', price: 750, type: 'weapon', damageBonus: 20, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_04.png' },
+                { key: 'weapon-voidsteel-tanto', name: 'Voidsteel Tanto', desc: '+28 Damage', price: 1100, type: 'weapon', damageBonus: 28, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_05.png' },
+                { key: 'weapon-dragonslayer-katana', name: 'Dragonslayer Katana', desc: '+36 Damage', price: 1700, type: 'weapon', damageBonus: 36, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_10.png' }
             ];
         } else if (shopType === 'knight') {
             items = [
                 { key: 'weapon-bronze-sword', name: 'Bronze Sword', desc: '+2 Damage', price: 60, type: 'weapon', damageBonus: 2, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_01.png' },
                 { key: 'item-meat', name: 'Boar Meat', desc: 'Restores 20 HP', price: 15, type: 'meat', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png' },
+                { key: 'weapon-iron-sword', name: 'Iron Broadsword', desc: '+5 Damage', price: 150, type: 'weapon', damageBonus: 5, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_02.png' },
+                { key: 'weapon-gold-sword', name: 'Golden Longsword', desc: '+8 Damage', price: 300, type: 'weapon', damageBonus: 8, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_03.png' }
             ];
         }
 
@@ -188,7 +216,30 @@ class ShopManager {
                 { key: 'weapon-shortbow', name: 'Shortbow', desc: '+4 Damage', price: 80, type: 'weapon', damageBonus: 4, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_01.png' },
                 { key: 'weapon-elven-longbow', name: 'Elven Longbow', desc: '+10 Damage', price: 350, type: 'weapon', damageBonus: 10, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_02.png' },
                 { key: 'item-meat', name: 'Boar Meat', desc: 'Restores 20 HP', price: 10, type: 'meat', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png' },
-                { key: 'item-fur', name: 'Wolf Pelt', desc: 'Warm fur.', price: 50, type: 'junk', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon45.png' }
+                { key: 'item-fur', name: 'Wolf Pelt', desc: 'Warm fur.', price: 50, type: 'junk', isSpritesheet: false, imageSrc: 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon45.png' },
+                // expanded weapons - knight
+                { key: 'weapon-crimson-axe', name: 'Crimson War Axe', desc: '+20 Damage', price: 800, type: 'weapon', damageBonus: 20, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_01.png' },
+                { key: 'weapon-runic-greataxe', name: 'Runic Greataxe', desc: '+28 Damage', price: 1200, type: 'weapon', damageBonus: 28, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_03.png' },
+                { key: 'weapon-dragon-cleaver', name: 'Dragon Cleaver', desc: '+35 Damage', price: 1800, type: 'weapon', damageBonus: 35, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_06.png' },
+                { key: 'weapon-worldbreaker', name: 'Worldbreaker', desc: '+45 Damage', price: 3000, type: 'weapon', damageBonus: 45, classRestrict: 'knight', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_07.png' },
+                // expanded weapons - wizard
+                { key: 'weapon-crystal-staff', name: 'Crystal Staff', desc: '+10 Damage', price: 350, type: 'weapon', damageBonus: 10, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_05.png' },
+                { key: 'weapon-arcane-scepter', name: 'Arcane Scepter', desc: '+16 Damage', price: 600, type: 'weapon', damageBonus: 16, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_06.png' },
+                { key: 'weapon-infernal-staff', name: 'Infernal Staff', desc: '+24 Damage', price: 1000, type: 'weapon', damageBonus: 24, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_03.png' },
+                { key: 'weapon-void-staff', name: 'Staff of the Void', desc: '+32 Damage', price: 1600, type: 'weapon', damageBonus: 32, classRestrict: 'wizard', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_04.png' },
+                // expanded weapons - samurai
+                { key: 'weapon-shadow-fang', name: 'Shadow Fang', desc: '+14 Damage', price: 450, type: 'weapon', damageBonus: 14, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_03.png' },
+                { key: 'weapon-serpent-blade', name: 'Serpent Blade', desc: '+20 Damage', price: 750, type: 'weapon', damageBonus: 20, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_04.png' },
+                { key: 'weapon-voidsteel-tanto', name: 'Voidsteel Tanto', desc: '+28 Damage', price: 1100, type: 'weapon', damageBonus: 28, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_05.png' },
+                { key: 'weapon-dragonslayer-katana', name: 'Dragonslayer Katana', desc: '+36 Damage', price: 1700, type: 'weapon', damageBonus: 36, classRestrict: 'samurai', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_10.png' },
+                // expanded weapons - ranger
+                { key: 'weapon-storm-tomahawk', name: 'Storm Tomahawk', desc: '+17 Damage', price: 600, type: 'weapon', damageBonus: 17, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_01.png' },
+                { key: 'weapon-void-throwing-axe', name: 'Void Throwing Axe', desc: '+24 Damage', price: 950, type: 'weapon', damageBonus: 24, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_02.png' },
+                { key: 'weapon-phoenix-shuriken', name: 'Phoenix Shuriken', desc: '+32 Damage', price: 1400, type: 'weapon', damageBonus: 32, classRestrict: 'ranger', imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_03.png' },
+                // shield artifacts
+                { key: 'artifact-wooden-buckler', name: 'Wooden Buckler', desc: '5% Damage Reduction', price: 150, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_01.png' },
+                { key: 'artifact-iron-shield', name: 'Iron Kite Shield', desc: '12% Damage Reduction', price: 500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_02.png' },
+                { key: 'artifact-crystal-aegis', name: 'Crystal Aegis', desc: '20% DR, +30 Max HP', price: 1200, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_03.png' }
             ];
             itemObj = allItems.find(i => i.key === item) || { key: item, price: 0, type: 'unknown' };
         }
@@ -280,27 +331,43 @@ class ShopManager {
         let chain = [];
         if (classId === 'knight' || classId === 'warrior') {
             chain = [
-                { key: 'weapon-bronze-sword', name: 'Bronze Sword', desc: '+2 Damage', damageBonus: 2, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_01.png' },
+                { key: 'weapon-bronze-sword', name: 'Bronze Sword', desc: '+2 Damage', damageBonus: 2, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_05.png' },
                 { key: 'weapon-iron-sword', name: 'Iron Broadsword', desc: '+5 Damage', damageBonus: 5, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_02.png' },
                 { key: 'weapon-gold-sword', name: 'Golden Longsword', desc: '+8 Damage', damageBonus: 8, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_03.png' },
-                { key: 'weapon-diamond-sword', name: 'Obsidian Blade', desc: '+15 Damage', damageBonus: 15, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_04.png' }
+                { key: 'weapon-diamond-sword', name: 'Obsidian Blade', desc: '+15 Damage', damageBonus: 15, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_04.png' },
+                { key: 'weapon-crimson-axe', name: 'Crimson War Axe', desc: '+20 Damage', damageBonus: 20, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_01.png' },
+                { key: 'weapon-runic-greataxe', name: 'Runic Greataxe', desc: '+28 Damage', damageBonus: 28, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_03.png' },
+                { key: 'weapon-dragon-cleaver', name: 'Dragon Cleaver', desc: '+35 Damage', damageBonus: 35, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_06.png' },
+                { key: 'weapon-worldbreaker', name: 'Worldbreaker', desc: '+45 Damage', damageBonus: 45, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_07.png' }
             ];
         } else if (classId === 'wizard') {
             chain = [
                 { key: 'weapon-stick', name: 'Oak Wand', desc: '+2 Damage', damageBonus: 2, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_01.png' },
-                { key: 'weapon-staff', name: 'Adept Staff', desc: '+5 Damage', damageBonus: 5, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_02.png' }
+                { key: 'weapon-staff', name: 'Adept Staff', desc: '+5 Damage', damageBonus: 5, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_02.png' },
+                { key: 'weapon-crystal-staff', name: 'Crystal Staff', desc: '+10 Damage', damageBonus: 10, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_05.png' },
+                { key: 'weapon-arcane-scepter', name: 'Arcane Scepter', desc: '+16 Damage', damageBonus: 16, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_06.png' },
+                { key: 'weapon-infernal-staff', name: 'Infernal Staff', desc: '+24 Damage', damageBonus: 24, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_03.png' },
+                { key: 'weapon-void-staff', name: 'Staff of the Void', desc: '+32 Damage', damageBonus: 32, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_04.png' }
             ];
         } else if (classId === 'samurai') {
             chain = [
                 { key: 'weapon-iron-dagger', name: 'Iron Dagger', desc: '+3 Damage', damageBonus: 3, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_01.png' },
-                { key: 'weapon-poison-shiv', name: 'Poisoned Shiv', desc: '+8 Damage', damageBonus: 8, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_02.png' }
+                { key: 'weapon-poison-shiv', name: 'Poisoned Shiv', desc: '+8 Damage', damageBonus: 8, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_02.png' },
+                { key: 'weapon-shadow-fang', name: 'Shadow Fang', desc: '+14 Damage', damageBonus: 14, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_03.png' },
+                { key: 'weapon-serpent-blade', name: 'Serpent Blade', desc: '+20 Damage', damageBonus: 20, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_04.png' },
+                { key: 'weapon-voidsteel-tanto', name: 'Voidsteel Tanto', desc: '+28 Damage', damageBonus: 28, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Daggers/PixelArt_FantasyWeapons_01_Dagger_05.png' },
+                { key: 'weapon-dragonslayer-katana', name: 'Dragonslayer Katana', desc: '+36 Damage', damageBonus: 36, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_10.png' }
             ];
         } else if (classId === 'ranger') {
             chain = [
                 { key: 'weapon-shortbow', name: 'Shortbow', desc: '+4 Damage', damageBonus: 4, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_01.png' },
-                { key: 'weapon-elven-longbow', name: 'Elven Longbow', desc: '+10 Damage', damageBonus: 10, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_02.png' }
+                { key: 'weapon-elven-longbow', name: 'Elven Longbow', desc: '+10 Damage', damageBonus: 10, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_02.png' },
+                { key: 'weapon-storm-tomahawk', name: 'Storm Tomahawk', desc: '+17 Damage', damageBonus: 17, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_01.png' },
+                { key: 'weapon-void-throwing-axe', name: 'Void Throwing Axe', desc: '+24 Damage', damageBonus: 24, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_02.png' },
+                { key: 'weapon-phoenix-shuriken', name: 'Phoenix Shuriken', desc: '+32 Damage', damageBonus: 32, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Throwing/PixelArt_FantasyWeapons_01_Throwing_03.png' }
             ];
         }
+
 
         const currentBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
         const upgrade = chain.find(w => w.damageBonus > currentBonus);
@@ -316,31 +383,38 @@ class ShopManager {
         let message = '';
         let color = '#ffffff';
 
-        if (roll < 0.35) {
+        if (roll < 0.30) {
             // Gold
             window.saveData = JSON.parse(JSON.stringify(window.saveData));
             const playerLevel = window.saveData ? window.saveData.level : 1;
-            const amount = 20 + Math.floor(Math.random() * 60) + (playerLevel * 5);
+            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const amount = 20 + Math.floor(Math.random() * 60) + (playerLevel * 5) + (zoneIdx * 15);
             window.saveData.gold = (window.saveData.gold || 0) + amount;
             document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
             message = `+${amount} Gold`;
             color = 0xffd700;
-        } else if (roll < 0.50) {
+        } else if (roll < 0.45) {
             // Health Potion
-            player.inventory.potions = (player.inventory.potions || 0) + 1;
-            message = '+1 Health Potion';
+            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const qty = 1 + Math.floor(zoneIdx / 15);
+            player.inventory.potions = (player.inventory.potions || 0) + qty;
+            message = `+${qty} Health Potion${qty > 1 ? 's' : ''}`;
             color = 0xff6b6b;
-        } else if (roll < 0.65) {
+        } else if (roll < 0.60) {
             // Mana Potion
-            player.inventory.mpPotions = (player.inventory.mpPotions || 0) + 1;
-            message = '+1 Mana Potion';
+            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const qty = 1 + Math.floor(zoneIdx / 15);
+            player.inventory.mpPotions = (player.inventory.mpPotions || 0) + qty;
+            message = `+${qty} Mana Potion${qty > 1 ? 's' : ''}`;
             color = 0x60a5fa;
-        } else if (roll < 0.75) {
+        } else if (roll < 0.70) {
             // Stamina Potion
-            player.inventory.spPotions = (player.inventory.spPotions || 0) + 1;
-            message = '+1 Stamina Potion';
+            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const qty = 1 + Math.floor(zoneIdx / 15);
+            player.inventory.spPotions = (player.inventory.spPotions || 0) + qty;
+            message = `+${qty} Stamina Potion${qty > 1 ? 's' : ''}`;
             color = 0x4ade80;
-        } else if (roll < 0.85) {
+        } else if (roll < 0.80) {
             // Artifact Drop
             const allArtifacts = Object.keys(window.ARTIFACTS_DATA || {});
             const unowned = allArtifacts.filter(key => !player.inventory.artifacts.includes(key));
@@ -362,8 +436,8 @@ class ShopManager {
                 message = `+${amount} Gold`;
                 color = 0xffd700;
             }
-        } else {
-            // Weapon Upgrade
+        } else if (roll < 0.90) {
+            // Weapon Upgrade (Class Specific)
             const upgrade = this.getNextWeaponUpgrade();
             if (upgrade) {
                 player.inventory.weapon = { 
@@ -381,6 +455,61 @@ class ShopManager {
                 window.saveData.gold = (window.saveData.gold || 0) + amount;
                 document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
                 message = `+${amount} Gold`;
+                color = 0xffd700;
+            }
+        } else {
+            // Universal Loot Weapon
+            const lootWeapons = [
+                { weight: 100, key: 'loot-rusty-mace', name: 'Rusty Mace', damageBonus: 6, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_06.png', color: '#ffffff' },
+                { weight: 100, key: 'loot-iron-flail', name: 'Iron Flail', damageBonus: 8, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_07.png', color: '#ffffff' },
+                { weight: 100, key: 'loot-spiked-club', name: 'Spiked Club', damageBonus: 10, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_08.png', color: '#ffffff' },
+                { weight: 100, key: 'loot-steel-mace', name: 'Steel Mace', damageBonus: 12, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_09.png', color: '#ffffff' },
+                
+                { weight: 50, key: 'loot-scimitar', name: 'Curved Scimitar', damageBonus: 15, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_11.png', color: '#1eff00' },
+                { weight: 50, key: 'loot-desert-hook', name: 'Desert Hook', damageBonus: 17, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_12.png', color: '#1eff00' },
+                { weight: 50, key: 'loot-morningstar', name: 'Heavy Morningstar', damageBonus: 20, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_13.png', color: '#1eff00' },
+                
+                { weight: 20, key: 'loot-crystal-mace', name: 'Crystal Mace', damageBonus: 25, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_14.png', color: '#0070dd' },
+                { weight: 20, key: 'loot-golden-flail', name: 'Golden Flail', damageBonus: 28, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_15.png', color: '#0070dd' },
+                { weight: 20, key: 'loot-barbarian-hammer', name: 'Barbarian Hammer', damageBonus: 32, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_02.png', color: '#0070dd' },
+                
+                { weight: 5, key: 'loot-demonic-mace', name: 'Demonic Mace', damageBonus: 40, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_16.png', color: '#a335ee' },
+                { weight: 5, key: 'loot-skullcrusher', name: 'Skullcrusher', damageBonus: 45, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_04.png', color: '#a335ee' },
+                { weight: 5, key: 'loot-titans-maul', name: 'Titan\'s Maul', damageBonus: 50, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_05.png', color: '#a335ee' },
+                
+                { weight: 1, key: 'loot-sunfire-flail', name: 'Sunfire Flail', damageBonus: 60, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_17.png', color: '#ff8000' },
+                { weight: 1, key: 'loot-voidhammer', name: 'Voidhammer', damageBonus: 65, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_08.png', color: '#ff8000' },
+                { weight: 1, key: 'loot-starfall-cleaver', name: 'Starfall Cleaver', damageBonus: 70, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_09.png', color: '#ff8000' },
+                { weight: 1, key: 'loot-heavens-blade', name: 'Blade of the Heavens', damageBonus: 75, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/TwoHanded/PixelArt_FantasyWeapons_01_TwoHanded_10.png', color: '#ff8000' }
+            ];
+
+            const totalWeight = lootWeapons.reduce((sum, w) => sum + w.weight, 0);
+            let randomWeight = Math.random() * totalWeight;
+            let droppedWeapon = lootWeapons[0];
+            for (const w of lootWeapons) {
+                if (randomWeight < w.weight) {
+                    droppedWeapon = w;
+                    break;
+                }
+                randomWeight -= w.weight;
+            }
+
+            const currentBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
+            if (droppedWeapon.damageBonus > currentBonus) {
+                player.inventory.weapon = {
+                    key: droppedWeapon.key,
+                    iconSrc: droppedWeapon.imageSrc,
+                    name: droppedWeapon.name,
+                    damageBonus: droppedWeapon.damageBonus,
+                    desc: `+${droppedWeapon.damageBonus} Damage`
+                };
+                message = `Found: ${droppedWeapon.name}!`;
+                color = parseInt(droppedWeapon.color.replace('#', '0x'));
+            } else {
+                const amount = 100 + (droppedWeapon.damageBonus * 10);
+                window.saveData.gold = (window.saveData.gold || 0) + amount;
+                document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
+                message = `Sold ${droppedWeapon.name} (+${amount}g)`;
                 color = 0xffd700;
             }
         }

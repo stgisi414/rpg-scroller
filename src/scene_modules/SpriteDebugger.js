@@ -16,7 +16,7 @@ class SpriteDebugger {
         html += '</div>';
         html += '<div style="margin-bottom: 10px; font-size: 10px; color: #aaa;">Press ` (backtick) to toggle</div>';
         html += '<select id="debug-sprite" style="width: 100%; margin-bottom: 10px; color: black; background: white;">';
-        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant', 'house_inside_tiles', 'training_dummy'].forEach(key => {
+        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant', 'house_inside_tiles', 'training_dummy', 'summon_angel'].forEach(key => {
             html += `<option value="${key}">${key}</option>`;
         });
         html += '</select>';
@@ -48,6 +48,8 @@ class SpriteDebugger {
         // Force reset the cached slices for house_inside_tiles so the 32x32 grid applies
         delete window.sliceColData['house_inside_tiles'];
         if (window.sliceData) delete window.sliceData['house_inside_tiles'];
+        delete window.sliceColData['summon_angel'];
+        if (window.sliceData) delete window.sliceData['summon_angel'];
         // Track which mode the debugger is in
         if (!window.debugMode) window.debugMode = 'rows';
 
@@ -55,6 +57,11 @@ class SpriteDebugger {
             if (key === 'house_inside_tiles') {
                 const arr = [];
                 for (let c = 0; c < 14; c++) arr.push({ x: c * 32, w: 32 });
+                return arr;
+            }
+            if (key === 'summon_angel') {
+                const arr = [];
+                for (let c = 0; c < 10; c++) arr.push({ x: c * 96, w: 96 });
                 return arr;
             }
             const colW = 102;
@@ -67,13 +74,17 @@ class SpriteDebugger {
         const renderControls = () => {
             const key = select.value;
             let rowData = window.sliceData[key];
-            if (!rowData) {
+            if (!rowData || (key === 'summon_angel' && rowData.length !== 1)) {
                 if (key === 'house_inside_tiles') {
                     rowData = window.sliceData[key] = [];
                     for (let r = 0; r < 13; r++) rowData.push({ y: r * 32, h: 32 });
                 } else if (key === 'skeleton' || key === 'frost_giant') {
                     rowData = window.sliceData[key] = [
                         { y: 0, h: 128 }, { y: 128, h: 128 }, { y: 256, h: 128 }, { y: 384, h: 128 }
+                    ];
+                } else if (key === 'summon_angel') {
+                    rowData = window.sliceData[key] = [
+                        { y: 0, h: 96 }
                     ];
                 } else {
                     rowData = window.sliceData[key] = [
@@ -191,6 +202,7 @@ class SpriteDebugger {
             if (key === 'frost_giant') img = this.scene.registry.get('debug_tex_frost_giant');
             if (key === 'house_inside_tiles') img = this.scene.registry.get('debug_tex_house_tiles');
             if (key === 'training_dummy') img = this.scene.registry.get('debug_tex_training_dummy');
+            if (key === 'summon_angel') img = this.scene.registry.get('debug_tex_summon_angel');
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (img && img.src) {

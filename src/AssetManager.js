@@ -126,7 +126,8 @@ class AssetManager {
         this.scene.load.image('bg_dungeon', 'src/assets/gemini-dungeon-bg.jpg');
         this.scene.load.image('bg_plains', 'src/assets/plains_bg.jpg');
         this.scene.load.image('bg_forest', 'src/assets/forest_bg.jpg');
-
+        this.scene.load.image('bg_colliseum', 'src/assets/bg_colliseum.jpg');
+        
         // Indoor Backgrounds
         this.scene.load.image('bg_tavern', 'src/assets/bg_tavern.jpg');
         this.scene.load.image('bg_blacksmith', 'src/assets/bg_blacksmith.jpg');
@@ -156,8 +157,9 @@ class AssetManager {
         this.scene.load.image('bg_dark_forest_2', 'src/assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/Dark Forest Background/Dark Forest Background Top.png');
 
         // Load Enemy Assets
-        this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 256, frameHeight: 279 });
-        this.scene.load.spritesheet('summon_angel', 'src/assets/GandalfHardcore Angel/GandalfHardcore Angel/GandalfHardcore Angel.png', { frameWidth: 96, frameHeight: 96 });
+        this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 192, frameHeight: 192 });
+        this.scene.load.spritesheet('summon_angel', 'src/assets/GandalfHardcore Angel/GandalfHardcore Angel/GandalfHardcore Angel.png', { frameWidth: 96, frameHeight: 64 });
+        this.scene.load.spritesheet('king', 'src/assets/Male Pixel Art characters/Male Pixel Art characters/Male Pixel Art characters.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('slime', 'src/assets/GandalfHardcore Slime Enemy/GandalfHardcore Slime Enemy/Slime green.png', { frameWidth: 32, frameHeight: 32 });
         this.scene.load.spritesheet('goblin', 'src/assets/GandalfHardcore Goblin sheet/GandalfHardcore Goblin sheet/Goblin enemy green sheet.png', { frameWidth: 84, frameHeight: 64 });
         this.scene.load.spritesheet('bat', 'src/assets/GandalfHardcore Pixel Art Enemies/GandalfHardcore Pixel Art Enemies/Bat sheet.png', { frameWidth: 64, frameHeight: 64 });
@@ -169,9 +171,51 @@ class AssetManager {
         this.scene.load.spritesheet('mummy', 'src/assets/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Enemies/Mummy.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('scarab_beetle', 'src/assets/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Enemies/Scarab beetle.png', { frameWidth: 32, frameHeight: 32 });
 
+        // Zombie Enemies (GandalfHardcore Zombies — 80x64 per frame, 8 cols x 8 rows, 4 color variants)
+        this.scene.load.spritesheet('zombie', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v4 sheet.png', { frameWidth: 80, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie_v2', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v2 sheet.png', { frameWidth: 80, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie_v3', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v3 sheet.png', { frameWidth: 80, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie_v1', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v1 sheet.png', { frameWidth: 80, frameHeight: 64 });
+
         // NPC Assets
         this.scene.load.spritesheet('npc', 'src/assets/GandalfHardcore FREE NPC/GandalfHardcFREE NPC/GandalfHardcore Goddess NPC.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('blacksmith', 'src/assets/GandalfHardcore characters pack/GandalfHardcore characters pack/Black Market Dealer.png', { frameWidth: 64, frameHeight: 64 });
+
+        // Rescuee NPC Assets (GandalfHardcore Character Asset Pack — 100x64 per frame, 8 cols x 7 rows)
+        const charBase = 'src/assets/GandalfHardcore Character Asset Pack/GandalfHardcore Character Asset Pack';
+        const rescueeFrameConfig = { frameWidth: 100, frameHeight: 64 };
+
+        // Male & Female Skin Tones (5 each)
+        for (let i = 1; i <= 5; i++) {
+            this.scene.load.spritesheet(`npc_male_skin${i}`, `${charBase}/Character skin colors/Male Skin${i}.png`, rescueeFrameConfig);
+            this.scene.load.spritesheet(`npc_female_skin${i}`, `${charBase}/Character skin colors/Female Skin${i}.png`, rescueeFrameConfig);
+        }
+        // Male & Female Hair (5 each)
+        for (let i = 1; i <= 5; i++) {
+            this.scene.load.spritesheet(`npc_male_hair${i}`, `${charBase}/Male Hair/Male Hair${i}.png`, rescueeFrameConfig);
+            this.scene.load.spritesheet(`npc_female_hair${i}`, `${charBase}/Female Hair/Female Hair${i}.png`, rescueeFrameConfig);
+        }
+        // Male Clothing
+        this.scene.load.spritesheet('npc_male_shirt', `${charBase}/Male Clothing/Shirt v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_shirt_blue', `${charBase}/Male Clothing/Blue Shirt v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_shirt_green', `${charBase}/Male Clothing/Green Shirt v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_shirt_purple', `${charBase}/Male Clothing/Purple Shirt v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_shirt_orange', `${charBase}/Male Clothing/orange Shirt v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_pants', `${charBase}/Male Clothing/Pants.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_pants_blue', `${charBase}/Male Clothing/Blue Pants.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_pants_green', `${charBase}/Male Clothing/Green Pants.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_pants_purple', `${charBase}/Male Clothing/Purple Pants.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_pants_orange', `${charBase}/Male Clothing/Orange Pants.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_male_boots', `${charBase}/Male Clothing/Boots.png`, rescueeFrameConfig);
+        // Female Clothing
+        this.scene.load.spritesheet('npc_female_corset', `${charBase}/Female Clothing/Corset v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_female_corset_blue', `${charBase}/Female Clothing/Blue Corset v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_female_corset_green', `${charBase}/Female Clothing/Green Corset v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_female_corset_purple', `${charBase}/Female Clothing/Purple Corset v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_female_corset_orange', `${charBase}/Female Clothing/Orange Corset v2.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_female_skirt', `${charBase}/Female Clothing/Skirt.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('npc_female_boots', `${charBase}/Female Clothing/Boots.png`, rescueeFrameConfig);
+
         
         // Loot Chests
         this.scene.load.spritesheet('loot_chest', 'src/assets/GandalfHardcore Chests/GandalfHardcore Chests/chest sheet 1.png', { frameWidth: 64, frameHeight: 32 });
@@ -202,6 +246,12 @@ class AssetManager {
         // Projectiles and Effects
         this.scene.load.spritesheet('projectile_blue', 'src/assets/GandalfHardcore Projectiles and effects/GandalfHardcore Projectiles and effects/GandalfHardcore 64x64 Projectiles1.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.image('arrow', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/arrow.png');
+
+        // Weather Sprites
+        this.scene.load.image('weather_rain', 'src/assets/Weather Sprites/Sprites/Sprites/rain1.png');
+        this.scene.load.image('weather_snow', 'src/assets/Weather Sprites/Sprites/Sprites/snow.png');
+        this.scene.load.spritesheet('weather_rain_collision', 'src/assets/Weather Sprites/Sprites/Sprites/ColisionRainAnim.png', { frameWidth: 16, frameHeight: 16 });
+        this.scene.load.spritesheet('weather_blur_collision', 'src/assets/Weather Sprites/Sprites/Sprites/ColisionBlurAnim.png', { frameWidth: 16, frameHeight: 16 });
     }
 
     create() {

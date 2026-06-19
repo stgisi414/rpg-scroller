@@ -139,6 +139,9 @@ Return ONLY a valid JSON object:
             } else {
                 contextText += `Current Location: An unknown land\n`;
             }
+            if (state.weather && state.weather !== 'clear') {
+                contextText += `Current Weather: ${state.weather}\n`;
+            }
             contextText += `\nPlayer Profile:\n`;
             contextText += `- Class: ${state.player.class}\n`;
             contextText += `- Level: ${state.player.level}\n`;
@@ -147,6 +150,9 @@ Return ONLY a valid JSON object:
             contextText += `- Karma/Alignment: ${state.player.alignment} (Negative is Evil, Positive is Good)\n`;
             contextText += `- Inventory: ${JSON.stringify(state.player.inventory)}\n`;
             contextText += `- Active Quests: ${state.player.quests && state.player.quests.length > 0 ? JSON.stringify(state.player.quests) : "None"}\n`;
+            if (state.player.coliseumReputation > 0) {
+                contextText += `- Coliseum Reputation: ${state.player.coliseumReputation} (Treat the player with increasing respect or fear as this number gets higher. They are an arena gladiator!)\n`;
+            }
             contextText += `-------------------------------\n`;
         }
 
@@ -211,6 +217,18 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
 
         // Towns appear every 3-5 zones (or if forceTown)
         const absIdx = Math.abs(zoneIndex);
+        let minEnemies = 3;
+        let maxEnemies = 6;
+        if (absIdx <= 10) { minEnemies = 3; maxEnemies = 6; }
+        else if (absIdx <= 20) { minEnemies = 4; maxEnemies = 8; }
+        else if (absIdx <= 30) { minEnemies = 6; maxEnemies = 12; }
+        else if (absIdx <= 40) { minEnemies = 8; maxEnemies = 16; }
+        else if (absIdx <= 50) { minEnemies = 9; maxEnemies = 18; }
+        else if (absIdx <= 60) { minEnemies = 10; maxEnemies = 20; }
+        else if (absIdx <= 70) { minEnemies = 11; maxEnemies = 22; }
+        else if (absIdx <= 80) { minEnemies = 12; maxEnemies = 24; }
+        else { minEnemies = 15; maxEnemies = 25; }
+
         const isTown = forceTown || (absIdx > 0 && absIdx % 4 === 0);
 
         if (!this.isReady) {
@@ -245,14 +263,14 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
                 };
             } else {
                 // Wilderness
-                const enemyCount = 1 + Math.floor(Math.random() * 3); // 1-3 enemies
+                const enemyCount = minEnemies + Math.floor(Math.random() * (maxEnemies - minEnemies + 1));
                 const enemies = [];
                 for (let i = 0; i < enemyCount; i++) {
                     enemies.push({
                         type: 'slime',
                         x: 300 + Math.floor(Math.random() * 700),
-                        hp: 80 + (playerLevel * 20) + Math.floor(Math.random() * 40),
-                        speed: 80 + (playerLevel * 10) + Math.floor(Math.random() * 30)
+                        hp: 80 + (playerLevel * 20) + (absIdx * 10) + Math.floor(Math.random() * 40),
+                        speed: 80 + (playerLevel * 10) + (absIdx * 5) + Math.floor(Math.random() * 30)
                     });
                 }
                 // 25% chance of a hero NPC
@@ -298,12 +316,14 @@ ${forceTown ?
    - One with spriteKey "npc" (the Sage/Elder who offers lore and quests).
    - One with spriteKey "blacksmith" (a weapon merchant).
    - One with spriteKey "alchemist" (a potion and mystery chest merchant).
+   - One with spriteKey "ranger" (a hunter, scout, or captain offering wilderness goods or rumors).
    Assign them unique fantasy names and personas based on their role.` 
 :
 `2. CRITICAL: This zone MUST be a wilderness area. "type" MUST be "Dangerous".
-3. Wilderness zones MUST generate 1 to 4 enemies.
+3. Wilderness zones MUST generate between ${minEnemies} and ${maxEnemies} enemies.
    - Enemy "type" MUST be strictly chosen from this exact array: ${JSON.stringify(validEnemies)}. You are allowed and encouraged to spawn multiple enemies of the SAME type!
-   - Enemy HP and speed should scale with Player Level ${playerLevel}. Base Slime HP is 100. Base Speed is 100.
+   ${absIdx >= 81 ? "- CRITICAL: Since the player is in zone 81+, you MUST incrementally prioritize spawning the HIGHEST level, most dangerous enemy types in the array. Overwhelm them with elites!" : "- As the zone index gets higher, heavily favor spawning the harder, more dangerous enemies from the array over weak ones like slimes!"}
+   - Enemy HP and speed should scale with Player Level ${playerLevel} AND Zone Index ${Math.abs(zoneIndex)}. Base Slime HP is 100. Base Speed is 100. Each zone index should add about +10 HP and +5 Speed.
    - Spread enemy x positions out (don't cluster them together).
 4. IMPORTANT: For wilderness zones, NPCs are RARE. Only include an NPC roughly 25% of the time.
    - If you do include a wilderness NPC, they must be a wandering hero: spriteKey must be one of ${JSON.stringify(availableHeroes)} (chosen randomly).
@@ -366,11 +386,22 @@ Return ONLY a valid JSON object in this exact format:
                 { name: "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 1200, spriteKey: "alchemist" }
             ];
 
+            const enemyCount = minEnemies + Math.floor(Math.random() * (maxEnemies - minEnemies + 1));
+            const fallbackEnemies = [];
+            for (let i = 0; i < enemyCount; i++) {
+                fallbackEnemies.push({
+                    type: 'slime',
+                    x: 300 + Math.floor(Math.random() * 700),
+                    hp: 80 + (playerLevel * 20) + (aIdx * 10) + Math.floor(Math.random() * 40),
+                    speed: 80 + (playerLevel * 10) + (aIdx * 5) + Math.floor(Math.random() * 30)
+                });
+            }
+
             return {
                 name: isTownFallback ? townNames[aIdx % townNames.length] : wildNames[aIdx % wildNames.length],
                 type: isTownFallback ? "Safe" : "Dangerous",
                 biome: suggestedBiome,
-                enemies: isTownFallback ? [] : [{ type: "slime", x: 600, hp: 80 + playerLevel * 20, speed: 80 + playerLevel * 10 }],
+                enemies: isTownFallback ? [] : fallbackEnemies,
                 npcs: isTownFallback ? fallbackTownNpcs : []
             };
         }
@@ -411,6 +442,40 @@ Keep it short, punchy, and atmospheric.`;
         } catch (e) {
             console.error("GeminiService: Failed GM response", e);
             return { storyText: "Prepare to meet your doom!" };
+        }
+    }
+
+    async getHeroAutoPlayResponse(classId, npcName, chatContext) {
+        if (!this.model) return "Interesting.";
+
+        let persona = "A wandering adventurer seeking glory.";
+        if (classId === 'knight') persona = "A brave knight who was forced into exile but continues to bring justice to the realm.";
+        else if (classId === 'wizard') persona = "A mysterious wizard who came from a rift of a foreign land.";
+        else if (classId === 'samurai') persona = "A foreign samurai who traveled by boat to become a hero in Elden Soul's realm.";
+        else if (classId === 'ranger') persona = "A stealthy ranger who is gruff but firm.";
+
+        const prompt = `You are playing the role of the main hero in a dark fantasy 2D RPG.
+Your Persona: ${persona}
+You are currently chatting with an NPC named ${npcName}.
+
+Recent Chat Context:
+${chatContext}
+
+Generate a short, 1-2 sentence response to the NPC's last message that perfectly fits your persona.
+Output ONLY the raw string of what your character says, without quotes.`;
+
+        try {
+            const result = await Promise.race([
+                this.model.generateContent(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000))
+            ]);
+            let text = result.response.text().trim();
+            // Clean up any stray quotes
+            if (text.startsWith('"') && text.endsWith('"')) text = text.substring(1, text.length - 1);
+            return text;
+        } catch (e) {
+            console.error("GeminiService: Failed to generate hero autoplay response", e);
+            return "...";
         }
     }
 }

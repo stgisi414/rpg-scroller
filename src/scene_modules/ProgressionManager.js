@@ -73,6 +73,23 @@ class ProgressionManager {
                     scene.player.hp = scene.player.maxHp;
                     scene.player.mp = scene.player.maxMp;
                     scene.player.sp = scene.player.maxSp;
+
+                    // Also level up and heal party members!
+                    if (scene.partyMembers) {
+                        scene.partyMembers.forEach(member => {
+                            if (member && member.sprite && member.sprite.active) {
+                                // Refresh class data to apply new level scaling
+                                member.classData = member._getAIClassData(member.classId);
+                                member.recalculateStats();
+                                member.hp = member.maxHp;
+                                member.mp = member.maxMp;
+                                member.sp = member.maxSp;
+                                if (scene.showFloatingText) {
+                                    scene.showFloatingText(member.sprite.x, member.sprite.y - 60, `LEVEL UP!`, 0x00ff00);
+                                }
+                            }
+                        });
+                    }
                 }
             }, 1000);
         }

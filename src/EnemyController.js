@@ -7,6 +7,10 @@ class EnemyController {
         this.geminiService = geminiService;
         this.type = type;
 
+        // Zombie variants all share the same logic — track the base type
+        this.isZombie = ['zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3'].includes(this.type);
+        this.zombieCrawling = false; // Phase 2: crawling after first death
+
         // Create the physics sprite
         this.sprite = this.scene.physics.add.sprite(x, y, this.type);
         if (this.type === 'the_devil') {
@@ -32,7 +36,11 @@ class EnemyController {
         } else if (this.type === 'spider') {
             this.sprite.setScale(1.5);
             this.sprite.setSize(40, 40);
-            this.sprite.setOffset(44, 40); // Assuming 128x128 or something similar, center it
+            this.sprite.setOffset(44, 40);
+        } else if (this.isZombie) {
+            this.sprite.setScale(1.5);
+            this.sprite.setSize(40, 55);
+            this.sprite.setOffset(20, 9); // 80x64 frame, center the hitbox
         } else {
             this.sprite.setScale(this.type === 'goblin' ? 1.4 : 1.8);
         }
@@ -96,6 +104,14 @@ class EnemyController {
     }
 
     _playAnim(animKey) {
+        // Zombie crawling phase: remap idle/move to crawl variants
+        if (this.zombieCrawling) {
+            if (animKey === `${this.type}-idle`) animKey = `${this.type}-crawl-idle`;
+            else if (animKey === `${this.type}-move`) animKey = `${this.type}-crawl-move`;
+            // hit anim doesn't exist for crawling — use crawl-attack as the counter
+            else if (animKey === `${this.type}-hit`) animKey = `${this.type}-crawl-attack`;
+        }
+
         // Only call play if we are switching animations to prevent blinking!
         if (this.currentAnimKey !== animKey) {
             if (!this.scene.anims.exists(animKey)) {
@@ -152,7 +168,7 @@ class EnemyController {
         // UI removed
 
         // If currently taking damage or attacking, don't execute AI logic
-        if (this.isHit || this.isAttacking) return;
+        if (this.isDead || this.isHit || this.isAttacking) return;
 
         // Dummy enemies just stand there and take damage
         if (this.isDummy) {
@@ -199,7 +215,7 @@ class EnemyController {
         
         // GandalfHardcore sprites vary in default facing direction.
         // Goblin faces left. Slime faces right. Assume others face left.
-        const facesLeftByDefault = ['goblin', 'bat', 'mushroom', 'orc', 'plague_flies', 'burning_skull_blue', 'old_demon', 'male_damned', 'female_damned', 'tree_damned', 'twisted_damned', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'mummy'].includes(this.type);
+        const facesLeftByDefault = ['goblin', 'bat', 'mushroom', 'orc', 'plague_flies', 'burning_skull_blue', 'old_demon', 'male_damned', 'female_damned', 'tree_damned', 'twisted_damned', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'mummy', 'zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3'].includes(this.type);
         
         let shouldFlip = this.sprite.flipX; // default to current flip to prevent jitter
         if (distanceX > 5) {
@@ -295,6 +311,28 @@ class EnemyController {
                         this.scene.time.delayedCall(1000, () => {
                             if (this.sprite && this.sprite.active) this.isAttacking = false;
                         });
+                    } else if (this.isZombie) {
+                        // Zombie: random between regular attack and bite attack
+                        // Crawling zombies always use crawl-attack
+                        if (this.zombieCrawling) {
+                            this._playAnim(`${this.type}-crawl-attack`);
+                            this.scene.time.delayedCall(400, () => {
+                                if (!this.sprite || !this.sprite.active) return;
+                                if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 60) {
+                                    this.player.takeDamage(8);
+                                }
+                            });
+                        } else {
+                            // 40% chance bite (stronger), 60% regular attack
+                            const useBite = Math.random() < 0.4;
+                            this._playAnim(`${this.type}-${useBite ? 'attack2' : 'attack'}`);
+                            this.scene.time.delayedCall(350, () => {
+                                if (!this.sprite || !this.sprite.active) return;
+                                if (Math.abs(this.player.sprite.x - this.sprite.x) <= 75 && Math.abs(this.player.sprite.y - this.sprite.y) < 45) {
+                                    this.player.takeDamage(useBite ? 8 : 5);
+                                }
+                            });
+                        }
                     } else {
                         // Standard animation attack
                         this._playAnim(`${this.type}-attack`);
@@ -386,6 +424,8 @@ class EnemyController {
     }
 
     takeDamage(amount, knockbackDirection) {
+        if (this.isDead || this.hp <= 0) return;
+
         // Cooldown prevents overlap() from firing 60x/sec
         const now = this.scene.time.now;
         if (now - this.lastDamageTime < this.damageCooldown) return;
@@ -399,22 +439,43 @@ class EnemyController {
         }
 
         this.isHit = true;
+        this.isAttacking = false; // Fix: reset attacking state so interrupted attacks don't permanently break the AI
         this.currentAnimKey = null;
 
-        // Ensure we actually have a hit animation for this enemy
-        // Fall back to idle if we don't, to prevent missing key errors
-        const hitKey = `${this.type}-hit`;
-        if (this.scene.anims.exists(hitKey)) {
+        // Zombie auto-counter: row 4 is BOTH hit + quick attack
+        // When a zombie takes damage, it plays the hit/counter anim and
+        // deals damage back to the player if they're in range.
+        if (this.isZombie && !this.zombieCrawling && this.hp > 0) {
+            const hitKey = `${this.type}-hit`;
             this._playAnim(hitKey);
             this.sprite.off('animationcomplete-' + hitKey);
             this.sprite.once('animationcomplete-' + hitKey, () => {
                 if (this.sprite && this.sprite.active) this.isHit = false;
             });
-        } else {
-            this._playAnim(`${this.type}-idle`);
-            this.scene.time.delayedCall(400, () => {
-                if (this.sprite && this.sprite.active) this.isHit = false;
+            // Auto-counter: deal damage back partway through the animation
+            this.scene.time.delayedCall(250, () => {
+                if (!this.sprite || !this.sprite.active || this.isDead) return;
+                if (this.player && this.player.sprite) {
+                    if (Math.abs(this.player.sprite.x - this.sprite.x) <= 80 && Math.abs(this.player.sprite.y - this.sprite.y) < 50) {
+                        this.player.takeDamage(4);
+                    }
+                }
             });
+        } else {
+            // Standard hit reaction for all other enemies
+            const hitKey = `${this.type}-hit`;
+            if (this.scene.anims.exists(hitKey)) {
+                this._playAnim(hitKey);
+                this.sprite.off('animationcomplete-' + hitKey);
+                this.sprite.once('animationcomplete-' + hitKey, () => {
+                    if (this.sprite && this.sprite.active) this.isHit = false;
+                });
+            } else {
+                this._playAnim(`${this.type}-idle`);
+                this.scene.time.delayedCall(400, () => {
+                    if (this.sprite && this.sprite.active) this.isHit = false;
+                });
+            }
         }
 
         this.sprite.setTint(0xff4444);
@@ -588,13 +649,15 @@ class EnemyController {
                     goblin: [35, 10], orc: [50, 15], bandit: [45, 12],
                     skeleton: [40, 10], mummy: [45, 12], scarab_beetle: [30, 8],
                     spider: [200, 50], the_devil: [500, 100], lich_lord: [750, 150],
-                    frost_giant: [400, 80], training_dummy: [0, 0]
+                    frost_giant: [400, 80], training_dummy: [0, 0],
+                    zombie: [60, 18], zombie_v1: [60, 18], zombie_v2: [60, 18], zombie_v3: [60, 18]
                 };
                 const [xp, gold] = rewards[this.type] || [50, 10];
                 this.scene.grantRewards(xp, gold);
             }
             if (this.player && this.player.progressQuest) {
-                this.player.progressQuest(this.type);
+                // All zombie variants count as 'zombie' for quest progress
+                this.player.progressQuest(this.isZombie ? 'zombie' : this.type);
             }
             
             // 15% chance to drop a loot chest
@@ -604,6 +667,56 @@ class EnemyController {
             }
         };
 
+        // Zombie two-phase death: first defeat → transform → crawl phase → final death
+        if (this.isZombie && !this.zombieCrawling) {
+            // PHASE 1: First defeat (row 5) — zombie falls down
+            const dieKey = `${this.type}-die`;
+            this._playAnim(dieKey);
+            this.sprite.off('animationcomplete-' + dieKey);
+            this.sprite.once('animationcomplete-' + dieKey, () => {
+                if (!this.sprite || !this.sprite.active || !this.scene || this.scene.isSceneDestroyed) return;
+                
+                // PHASE 2: Transform to crawler (row 6)
+                const transformKey = `${this.type}-transform`;
+                this.currentAnimKey = null;
+                this._playAnim(transformKey);
+                this.sprite.off('animationcomplete-' + transformKey);
+                this.sprite.once('animationcomplete-' + transformKey, () => {
+                    if (!this.sprite || !this.sprite.active || !this.scene || this.scene.isSceneDestroyed) return;
+                    
+                    // Zombie is now a crawler! Revive with 40% of original HP
+                    this.zombieCrawling = true;
+                    this.isDead = false;
+                    this.isHit = false;
+                    this.isAttacking = false;
+                    this.hp = Math.floor(this.maxHp * 0.4);
+                    this.speed = Math.floor(this.speed * 0.6); // Crawlers are slower
+                    this.currentAnimKey = null;
+                    
+                    // Shrink hitbox for crawling form
+                    this.sprite.setSize(50, 30);
+                    this.sprite.setOffset(15, 34); // Lower on the frame since crawling
+                    
+                    this._playAnim(`${this.type}-crawl-idle`);
+                    
+                    if (typeof this.scene.showFloatingText === 'function') {
+                        this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, 'Still alive!', 0xff6600);
+                    }
+                });
+            });
+            return; // Don't fall through to normal death
+        }
+
+        // Zombie crawling phase final death (row 8)
+        if (this.isZombie && this.zombieCrawling) {
+            const finalDieKey = `${this.type}-final-die`;
+            this._playAnim(finalDieKey);
+            this.sprite.off('animationcomplete-' + finalDieKey);
+            this.sprite.once('animationcomplete-' + finalDieKey, onDeathComplete);
+            return;
+        }
+
+        // Standard death for non-zombie enemies
         const dieKey = `${this.type}-die`;
         if (this.scene.anims.exists(dieKey)) {
             this._playAnim(dieKey);

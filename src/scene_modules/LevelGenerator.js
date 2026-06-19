@@ -107,16 +107,15 @@ class LevelGenerator {
             }
             
             // The GIF is 1280x1280, we want it to cover the screen and scroll slowly
-            let bgSprite = scene.add.sprite(640, 720, 'coastal_anim')
+            let bgSprite = scene.add.sprite(640, 696, 'coastal_anim')
                 .setOrigin(0.5, 1)
-                .setScrollFactor(0.1)
+                .setScrollFactor(0, 1)
                 .setDepth(-10);
                 
             // Scale to fit height or width, since it's 1280x1280, it easily covers a 1280x720 screen
             const scaleX = 1280 / bgSprite.width;
             const scaleY = 720 / bgSprite.height;
             bgSprite.setScale(Math.max(scaleX, scaleY));
-            bgSprite.setScrollFactor(0); // Pin to camera
             
             bgSprite.play('coastal_waves');
             scene.bgLayers.push(bgSprite);
@@ -132,8 +131,9 @@ class LevelGenerator {
 
         // Build Background Layers
         bgConfig.forEach(config => {
-            let yPos = 720 + (config.yOffset || 0);
-            let bg = scene.add.image(640, yPos, config.key).setOrigin(0.5, 1).setScrollFactor(0).setDepth(config.depth);
+            // Anchor backgrounds perfectly to the ground level (696)
+            let yPos = 696 + (config.yOffset || 0);
+            let bg = scene.add.image(640, yPos, config.key).setOrigin(0.5, 1).setScrollFactor(0, 1).setDepth(config.depth);
             // Scale appropriately based on image dimensions to completely fill the screen
             const scaleX = 1280 / bg.width;
             const scaleY = 720 / bg.height;
@@ -211,6 +211,20 @@ class LevelGenerator {
             while (blockIndex < 78) {
                 // Generate a gap of 1 to 3 blocks
                 let gapWidth = Math.floor(Math.random() * 3) + 1;
+                
+                // Fill the background of the gap with dirt so we don't see the sky underground
+                let dirtTint = 0x443322;
+                if (floorKey === 'floor_hell') dirtTint = 0x221122;
+                else if (floorKey === 'floor_desert') dirtTint = 0x886633;
+                
+                for (let g = 0; g < gapWidth; g++) {
+                    let gapX = (blockIndex + g) * 46 + 24;
+                    for (let dy = 696; dy <= 820; dy += 46) {
+                        const rect = scene.add.rectangle(gapX, dy, 46, 46, dirtTint).setDepth(-8);
+                        scene.bgLayers.push(rect);
+                    }
+                }
+                
                 blockIndex += gapWidth;
                 
                 if (blockIndex >= 78) break;
@@ -249,6 +263,9 @@ class LevelGenerator {
                     if (Math.random() < 0.15) {
                         let platY = currentY - 138; // 3 blocks higher
                         let blockAbove = scene.platforms.create(currentX, platY, floorKey, frameIdx).setScale(1.5).refreshBody();
+                        blockAbove.body.checkCollision.down = false;
+                        blockAbove.body.checkCollision.left = false;
+                        blockAbove.body.checkCollision.right = false;
                         if (floorTint !== 0xffffff) blockAbove.setTint(floorTint);
                     }
                 }

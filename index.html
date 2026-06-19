@@ -614,11 +614,12 @@
     <div id="debug-hud" style="display: none; position: fixed; bottom: 40px; left: 10px; z-index: 9999;
         background: rgba(0, 0, 0, 0.85); border: 1px solid rgba(0, 255, 0, 0.3); border-radius: 6px;
         padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #00ff88;
-        pointer-events: none; min-width: 280px; line-height: 1.6; text-shadow: 0 0 4px rgba(0,255,100,0.3);">
+        pointer-events: auto; min-width: 280px; line-height: 1.6; text-shadow: 0 0 4px rgba(0,255,100,0.3);"
+        onwheel="event.stopPropagation()">
         <div style="color: #00ff00; font-weight: bold; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid rgba(0,255,0,0.2); padding-bottom: 3px;">
             ⚙ DEBUG <span style="color: #888; font-weight: normal; font-size: 10px;">(F3 to toggle)</span>
         </div>
-        <div id="debug-content">Loading...</div>
+        <div id="debug-content" style="max-height: 60vh; overflow-y: auto; padding-right: 5px;">Loading...</div>
         <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,255,0,0.2); pointer-events: auto;">
             <button id="btn-sprite-debugger" onclick="
                 const p = document.getElementById('debug-panel');
@@ -658,6 +659,8 @@
     <script src="src/PlayerController.js"></script>
     <script src="src/GeminiService.js"></script>
     <script src="src/EnemyController.js"></script>
+    <script src="src/RescueeNPCFactory.js"></script>
+    <script src="src/RescueeNPC.js"></script>
     <script src="src/NPCController.js"></script>
     <script src="src/WorldManager.js"></script>
     <script src="src/scenes/TitleScene.js"></script>
@@ -666,6 +669,8 @@
     <script src="src/scene_modules/CutsceneController.js"></script>
     <script src="src/scene_modules/LevelGenerator.js"></script>
     <script src="src/scene_modules/IndoorManager.js"></script>
+    <script src="src/scene_modules/ArenaManager.js"></script>
+    <script src="src/scene_modules/WeatherManager.js"></script>
     <script src="src/scene_modules/ProgressionManager.js"></script>
     <script src="src/scenes/GameScene.js?v=EMPTY9"></script>
     <script src="src/main.js"></script>

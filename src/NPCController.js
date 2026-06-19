@@ -50,14 +50,32 @@ class NPCController {
                 alchemist: { start: 0, end: 4 },
                 sage: { start: 0, end: 5 }
             };
-            const config = idleConfig[spriteKey] || { start: 0, end: 4 };
             
-            this.scene.anims.create({
-                key: idleKey,
-                frames: this.scene.anims.generateFrameNumbers(spriteKey, config),
-                frameRate: 6,
-                repeat: -1
-            });
+            let animConfig;
+            if (spriteKey === 'king') {
+                // The king's frames are stacked vertically in column 8 (index 7), from row 2 (index 1) to 13 (index 12)
+                // Grid is 11 columns wide (704 / 64)
+                let kingFrames = [];
+                for (let row = 1; row <= 12; row++) {
+                    kingFrames.push({ key: 'king', frame: (row * 11) + 7 });
+                }
+                animConfig = {
+                    key: idleKey,
+                    frames: kingFrames,
+                    frameRate: 6,
+                    repeat: -1
+                };
+            } else {
+                const config = idleConfig[spriteKey] || { start: 0, end: 4 };
+                animConfig = {
+                    key: idleKey,
+                    frames: this.scene.anims.generateFrameNumbers(spriteKey, config),
+                    frameRate: 6,
+                    repeat: -1
+                };
+            }
+            
+            this.scene.anims.create(animConfig);
         }
         this.sprite.play(idleKey);
 
@@ -118,7 +136,7 @@ class NPCController {
         );
 
         // Face the player
-        const isLeftFacing = ['knight', 'samurai', 'blacksmith', 'alchemist', 'npc'].includes(this.spriteKey);
+        const isLeftFacing = ['knight', 'samurai', 'blacksmith', 'alchemist', 'npc', 'king'].includes(this.spriteKey);
 
         if (this.player.sprite.x < this.sprite.x) {
             // Player is to the left
@@ -138,8 +156,10 @@ class NPCController {
             }
 
             // Check if player presses F to interact
-            if (this.player.inputManager.keys.interact.isDown && !this.isChatOpen && !this.isShopOpen) {
+            if (this.player.isInteractDown() && !this.isChatOpen && !this.isShopOpen) {
                 if (time - (this.lastInteractTime || 0) > 500) {
+                    // Check for delivery quest completion before opening chat
+                    this._checkDeliveryQuestCompletion();
                     this.openChat();
                     this.lastInteractTime = time;
                 }
@@ -151,10 +171,10 @@ class NPCController {
         }
 
         // Handle NPC Wandering if they are not talking to the player
-        const isStaticNPC = ['sage', 'npc'].includes(this.spriteKey);
+        const isStaticNPC = false; // Allow all NPCs to wander
         if (!this.isChatOpen && !this.isShopOpen && !isStaticNPC) {
             if (!this.wanderTimer) {
-                this.wanderTimer = time + Phaser.Math.Between(15000, 25000); // 20s interval
+                this.wanderTimer = time + Phaser.Math.Between(1000, 3000); // 1-3s initial delay
                 this.wanderState = 0; // 0: idle, 1: walk left, 2: walk right
             }
 
@@ -278,10 +298,13 @@ class NPCController {
             if (isIntro) {
                 this.chatInput.disabled = true;
                 this.chatSubmitBtn.disabled = true;
-                const hiddenPrompt = "*The player has just started a new game. Welcome them to the town of Willowbrook, explain the lore of the Elden Soul, and introduce yourself as their Game Master.*";
+                const hiddenPrompt = `*The player has just started a new game. Welcome them to the town of Willowbrook, explain the lore of the Elden Soul, and introduce yourself as their Game Master. Give a unique, personalized greeting.*`;
                 this.triggerHiddenPrompt(hiddenPrompt, this.npcName);
             } else {
-                this.addMessageToUI(this.npcName, "Greetings, traveler. What brings you to these parts?");
+                this.chatInput.disabled = true;
+                this.chatSubmitBtn.disabled = true;
+                const hiddenPrompt = `*The player has just approached you. Give a short, unique, in-character greeting based on your persona. Mention their class or something random to make it feel alive! Keep it under 2 sentences.*`;
+                this.triggerHiddenPrompt(hiddenPrompt, this.npcName);
             }
         }
 
@@ -294,7 +317,8 @@ class NPCController {
                     'contracts': 'Bounty Board',
                     'pray': 'Pray (+1 Stat)',
                     'study': 'Study Riddles',
-                    'train': 'Train (Fight)'
+                    'train': 'Train (Fight)',
+                    'arena': 'Fight in Arena'
                 };
                 this.chatActivityBtn.innerText = actionNames[this.indoorAction] || 'Activity';
                 this.chatActivityBtn.style.display = 'inline-block';
@@ -324,7 +348,7 @@ class NPCController {
     startActivity() {
         if (!this.indoorAction) return;
         
-        if (this.indoorAction === 'train') {
+        if (this.indoorAction === 'train' || this.indoorAction === 'arena') {
             this.closeChat();
             this.executeActivityEffect();
             return;
@@ -357,21 +381,7 @@ class NPCController {
         const loadingId = "loading-" + Date.now();
         this.addMessageToUI(this.npcName, "...", loadingId);
 
-        const wm = this.scene.worldManager;
-        const p = this.scene.player;
-        const state = {
-            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            player: {
-                level: (window.saveData && window.saveData.level) || 1,
-                class: p.classData ? p.classData.id : "adventurer",
-                hp: `${p.hp}/${p.maxHp}`,
-                gold: (window.saveData && window.saveData.gold) || 0,
-                alignment: (window.saveData && window.saveData.alignment) || 0,
-                isSavior: (window.saveData && window.saveData.isSavior) || false,
-                inventory: p.inventory,
-                quests: p.quests
-            }
-        };
+        const state = this.getGameState();
 
         this.geminiService.getNpcResponse(this.persona, this.chatHistory, `[SYSTEM ACTIVITY TRIGGER] ${prompt}`, state)
             .then(res => {
@@ -435,6 +445,14 @@ class NPCController {
             return;
         }
 
+        if (this.indoorAction === 'arena') {
+            this.closeChat();
+            if (this.scene.arenaManager) {
+                this.scene.arenaManager.startWave();
+            }
+            return;
+        }
+
         let rewardText = "";
         switch (this.indoorAction) {
             case 'rest':
@@ -456,19 +474,81 @@ class NPCController {
                 rewardText = "Received 1 HP Potion!";
                 break;
             case 'contracts':
-                if (this.pendingQuestTarget) {
+                // Randomly pick quest type: 50% kill, 30% rescue, 20% delivery
+                const questRoll = Math.random();
+                const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+
+                if (questRoll < 0.50 && this.pendingQuestTarget) {
+                    // KILL QUEST (existing behavior)
                     const quest = {
                         id: `bounty_${Date.now()}`,
+                        type: 'kill',
                         title: `Hunt ${this.pendingQuestTarget}s`,
+                        description: `Slay 3 ${this.pendingQuestTarget}s in the wilderness.`,
                         targetType: this.pendingQuestTarget,
                         targetCount: 3,
                         currentCount: 0,
-                        rewardGold: 100
+                        rewardGold: 100,
+                        rewardXP: 75
                     };
                     this.player.addQuest(quest);
                     rewardText = `Quest Accepted: Hunt 3 ${this.pendingQuestTarget}s!`;
+                } else if (questRoll < 0.80) {
+                    // RESCUE QUEST
+                    const maleNames = ['Aldric', 'Theron', 'Cedric', 'Rowan', 'Gareth', 'Eldon', 'Bram', 'Osric', 'Leif', 'Darian'];
+                    const femaleNames = ['Lyra', 'Mira', 'Seraphina', 'Isolde', 'Rowena', 'Brynn', 'Astrid', 'Elowen', 'Calista', 'Thea'];
+                    const gender = Math.random() < 0.5 ? 'male' : 'female';
+                    const namePool = gender === 'male' ? maleNames : femaleNames;
+                    const name = namePool[Math.floor(Math.random() * namePool.length)];
+                    // Target a nearby dangerous zone (1-3 zones away from current, NOT a town)
+                    let targetZone = currentZone + Phaser.Math.Between(1, 3);
+                    // Make sure it's not a town zone (towns are at multiples of 4)
+                    while (Math.abs(targetZone) > 0 && Math.abs(targetZone) % 4 === 0) {
+                        targetZone++;
+                    }
+                    const quest = {
+                        id: `rescue_${Date.now()}`,
+                        type: 'rescue',
+                        title: `Rescue ${name}`,
+                        description: `Clear all enemies in zone ${targetZone} and escort ${name} back to a town.`,
+                        targetCount: 1,
+                        currentCount: 0,
+                        rescueeName: name,
+                        rescueeGender: gender,
+                        rescueeZone: targetZone,
+                        rescueState: 'captive',
+                        rewardGold: 150,
+                        rewardXP: 120
+                    };
+                    this.player.addQuest(quest);
+                    rewardText = `Rescue Quest: Save ${name} in Zone ${targetZone}!`;
                 } else {
-                    rewardText = "Bounty Completed (+50 Gold)!"; // Fallback
+                    // DELIVERY QUEST
+                    const items = ['Ancient Scroll', 'Sacred Relic', 'Healing Herbs', 'Royal Decree', 'Enchanted Gem', 'Trade Goods', 'Sealed Letter', 'Rare Ore'];
+                    const npcTargets = ['Elder', 'Master Smith', 'Apothecary', 'Sage'];
+                    const item = items[Math.floor(Math.random() * items.length)];
+                    const targetNPC = npcTargets[Math.floor(Math.random() * npcTargets.length)];
+                    // Target the next town (towns every 4 zones)
+                    let targetTownZone = currentZone + 1;
+                    while (targetTownZone === 0 || (Math.abs(targetTownZone) % 4 !== 0)) {
+                        targetTownZone++;
+                    }
+                    const quest = {
+                        id: `delivery_${Date.now()}`,
+                        type: 'delivery',
+                        title: `Deliver ${item}`,
+                        description: `Bring the ${item} to the ${targetNPC} in zone ${targetTownZone}.`,
+                        targetCount: 1,
+                        currentCount: 0,
+                        deliveryItem: item,
+                        deliveryTargetZone: targetTownZone,
+                        deliveryTargetNPC: targetNPC,
+                        deliveryPickedUp: true, // Picked up immediately from bounty board
+                        rewardGold: 120,
+                        rewardXP: 80
+                    };
+                    this.player.addQuest(quest);
+                    rewardText = `Delivery Quest: Bring ${item} to zone ${targetTownZone}!`;
                 }
                 break;
             case 'pray':
@@ -513,23 +593,7 @@ class NPCController {
         const loadingId = "loading-" + Date.now();
         this.addMessageToUI(this.npcName, "...", loadingId);
 
-
-        // Gather RAG Context
-        const wm = this.scene.worldManager;
-        const p = this.scene.player;
-        const state = {
-            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            player: {
-                level: (window.saveData && window.saveData.level) || 1,
-                class: p.classData ? p.classData.id : "adventurer",
-                hp: `${p.hp}/${p.maxHp}`,
-                gold: (window.saveData && window.saveData.gold) || 0,
-                alignment: (window.saveData && window.saveData.alignment) || 0,
-                isSavior: (window.saveData && window.saveData.isSavior) || false,
-                inventory: p.inventory,
-                quests: p.quests
-            }
-        };
+        const state = this.getGameState();
 
         // 3. Ask Gemini
         const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, text, state);
@@ -651,19 +715,31 @@ class NPCController {
         
         this.chatHistoryDiv.scrollTop = this.chatHistoryDiv.scrollHeight;
     }
+    getGameState() {
+        const wm = this.scene.worldManager;
+        const p = this.player;
+        return {
+            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
+            weather: this.scene.weatherManager ? this.scene.weatherManager.currentWeather : 'clear',
+            player: {
+                level: p.level || (window.saveData && window.saveData.level) || 1,
+                class: p.classData ? p.classData.id : "adventurer",
+                hp: `${p.hp}/${p.maxHp}`,
+                gold: p.inventory ? p.inventory.gold : 0,
+                alignment: p.alignment || 0,
+                isSavior: (window.saveData && window.saveData.isSavior) || false,
+                inventory: p.inventory,
+                quests: p.quests,
+                coliseumReputation: p.coliseumReputation || 0
+            }
+        };
+    }
 
     async triggerHiddenPrompt(hiddenPrompt, displayName) {
         const loadingId = "loading-" + Date.now();
         this.addMessageToUI(displayName, "...", loadingId);
 
-        const wm = this.scene.worldManager;
-        const p = this.player;
-        const state = {
-            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            player: { level: (window.saveData && window.saveData.level) || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` },
-            inventory: p.inventory ? { gold: p.inventory.gold, items: "Potions" } : null,
-            alignment: p.alignment
-        };
+        const state = this.getGameState();
         
         try {
             const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
@@ -685,12 +761,35 @@ class NPCController {
             console.error("AI Intro failed:", err);
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
-            this.addMessageToUI(displayName, "Welcome to Willowbrook. I am the Sage.");
+            this.addMessageToUI(displayName, "Greetings.");
         }
 
         if (this.chatInput) this.chatInput.disabled = false;
         if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
         if (this.chatInput) this.chatInput.focus();
+    }
+
+    _checkDeliveryQuestCompletion() {
+        if (!this.player || !this.player.quests) return;
+        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+        
+        for (const quest of this.player.quests) {
+            if (quest.type === 'delivery' && 
+                quest.deliveryPickedUp === true && 
+                quest.deliveryTargetZone === currentZone) {
+                // Complete the delivery quest!
+                if (this.player.progressQuest) {
+                    this.player.progressQuest('delivery_complete', quest.id);
+                }
+                if (this.scene && this.scene.showFloatingText) {
+                    this.scene.showFloatingText(
+                        this.sprite.x, this.sprite.y - 60,
+                        `📦 ${quest.deliveryItem} Delivered!`, 0x44ff44
+                    );
+                }
+                break; // Only complete one delivery at a time
+            }
+        }
     }
 
     destroy() {

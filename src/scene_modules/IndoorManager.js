@@ -108,13 +108,19 @@ class IndoorManager {
                 scene.indoorBg.setPosition(640, 648);
             }
             
-            // To fit a perfect 64px grid inside the 1280x720 canvas without clipping,
-            // the full frame will be 1280x704 (centered with an 8px top/bottom letterbox).
-            // This leaves the interior room as exactly 1152x576 (18x9 tiles).
-            scene.indoorBg.displayWidth = 1152;
-            scene.indoorBg.displayHeight = 576;
-            scene.indoorBg.scaleX = scene.indoorBg.displayWidth / scene.indoorBg.width;
-            scene.indoorBg.scaleY = scene.indoorBg.displayHeight / scene.indoorBg.height;
+            if (locationId === 'coliseum') {
+                scene.indoorBg.setScale(1280 / scene.indoorBg.width, 720 / scene.indoorBg.height);
+                scene.indoorBg.setPosition(640, 360);
+                scene.indoorBg.setOrigin(0.5, 0.5);
+            } else {
+                // To fit a perfect 64px grid inside the 1280x720 canvas without clipping,
+                // the full frame will be 1280x704 (centered with an 8px top/bottom letterbox).
+                // This leaves the interior room as exactly 1152x576 (18x9 tiles).
+                scene.indoorBg.displayWidth = 1152;
+                scene.indoorBg.displayHeight = 576;
+                scene.indoorBg.setPosition(640, 648);
+                scene.indoorBg.setOrigin(0.5, 1);
+            }
 
             // Dynamically build the border frame around the room using the 7x7 tile set
             if (!scene.indoorWallBgGroup) {
@@ -160,10 +166,39 @@ class IndoorManager {
             } else {
                 scene.indoorWallBgGroup.getChildren().forEach(img => img.setVisible(true));
             }
+            
+            if (scene.indoorWallBgGroup) {
+                const isVisible = locationId !== 'coliseum';
+                scene.indoorWallBgGroup.getChildren().forEach(img => img.setVisible(isVisible));
+            }
 
-            // Tint the floor
+            // Tint the floor and change texture
             scene.platforms.getChildren().forEach(tile => {
-                tile.setTint(loc.floorTint);
+                if (!tile.indoorSavedState) {
+                    tile.indoorSavedState = {
+                        texture: tile.texture.key,
+                        frame: tile.frame.name,
+                        isTinted: tile.isTinted,
+                        tintTopLeft: tile.tintTopLeft,
+                        tintTopRight: tile.tintTopRight,
+                        tintBottomLeft: tile.tintBottomLeft,
+                        tintBottomRight: tile.tintBottomRight
+                    };
+                }
+                
+                if (locationId === 'coliseum') {
+                    tile.setTexture('floor_desert');
+                    tile.setFrame(1);
+                    tile.clearTint();
+                } else {
+                    tile.setTexture('floor_dungeon');
+                    tile.setFrame(0); // Basic stone floor
+                    if (loc.floorTint) {
+                        tile.setTint(loc.floorTint);
+                    } else {
+                        tile.clearTint();
+                    }
+                }
             });
 
             // Set indoor floor collision
@@ -272,6 +307,22 @@ class IndoorManager {
             if (scene.indoorBg) scene.indoorBg.setVisible(false);
             if (scene.indoorWallBgGroup) {
                 scene.indoorWallBgGroup.getChildren().forEach(img => img.setVisible(false));
+            }
+
+            // Restore original floor tiles
+            if (scene.platforms) {
+                scene.platforms.getChildren().forEach(tile => {
+                    if (tile.indoorSavedState) {
+                        tile.setTexture(tile.indoorSavedState.texture);
+                        tile.setFrame(tile.indoorSavedState.frame);
+                        if (tile.indoorSavedState.isTinted) {
+                            tile.setTint(tile.indoorSavedState.tintTopLeft, tile.indoorSavedState.tintTopRight, tile.indoorSavedState.tintBottomLeft, tile.indoorSavedState.tintBottomRight);
+                        } else {
+                            tile.clearTint();
+                        }
+                        delete tile.indoorSavedState;
+                    }
+                });
             }
 
             // Disable the indoor floor and walls

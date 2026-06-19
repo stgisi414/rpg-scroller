@@ -15,7 +15,10 @@ window.ARTIFACTS_DATA = {
     'artifact-scales': { key: 'artifact-scales', name: 'Scales of Balance', desc: '+20% All Stats (Align -20 to 20)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon12.png', type: 'artifact', alignmentReq: { min: -20, max: 20 }, statBoosts: { damageMultiplier: 1.2, speedMultiplier: 1.2, maxHp: 20, maxMp: 20 } },
     'artifact-teleporter': { key: 'artifact-teleporter', name: 'Town Portal Stone', desc: 'Teleport to town at <15% HP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon13.png', type: 'artifact', special: 'auto-teleport' },
     'artifact-commander': { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png', type: 'artifact', special: 'party-boost' },
-    'artifact-autopot': { key: 'artifact-autopot', name: 'Elixir of Last Resort', desc: 'Auto-uses HP potion at <30% HP (3s CD)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon15.png', type: 'artifact', special: 'auto-potion' }
+    'artifact-autopot': { key: 'artifact-autopot', name: 'Elixir of Last Resort', desc: 'Auto-uses HP potion at <30% HP (3s CD)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon15.png', type: 'artifact', special: 'auto-potion' },
+    'artifact-wooden-buckler': { key: 'artifact-wooden-buckler', name: 'Wooden Buckler', desc: '5% Damage Reduction', iconSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_01.png', type: 'artifact', statBoosts: { damageReduction: 0.05 } },
+    'artifact-iron-shield': { key: 'artifact-iron-shield', name: 'Iron Kite Shield', desc: '12% Damage Reduction', iconSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_02.png', type: 'artifact', statBoosts: { damageReduction: 0.12 } },
+    'artifact-crystal-aegis': { key: 'artifact-crystal-aegis', name: 'Crystal Aegis', desc: '20% Damage Reduction, +30 Max HP', iconSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_03.png', type: 'artifact', statBoosts: { damageReduction: 0.20, maxHp: 30 } }
 };
 class PlayerController {
     constructor(scene, x, y, inputManager, options = {}) {
@@ -36,7 +39,7 @@ class PlayerController {
         this.persona = options.persona || null;
         this.camaraderie = options.camaraderie || 0;
         this.classId = options.classId || 'knight';
-        this.aiInput = { left: false, right: false, up: false, attack: false, dashLeft: false, dashRight: false, superSpell: false };
+        this.aiInput = { left: false, right: false, up: false, attack: false, dashLeft: false, dashRight: false, superSpell: false, megaSpell: false, summonSpell: false };
         this.lastAITick = 0;
         this.currentAnimKey = null;
         this.tempStats = { vit: 0, str: 0, dex: 0, int: 0 };
@@ -304,6 +307,7 @@ class PlayerController {
             this.updateInventoryUI();
 
             this.quests = (window.saveData && window.saveData.quests) ? JSON.parse(JSON.stringify(window.saveData.quests)) : [];
+            this.coliseumReputation = window.saveData && window.saveData.coliseumReputation ? window.saveData.coliseumReputation : 0;
             this.renderQuests();
         } else {
             this.inventory = { weapon: { key: 'weapon-stick', damageBonus: 5 }, potions: 2 }; // Basic fallback for AI damage calculations
@@ -360,7 +364,25 @@ class PlayerController {
             ranger:   { vit: 11, str: 12, dex: 15, int: 9  },
             warrior:  { vit: 14, str: 16, dex: 8,  int: 6  } // fallback
         };
-        const stats = classStats[classId] || { vit: 12, str: 12, dex: 12, int: 12 };
+        const baseStats = classStats[classId] || { vit: 12, str: 12, dex: 12, int: 12 };
+        
+        // Auto-scale AI stats based on player's level
+        const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
+        const growthTable = {
+            knight:   { vit: 2, str: 2, dex: 1, int: 0 },
+            wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
+            samurai: { vit: 1, str: 1, dex: 3, int: 0 },
+            ranger:   { vit: 1, str: 1, dex: 2, int: 1 },
+            warrior:  { vit: 2, str: 2, dex: 1, int: 0 }
+        };
+        const growth = growthTable[classId] || { vit: 1, str: 1, dex: 1, int: 1 };
+        
+        const stats = {
+            vit: baseStats.vit + (growth.vit * (playerLvl - 1)),
+            str: baseStats.str + (growth.str * (playerLvl - 1)),
+            dex: baseStats.dex + (growth.dex * (playerLvl - 1)),
+            int: baseStats.int + (growth.int * (playerLvl - 1))
+        };
         
         let meta = { id: classId, stats, isSheet: true };
         
@@ -477,6 +499,7 @@ class PlayerController {
         
         window.saveData.inventory = JSON.parse(JSON.stringify(this.inventory));
         window.saveData.quests = JSON.parse(JSON.stringify(this.quests));
+        window.saveData.coliseumReputation = this.coliseumReputation;
         window.saveData.alignment = this.alignment;
         window.saveData.hp = this.hp;
         window.saveData.mp = this.mp;
@@ -590,6 +613,7 @@ class PlayerController {
     isRightDown() { return this.isAI ? this.aiInput.right : this.inputManager.keys.right.isDown; }
     isUpDown() { return this.isAI ? this.aiInput.up : (this.inputManager.keys.up.isDown || (this.inputManager.keys.space ? this.inputManager.keys.space.isDown : false)); }
     isDownDown() { return this.isAI ? this.aiInput.down : this.inputManager.keys.down.isDown; }
+    isInteractDown() { return this.isAI ? this.aiInput.interact : this.inputManager.keys.interact.isDown; }
     consumeDashLeft() { 
         if (this.isAI) {
             if (this.aiInput.dashLeft) { this.aiInput.dashLeft = false; return true; }
@@ -612,13 +636,13 @@ class PlayerController {
         return Phaser.Input.Keyboard.JustDown(this.inputManager.keys.attack);
     }
     consumeSuperSpell() {
-        return this.isAI ? false : (this.inputManager.keys.superSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.superSpell));
+        return this.isAI ? this.aiInput.superSpell : (this.inputManager.keys.superSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.superSpell));
     }
     consumeMegaSpell() {
-        return this.isAI ? false : (this.inputManager.keys.megaSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.megaSpell));
+        return this.isAI ? this.aiInput.megaSpell : (this.inputManager.keys.megaSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.megaSpell));
     }
     consumeSummonSpell() {
-        return this.isAI ? false : (this.inputManager.keys.summonSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.summonSpell));
+        return this.isAI ? this.aiInput.summonSpell : (this.inputManager.keys.summonSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.summonSpell));
     }
     updateAI(time, delta) {
         this.companionAI.updateAI(time, delta);

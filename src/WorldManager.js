@@ -152,6 +152,7 @@ class WorldManager {
         const isTown = zoneData.type === 'Safe';
         if (spawnSide === 'left') {
             this.scene.player.sprite.setX(100);
+            this.scene.player.sprite.setY(600);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
                     hero.sprite.setX(100 - 60 - (i * 60));
@@ -162,6 +163,7 @@ class WorldManager {
         } else if (spawnSide === 'right') {
             const spawnX = isTown ? 1740 : 3740;
             this.scene.player.sprite.setX(spawnX);
+            this.scene.player.sprite.setY(600);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
                     hero.sprite.setX(spawnX + 60 + (i * 60));
@@ -660,7 +662,8 @@ class WorldManager {
                     'female_damned', 'twisted_damned', 'burning_damned',
                     'burning_skull', 'imp', 'cheeky_devil', 'the_devil',
                     'lich_lord', 'skeleton', 'bandit', 'frost_giant',
-                    'mummy', 'scarab_beetle'
+                    'mummy', 'scarab_beetle',
+                    'zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3'
                 ];
                 if (!validTypes.includes(type)) {
                     console.warn(`AI generated invalid enemy type: ${type}. Falling back.`);
@@ -717,19 +720,107 @@ class WorldManager {
             if (zoneData.type === 'Dangerous' && window.saveData && window.saveData.quests && window.saveData.quests.length > 0) {
                 const spawnedTypes = zoneData.enemies.map(e => (e.type || 'slime').toLowerCase().replace(/\s+/g, '_'));
                 window.saveData.quests.forEach(quest => {
-                    if (quest.targetType && !spawnedTypes.includes(quest.targetType)) {
-                        const playerLevel = window.saveData.level || 1;
-                        const questEnemy = new EnemyController(
-                            this.scene, 400 + Math.floor(Math.random() * 500), 100,
-                            this.scene.player, this.geminiService, quest.targetType
-                        );
-                        questEnemy.maxHp = 80 + (playerLevel * 20);
-                        questEnemy.hp = questEnemy.maxHp;
-                        questEnemy.speed = 80 + (playerLevel * 10);
-                        this.scene.enemies.add(questEnemy.sprite);
-                        console.log(`Injected quest-target enemy: ${quest.targetType}`);
+                    if (quest.type === 'kill' || !quest.type) {
+                        if (quest.targetType && !spawnedTypes.includes(quest.targetType)) {
+                            const playerLevel = window.saveData.level || 1;
+                            const questEnemy = new EnemyController(
+                                this.scene, 400 + Math.floor(Math.random() * 500), 100,
+                                this.scene.player, this.geminiService, quest.targetType
+                            );
+                            questEnemy.maxHp = 80 + (playerLevel * 20);
+                            questEnemy.hp = questEnemy.maxHp;
+                            questEnemy.speed = 80 + (playerLevel * 10);
+                            this.scene.enemies.add(questEnemy.sprite);
+                            console.log(`Injected quest-target enemy: ${quest.targetType}`);
+                        }
                     }
                 });
+            }
+
+            // Spawn Rescuee NPC if this zone matches a rescue quest
+            if (zoneData.type === 'Dangerous' && window.saveData && window.saveData.quests) {
+                const rescueQuest = window.saveData.quests.find(q => 
+                    q.type === 'rescue' && 
+                    q.rescueeZone === zoneIndex && 
+                    q.rescueState === 'captive'
+                );
+                if (rescueQuest && typeof RescueeNPCFactory !== 'undefined' && typeof RescueeNPC !== 'undefined') {
+                    try {
+                        const factory = new RescueeNPCFactory(this.scene);
+                        const rescueeConfig = factory.createRescuee({
+                            gender: rescueQuest.rescueeGender
+                        });
+                        // Store the config on the quest for save/load regeneration
+                        rescueQuest.rescueeTextureConfig = rescueeConfig.config;
+                        
+                        // Spawn at the far end of the zone (past enemies)
+                        const spawnX = 2800 + Math.floor(Math.random() * 600);
+                        const rescuee = new RescueeNPC(this.scene, spawnX, 100, rescueeConfig.textureKey, {
+                            name: rescueQuest.rescueeName,
+                            gender: rescueQuest.rescueeGender,
+                            questId: rescueQuest.id,
+                            config: rescueeConfig.config
+                        });
+                        this.scene.activeRescuee = rescuee;
+                        console.log(`Spawned rescuee: ${rescueQuest.rescueeName} at x=${spawnX}`);
+                    } catch (err) {
+                        console.error('Failed to spawn rescuee:', err);
+                    }
+                }
+            }
+
+            // Re-spawn following rescuee if player has one (from zone transition)
+            if (window.saveData && window.saveData.activeRescuee && window.saveData.activeRescuee.state === 'following') {
+                if (typeof RescueeNPCFactory !== 'undefined' && typeof RescueeNPC !== 'undefined') {
+                    try {
+                        const savedRescuee = window.saveData.activeRescuee;
+                        const factory = new RescueeNPCFactory(this.scene);
+                        const rescueeConfig = factory.createRescuee(savedRescuee.config || {});
+                        
+                        const spawnX = this.scene.player.sprite.x - 80;
+                        const rescuee = new RescueeNPC(this.scene, spawnX, 100, rescueeConfig.textureKey, {
+                            name: savedRescuee.name,
+                            gender: savedRescuee.gender,
+                            questId: savedRescuee.questId,
+                            config: savedRescuee.config
+                        });
+                        rescuee.state = 'following';
+                        // Clean up captive-state UI since we're already following
+                        if (rescuee._helpPulseTween) {
+                            rescuee._helpPulseTween.stop();
+                            rescuee._helpPulseTween = null;
+                        }
+                        if (rescuee.helpText) {
+                            rescuee.helpText.destroy();
+                            rescuee.helpText = null;
+                        }
+                        this.scene.activeRescuee = rescuee;
+                        console.log(`Re-spawned following rescuee: ${savedRescuee.name}`);
+                    } catch (err) {
+                        console.error('Failed to re-spawn rescuee:', err);
+                    }
+                }
+            }
+
+            // Check for rescue completion when entering a Safe zone
+            if (zoneData.type === 'Safe' && window.saveData && window.saveData.activeRescuee && window.saveData.activeRescuee.state === 'following') {
+                const savedRescuee = window.saveData.activeRescuee;
+                // Complete the rescue quest
+                if (this.scene.player && this.scene.player.progressQuest) {
+                    this.scene.player.progressQuest('rescue_complete', savedRescuee.questId);
+                }
+                if (this.scene.showFloatingText) {
+                    this.scene.showFloatingText(
+                        this.scene.player.sprite.x, this.scene.player.sprite.y - 100,
+                        `🆘 ${savedRescuee.name} Rescued!\n+5 Alignment`, 0x44ff44
+                    );
+                }
+                // Clean up the active rescuee
+                if (this.scene.activeRescuee) {
+                    this.scene.activeRescuee.completeRescue();
+                }
+                window.saveData.activeRescuee = null;
+                console.log(`Rescue complete: ${savedRescuee.name}`);
             }
 
             // Display Lore Splash

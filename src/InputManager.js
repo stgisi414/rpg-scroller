@@ -22,7 +22,8 @@ class InputManager {
             superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA,
             megaSpell: Phaser.Input.Keyboard.KeyCodes.FORWARD_SLASH,
             summonSpell: Phaser.Input.Keyboard.KeyCodes.M,
-            space: Phaser.Input.Keyboard.KeyCodes.SPACE
+            space: Phaser.Input.Keyboard.KeyCodes.SPACE,
+            spawnParty: Phaser.Input.Keyboard.KeyCodes.P
         });
 
         // Mouse pointer for aiming
@@ -67,7 +68,8 @@ class InputManager {
             Phaser.Input.Keyboard.KeyCodes.FIVE,
             Phaser.Input.Keyboard.KeyCodes.SIX,
             Phaser.Input.Keyboard.KeyCodes.SPACE,
-            Phaser.Input.Keyboard.KeyCodes.COMMA
+            Phaser.Input.Keyboard.KeyCodes.COMMA,
+            Phaser.Input.Keyboard.KeyCodes.P
         ];
     }
 

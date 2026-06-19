@@ -126,6 +126,10 @@ class CombatController {
         const overlap = player.scene.physics.add.overlap(proj, player.scene.enemies, (p, enemySprite) => {
             if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
                 if (player.isAI && player.aiState === 'hostile') return; // AI doesn't hit enemies
+                if (enemySprite.controller.isDead) return; // Fix: ignore already dead enemies
+
+                const yDiff = Math.abs(proj.y - enemySprite.y);
+                if (yDiff > 45) return; // Fix: don't hit ambush enemies falling from the sky
 
                 let isCrit = false;
                 let finalDamage = damage;
@@ -183,16 +187,24 @@ class CombatController {
         if (player.facingDirection === -1) proj.setFlipX(true);
         
         // Setup collision
-        const targetGroup = player.isAI ? proj.scene.player.sprite : player.scene.enemies;
+        const targetGroup = player.aiState === 'hostile' ? proj.scene.player.sprite : player.scene.enemies;
         const overlap = player.scene.physics.add.overlap(proj, targetGroup, (p, targetSprite) => {
-            if (player.isAI) {
+            if (player.aiState === 'hostile') {
                 if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
+                    const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
+                    if (yDiff > 45) return;
+                    
                     player.scene.player.takeDamage(damage, player.facingDirection);
                     p.destroy();
                     player.scene.physics.world.removeCollider(overlap);
                 }
             } else {
                 if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
+                    if (targetSprite.controller.isDead) return;
+                    
+                    const yDiff = Math.abs(proj.y - targetSprite.y);
+                    if (yDiff > 45) return;
+
                     targetSprite.controller.takeDamage(damage, player.facingDirection);
                     this.applyLifesteal(damage);
                     if (Math.random() < 0.50 && targetSprite.controller.applyStatusEffect) {
@@ -266,14 +278,14 @@ class CombatController {
 
             // Damage area calculation
             const hitRadius = 250;
-            const targets = player.isAI ? [player.scene.player.sprite] : player.scene.enemies.getChildren();
+            const targets = player.aiState === 'hostile' ? [player.scene.player.sprite] : player.scene.enemies.getChildren();
             
             targets.forEach(targetSprite => {
                 if (targetSprite && targetSprite.active && targetSprite.body) {
                     const dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);
                     if (dist <= hitRadius) {
                         const dir = targetSprite.x > player.sprite.x ? 1 : -1;
-                        if (player.isAI) {
+                        if (player.aiState === 'hostile') {
                             if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
                                 targetSprite.controller.takeDamage(damage, dir);
                             }
@@ -337,7 +349,7 @@ class CombatController {
                 player.scene.anims.create({
                     key: 'summon_angel_anim',
                     frames: player.scene.anims.generateFrameNumbers('summon_angel', { start: 0, end: 9 }),
-                    frameRate: 10,
+                    frameRate: 15,
                     repeat: -1
                 });
             }
@@ -356,7 +368,7 @@ class CombatController {
                     if (player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, "FULL HEAL!", 0x00ff00);
                     
                     // Heal the party
-                    if (player.scene.partyMembers) {
+                    if (player.aiState !== 'hostile' && player.scene.partyMembers) {
                         player.scene.partyMembers.forEach(member => {
                             if (member && member.hp > 0 && member.aiState === 'party') {
                                 member.hp = member.maxHp;
@@ -487,17 +499,25 @@ class CombatController {
                         p.setScale(1.5);
                         p.setVelocity(dir * orbSpeed, 0); // All straight
                         
-                        const targetGroup = player.isAI ? p.scene.player.sprite : player.scene.enemies;
+                        const targetGroup = player.aiState === 'hostile' ? p.scene.player.sprite : player.scene.enemies;
                         const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
                             // If hitting player, structure is slightly different
-                            if (player.isAI) {
+                            if (player.aiState === 'hostile') {
                                 if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
+                                    const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
+                                    if (yDiff > 45) return;
+
                                     player.scene.player.takeDamage(damage, dir);
                                     proj.destroy();
                                     player.scene.physics.world.removeCollider(overlap);
                                 }
                             } else {
                                 if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
+                                    if (targetSprite.controller.isDead) return;
+                                    
+                                    const yDiff = Math.abs(proj.y - targetSprite.y);
+                                    if (yDiff > 45) return;
+
                                     targetSprite.controller.takeDamage(damage, dir);
                                     this.applyLifesteal(damage);
                                     proj.destroy();
@@ -573,6 +593,11 @@ class CombatController {
                     const overlap = player.scene.physics.add.overlap(proj, player.scene.enemies, (p, enemySprite) => {
                         if (enemySprite.controller && typeof enemySprite.controller.takeDamage === 'function') {
                             if (player.isAI && player.aiState === 'hostile') return;
+                            if (enemySprite.controller.isDead) return;
+                            
+                            const yDiff = Math.abs(proj.y - enemySprite.y);
+                            if (yDiff > 45) return;
+
                             enemySprite.controller.takeDamage(damage, dir);
                             this.applyLifesteal(damage);
                             p.destroy();
