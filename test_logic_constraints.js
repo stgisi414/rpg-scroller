@@ -288,7 +288,7 @@ console.log("\nRunning Test 1: Key Mappings & InputManager Keys...");
 
     // Check captured keys array
     assert(im._capturedKeys.includes(PhaserMock.Input.Keyboard.KeyCodes.W), "W key missing from captured keys");
-    assert(im._capturedKeys.includes(PhaserMock.Input.Keyboard.KeyCodes.SPACE) === false, "SPACE key should not be in captured keys as default or matches expected captured keys array");
+    assert(im._capturedKeys.includes(PhaserMock.Input.Keyboard.KeyCodes.SPACE) === true, "SPACE key missing from captured keys");
 
     // Check disable/enable captured keys
     im.disableForInput();

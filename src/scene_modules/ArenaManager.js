@@ -59,7 +59,7 @@ class ArenaManager {
     spawnArenaEnemy(type, hpMult, dmgMult, isBoss) {
         // Spawn randomly left or right of the room
         let x = Math.random() < 0.5 ? 200 + Math.random() * 200 : 880 + Math.random() * 200;
-        let y = 600;
+        let y = 500;
 
         const enemy = new EnemyController(this.scene, x, y, this.scene.player, this.scene.geminiService, type, isBoss);
         

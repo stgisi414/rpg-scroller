@@ -1,3 +1,44 @@
 node_modules/
 .env
 src/assets/
+
+# Capture, temp, and scratch directories
+_capture/
+capture_autoplay/
+capture_dir_autoplay/
+scratch/
+.claude/
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.webp
+*.ico
+*.svg
+
+# Videos
+*.mp4
+*.webm
+*.ogg
+*.avi
+*.mov
+*.flv
+*.wmv
+*.mkv
+
+# Audio
+*.mp3
+*.wav
+*.flac
+*.m4a
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
