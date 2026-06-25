@@ -68,8 +68,8 @@ class HUDManager {
         const mpBar = this.scene.hudElements.mpFill ? this.scene.hudElements.mpFill.closest('.relative') : null;
         const spBar = this.scene.hudElements.spFill ? this.scene.hudElements.spFill.closest('.relative') : null;
         
-        if (classId === 'wizard') {
-            // Wizard: show MP, hide SP
+        if (classId === 'wizard' || classId === 'elven_spellblade' || classId === 'elven_spellblade_rival') {
+            // Magic/Spellblade classes: show MP, hide SP
             if (mpBar) mpBar.style.display = '';
             if (spBar) spBar.style.display = 'none';
         } else {
@@ -137,6 +137,12 @@ class HUDManager {
                         <div>
                             <h3 class="font-headline-sm text-info uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">explore</span> Exploration</h3>
                             <div id="cs-exploration-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
+                                <!-- Injected -->
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-sm text-tertiary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">military_tech</span> Arena Status</h3>
+                            <div id="cs-arena-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
                                 <!-- Injected -->
                             </div>
                         </div>
@@ -281,6 +287,7 @@ class HUDManager {
         let baseDmgStr = "";
         let baseDmg = 0;
         if (cd.id === 'wizard') { baseDmg = (stats.int * 2); baseDmgStr = `(INT×2)`; }
+        else if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') { baseDmg = Math.floor(stats.str * 3.5) + Math.floor(stats.int * 1.5); baseDmgStr = `(STR×3.5 + INT×1.5)`; }
         else if (cd.id === 'samurai') { baseDmg = Math.floor(stats.dex * 2.5) + Math.floor(stats.str * 0.5); baseDmgStr = `(DEX×2.5 + STR×0.5)`; }
         else if (cd.id === 'ranger') { baseDmg = (stats.dex * 2) + stats.str; baseDmgStr = `(DEX×2 + STR)`; }
         else { baseDmg = (stats.str * 3); baseDmgStr = `(STR×3)`; }
@@ -310,6 +317,14 @@ class HUDManager {
             <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Movement Speed</span><span class="font-bold text-[16px]">${p.speed} px/s</span></div>
             <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Dash Power</span><span class="font-bold text-[16px]">${p.dashSpeed} px/s</span></div>
             <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Jump Power</span><span class="font-bold text-[16px]">${Math.abs(p.jumpVelocity)} px/s</span></div>
+        `;
+
+        // --- Arena Status ---
+        const highestWave = p.coliseumHighestWave || 0;
+        const colRep = p.coliseumReputation || 0;
+        document.getElementById('cs-arena-stats').innerHTML = `
+            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Coliseum Reputation</span><span class="font-bold text-[16px]">${colRep}</span></div>
+            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Highest Wave Cleared</span><span class="font-bold text-[16px]">Wave ${highestWave}</span></div>
         `;
 
         // --- Equipment ---
@@ -387,15 +402,28 @@ class HUDManager {
         if (this.scene.partyMembers && this.scene.partyMembers.length > 0) {
             partyHtml = this.scene.partyMembers.map((member, idx) => {
                 const memberMult = typeof member.getDamageMultiplier === 'function' ? member.getDamageMultiplier() : 1.0;
-                const mBaseDmg = member.classData.id === 'wizard' ? (member.classData.stats.int*2) : (member.classData.stats.str*3);
+                const isMagic = member.classData.id === 'wizard' || (member.classData.id && member.classData.id.startsWith('custom_npc_') && member.classData.weaponType === 'magic');
+                let mBaseDmg;
+                if (member.classData.id === 'elven_spellblade' || member.classData.id === 'elven_spellblade_rival') {
+                    mBaseDmg = Math.floor(member.classData.stats.str * 3.5) + Math.floor(member.classData.stats.int * 1.5);
+                } else if (member.classData.id === 'samurai' || member.classData.id === 'samurai_rival') {
+                    mBaseDmg = Math.floor(member.classData.stats.dex * 2.5) + Math.floor(member.classData.stats.str * 0.5);
+                } else if (member.classData.id === 'ranger' || member.classData.id === 'ranger_rival') {
+                    mBaseDmg = (member.classData.stats.dex * 2) + member.classData.stats.str;
+                } else {
+                    mBaseDmg = isMagic ? (member.classData.stats.int*2) : (member.classData.stats.str*3);
+                }
                 const mFinalDmg = Math.floor(mBaseDmg * memberMult);
                 const mBuffStr = memberMult > 1.0 ? ` <span style="color:#f6be3b">(+${Math.round((memberMult-1)*100)}%)</span>` : '';
+                
+                const isCustom = member.classData.id && member.classData.id.startsWith('custom_npc_');
+                const classLabel = isCustom ? `Companion (${member.classData.weaponType || 'sword'})` : member.classData.id;
                 
                 return `
                 <div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:8px;border:1px solid #3a3020;box-shadow:inset 0 0 10px rgba(0,0,0,0.5); position:relative;">
                     <button onclick="window._gameScene.dismissPartyMember(${idx})" style="position:absolute; top:8px; right:8px; background:rgba(255,50,50,0.3); border:1px solid #ff6b6b; color:#fff; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:10px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,50,50,0.6)'" onmouseout="this.style.background='rgba(255,50,50,0.3)'">Dismiss</button>
                     <div style="color:#a0832b;font-weight:bold;margin-bottom:4px;text-transform:capitalize;font-size:16px;">${member.npcName ? member.npcName : (member.classData.id === 'knight' ? 'Warrior' : member.classData.id)}</div>
-                    <div style="color:#888;font-size:11px;margin-bottom:8px;text-transform:uppercase;">${member.classData.id}</div>
+                    <div style="color:#888;font-size:11px;margin-bottom:8px;text-transform:uppercase;">${classLabel}</div>
                     <div style="color:#ff6b6b;font-size:14px;margin-bottom:4px;">❤ HP: ${Math.round(member.hp)}/${member.maxHp}</div>
                     <div style="color:#bbb;font-size:13px;margin-bottom:4px;">⚔️ Dmg: ~${mFinalDmg}${mBuffStr}</div>
                     <div style="color:#f6be3b;font-size:13px;margin-bottom:12px;">🤝 Camaraderie: ${member.camaraderie || 0}</div>
@@ -427,6 +455,14 @@ class HUDManager {
 
     startPartyChat(index) {
         if (!this.scene.partyMembers || index < 0 || index >= this.scene.partyMembers.length) return;
+        
+        // Prevent opening party chat if there's already an active chat or shop open
+        const chatUI = document.getElementById('chat-ui');
+        const shopUI = document.getElementById('ui-shop');
+        const isChatOpen = chatUI && window.getComputedStyle(chatUI).display !== 'none';
+        const isShopOpen = shopUI && window.getComputedStyle(shopUI).display !== 'none';
+        if (isChatOpen || isShopOpen) return;
+
         const member = this.scene.partyMembers[index];
         
         // Hide character sheet
@@ -586,6 +622,150 @@ class HUDManager {
             }).filter(s => s !== '').join('<br>');
         }
 
+        // ALL NPC debug info — both standard and custom for comparison
+        let allNpcDebug = '';
+        if (this.scene.npcs && this.scene.npcs.length > 0) {
+            // Platform/world context
+            const platChildren = this.scene.platforms ? this.scene.platforms.getChildren() : [];
+            const platCount = platChildren.length;
+            const floorBlocks = platChildren.filter(p => p.y >= 680 && p.y <= 720);
+            const floorY = floorBlocks.length > 0 ? Math.round(floorBlocks[0].y) : '?';
+            const floorBodyTop = floorBlocks.length > 0 && floorBlocks[0].body ? Math.round(floorBlocks[0].body.top) : '?';
+            const floorBodyH = floorBlocks.length > 0 && floorBlocks[0].body ? Math.round(floorBlocks[0].body.height) : '?';
+            const floorBodyEnabled = floorBlocks.length > 0 && floorBlocks[0].body ? floorBlocks[0].body.enable : '?';
+            const floorPhysType = floorBlocks.length > 0 && floorBlocks[0].body ? floorBlocks[0].body.physicsType : '?';
+            const wb = this.scene.physics.world.bounds;
+            const worldBounds = `${Math.round(wb.x)},${Math.round(wb.y)} ${Math.round(wb.width)}x${Math.round(wb.height)}`;
+
+            // Physics world collider scan
+            const allColliders = this.scene.physics.world.colliders ? this.scene.physics.world.colliders.getActive() : [];
+            const totalColliders = allColliders.length;
+
+            // Platform group info
+            const platGroupType = this.scene.platforms ? this.scene.platforms.classType?.name || typeof this.scene.platforms : '?';
+            const platGroupActive = this.scene.platforms && this.scene.platforms.active;
+
+            allNpcDebug = '<span style="color:#0ff;font-weight:bold">── ALL NPCs (std+custom) ──</span><br>' +
+            `&nbsp;&nbsp;${c('platforms', platCount, '#da0')} ${c('floorBlocks', floorBlocks.length, '#da0')} ${c('floor.y', floorY, '#ff0')} ${c('floor.bodyTop', floorBodyTop, '#fa0')}<br>` +
+            `&nbsp;&nbsp;${c('floor.bodyH', floorBodyH, '#fa0')} ${c('floor.bodyEnabled', floorBodyEnabled, floorBodyEnabled === true ? '#0f0' : '#f44')} ${c('floor.physType', floorPhysType, '#da0')}<br>` +
+            `&nbsp;&nbsp;${c('worldBounds', worldBounds, '#888')}<br>` +
+            `&nbsp;&nbsp;${c('totalWorldColliders', totalColliders, '#ff0')} ${c('platGroupActive', platGroupActive, platGroupActive ? '#0f0' : '#f44')} ${c('platGroupType', platGroupType, '#888')}<br>` +
+            this.scene.npcs.map((n, i) => {
+                const s = n.sprite;
+                const isCustom = n.isCustom;
+                const tag = isCustom ? '<span style="color:#f0f;font-weight:bold">CUSTOM</span>' : '<span style="color:#8f8">STD</span>';
+                if (!s) return `<span style="color:#0ff">NPC[${i}]</span> ${tag} <span style="color:#f44">NO SPRITE</span>`;
+                const b = s.body;
+                const fr = s.frame;
+
+                // Sprite basics
+                const pos = `${Math.round(s.x)},${Math.round(s.y)}`;
+                const origin = `${s.originX.toFixed(2)},${s.originY.toFixed(2)}`;
+                const scale = `${s.scaleX.toFixed(1)},${s.scaleY.toFixed(1)}`;
+                const sprActive = s.active;
+                const sprVisible = s.visible;
+                const depth = s.depth;
+                const texKey = s.texture ? s.texture.key : '?';
+
+                // Frame info
+                const frameName = fr ? fr.name : '?';
+                const frameDims = fr ? `${fr.width}x${fr.height}` : '?';
+                const anim = s.anims && s.anims.currentAnim ? s.anims.currentAnim.key : 'none';
+                const animFrameCount = s.anims && s.anims.currentAnim ? s.anims.currentAnim.frames.length : 0;
+
+                if (!b) return `<span style="color:#0ff">NPC[${i}]</span> ${tag} ${c('name', n.npcName, '#fff')} <span style="color:#f44">NO BODY</span> pos=${pos}`;
+
+                // Body core
+                const bodyPos = `${Math.round(b.position.x)},${Math.round(b.position.y)}`;
+                const bodyBot = Math.round(b.bottom);
+                const bodyTop = Math.round(b.top);
+                const bodyOff = `${b.offset.x.toFixed(1)},${b.offset.y.toFixed(1)}`;
+                const bodySrc = `${b.sourceWidth}x${b.sourceHeight}`;
+                const bodyScaled = `${Math.round(b.width)}x${Math.round(b.height)}`;
+                const vel = `${Math.round(b.velocity.x)},${Math.round(b.velocity.y)}`;
+
+                // Body flags
+                const bEnable = b.enable;
+                const bMoves = b.moves;
+                const bImmovable = b.immovable;
+                const bGrav = b.allowGravity;
+                const bCWB = b.collideWorldBounds;
+                const bEmbedded = b.embedded;
+                const bPhysType = b.physicsType; // 0=DYNAMIC, 1=STATIC
+                const bCustomSepX = b.customSeparateX;
+                const bCustomSepY = b.customSeparateY;
+                const bMaxVelY = b.maxVelocity ? Math.round(b.maxVelocity.y) : '?';
+                const bOverlapX = b.overlapX;
+                const bOverlapY = b.overlapY;
+                const bGameObjMatch = b.gameObject === s;
+                const bInWorld = b.world ? true : false;
+
+                // Prev position (body._prev or prev)
+                const prevY = b.prev ? Math.round(b.prev.y) : '?';
+                const deltaY = b.prev ? Math.round(b.position.y - b.prev.y) : '?';
+
+                // Collision state
+                const blocked = `U:${b.blocked.up} D:${b.blocked.down} L:${b.blocked.left} R:${b.blocked.right}`;
+                const touching = `U:${b.touching.up} D:${b.touching.down} L:${b.touching.left} R:${b.touching.right}`;
+                const checkColl = b.checkCollision ? `U:${b.checkCollision.up} D:${b.checkCollision.down} L:${b.checkCollision.left} R:${b.checkCollision.right}` : '?';
+
+                // Collider scan: find colliders involving this sprite
+                let colliderInfo = 'NONE';
+                let colliderCount = 0;
+                if (allColliders.length > 0) {
+                    const matching = allColliders.filter(col => {
+                        return col.object1 === s || col.object2 === s ||
+                               (col.object1 && col.object1.getChildren && col.object1.getChildren().includes(s)) ||
+                               (col.object2 && col.object2.getChildren && col.object2.getChildren().includes(s));
+                    });
+                    colliderCount = matching.length;
+                    if (matching.length > 0) {
+                        colliderInfo = matching.map(col => {
+                            const other = col.object1 === s ? col.object2 : col.object1;
+                            const otherType = other === this.scene.platforms ? 'PLATFORMS' :
+                                              (other && other.getChildren ? `Group(${other.getChildren().length})` :
+                                              (other && other.texture ? other.texture.key : typeof other));
+                            return `${col.active ? 'ACT' : 'INACT'}|overlap=${col.overlapOnly}|other=${otherType}`;
+                        }).join('; ');
+                    }
+                }
+
+                // Foot data (only for custom)
+                let footInfo = '';
+                if (isCustom) {
+                    const fd = window.npcFootData && window.npcFootData[n.spriteKey];
+                    const idx = fr ? ((typeof fr.name === 'number') ? fr.name : parseInt(fr.name, 10)) : -1;
+                    const curFootY = fd && !isNaN(idx) && fd[idx] != null ? fd[idx] : 'null';
+                    const footArr = fd ? fd.slice(0, 16).map((v, fi) => fi === idx ? `[${v}]` : v).join(',') : 'none';
+                    footInfo = `<br>&nbsp;&nbsp;${c('curFootY', curFootY, '#f0f')} <span style="color:#888;font-size:10px">feet: ${footArr}</span>`;
+                }
+
+                // Floor status
+                const onFloor = b.blocked.down || b.touching.down;
+                const floorStatus = onFloor ?
+                    (bodyBot > 750 ? '<span style="color:#fa0;font-weight:bold">ON_WORLDBOUNDS</span>' : '<span style="color:#0f0;font-weight:bold">ON_FLOOR</span>') :
+                    (bodyBot > 750 ? '<span style="color:#f00;font-weight:bold">FELL THROUGH</span>' :
+                     bodyBot > 700 ? '<span style="color:#fa0;font-weight:bold">SINKING</span>' :
+                     `<span style="color:#ff0">FALLING vel.y=${Math.round(b.velocity.y)}</span>`);
+
+                return `<span style="color:#0ff;font-weight:bold">NPC[${i}]</span> ${tag} ${c('key', n.spriteKey.substring(0,20), '#8af')} ${c('name', n.npcName, '#fff')} ${floorStatus}<br>` +
+                    `&nbsp;&nbsp;${c('spr.pos', pos, '#0f0')} ${c('origin', origin, '#da0')} ${c('scale', scale, '#da0')} ${c('tex', texKey.substring(0,20), '#888')}<br>` +
+                    `&nbsp;&nbsp;${c('active', sprActive, sprActive ? '#0f0' : '#f44')} ${c('visible', sprVisible, sprVisible ? '#0f0' : '#f44')} ${c('depth', depth, '#888')}<br>` +
+                    `&nbsp;&nbsp;${c('body.pos', bodyPos, '#ff0')} ${c('body.top', bodyTop, '#fa0')} ${c('body.bot', bodyBot, bodyBot > 700 ? '#f44' : '#0f0')}<br>` +
+                    `&nbsp;&nbsp;${c('offset', bodyOff, '#fa0')} ${c('bodySrc', bodySrc, '#8af')} ${c('bodyScaled', bodyScaled, '#8af')}<br>` +
+                    `&nbsp;&nbsp;${c('vel', vel, '#af0')} ${c('prevY', prevY, '#888')} ${c('deltaY', deltaY, '#888')}<br>` +
+                    `&nbsp;&nbsp;${c('enable', bEnable, bEnable ? '#0f0' : '#f44')} ${c('moves', bMoves, bMoves ? '#0f0' : '#f44')} ${c('grav', bGrav, bGrav ? '#0f0' : '#f44')} ${c('immov', bImmovable, '#da0')} ${c('cwb', bCWB, '#da0')}<br>` +
+                    `&nbsp;&nbsp;${c('physType', bPhysType, '#da0')} ${c('inWorld', bInWorld, bInWorld ? '#0f0' : '#f44')} ${c('gameObjMatch', bGameObjMatch, bGameObjMatch ? '#0f0' : '#f44')} ${c('embedded', bEmbedded, bEmbedded ? '#f44' : '#0f0')}<br>` +
+                    `&nbsp;&nbsp;${c('customSep', `X:${bCustomSepX} Y:${bCustomSepY}`, '#da0')} ${c('maxVelY', bMaxVelY, '#da0')} ${c('overlapXY', `${bOverlapX},${bOverlapY}`, '#da0')}<br>` +
+                    `&nbsp;&nbsp;${c('blocked', blocked, '#ff0')}<br>` +
+                    `&nbsp;&nbsp;${c('touching', touching, '#ff0')}<br>` +
+                    `&nbsp;&nbsp;${c('checkColl', checkColl, '#da0')}<br>` +
+                    `&nbsp;&nbsp;${c('frame', frameName, '#ff0')} ${c('dims', frameDims, '#da0')} ${c('animFr', animFrameCount, '#8af')} ${c('anim', anim, '#8af')}<br>` +
+                    `&nbsp;&nbsp;${c('COLLIDERS', colliderCount, colliderCount > 0 ? '#0f0' : '#f00')} <span style="color:#888;font-size:10px">${colliderInfo}</span>` +
+                    footInfo;
+            }).join('<br>');
+        }
+
         el.innerHTML = [
             c('Zone', `${zoneIdx}`, '#ff0') + ' │ ' + c('Biome', biome, '#0ff') + ' │ ' + c('Type', zoneType, zoneType === 'Safe' ? '#0f0' : '#f88'),
             c('Name', zoneName, '#fff'),
@@ -598,7 +778,8 @@ class HUDManager {
             c('Decor', `${decorCount} items`, '#aaa'),
             `<span style="color:#666;font-size:10px">${decorBreakdown}</span>`,
             partyDebug,
-            enemyDebug
+            enemyDebug,
+            allNpcDebug
         ].filter(s => s !== '').join('<br>');
     }
 }

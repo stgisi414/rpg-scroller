@@ -28,9 +28,15 @@ class RescueeNPC {
         this.sprite.setScale(1.5);
         this.sprite.setDepth(1);
         this.sprite.setCollideWorldBounds(true);
-        // Physics body: 36w × 48h, offset centered for 100px wide frames
-        this.sprite.body.setSize(36, 48);
-        this.sprite.body.setOffset(32, 16);
+        // Physics body: 36w × 48h, offset centered dynamically
+        const frameW = (this.sprite.frame && this.sprite.frame.width) ? this.sprite.frame.width : 100;
+        const frameH = (this.sprite.frame && this.sprite.frame.height) ? this.sprite.frame.height : 64;
+        const bodyW = 36;
+        const bodyH = 48;
+        const offsetX = (frameW - bodyW) / 2;
+        const offsetY = frameH - bodyH;
+        this.sprite.body.setSize(bodyW, bodyH);
+        this.sprite.body.setOffset(offsetX, offsetY);
 
         // Add collider with scene platforms
         if (this.scene.platforms) {
@@ -40,8 +46,12 @@ class RescueeNPC {
         // Play idle animation
         this.sprite.play(this.textureKey + '_idle');
 
+        // Dynamic initial positions for floating text
+        const initialScale = 1.5;
+        const initialTopOfHeadY = y - (frameH * initialScale) / 2;
+
         // --- Floating name tag ---
-        this.nameTag = this.scene.add.text(x, y - 50, this.name, {
+        this.nameTag = this.scene.add.text(x, initialTopOfHeadY - 15, this.name, {
             fontSize: '11px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -51,7 +61,7 @@ class RescueeNPC {
         this.nameTag.setDepth(2);
 
         // --- Help / rescue prompt text ---
-        this.helpText = this.scene.add.text(x, y - 70, 'HELP ME!', {
+        this.helpText = this.scene.add.text(x, initialTopOfHeadY - 35, 'HELP ME!', {
             fontSize: '14px',
             fontStyle: 'bold',
             fill: '#ff4444',
@@ -127,11 +137,19 @@ class RescueeNPC {
      * Updates floating text positions to track above the sprite.
      */
     _updateTextPositions() {
-        if (this.nameTag && this.sprite) {
-            this.nameTag.setPosition(this.sprite.x, this.sprite.y - 50);
+        if (!this.sprite) return;
+        const scale = this.sprite.scaleY || 1.5;
+        const frameH = (this.sprite.frame && this.sprite.frame.height) ? this.sprite.frame.height : 74;
+        let topOfHeadY = this.sprite.y - (frameH * scale) / 2;
+        if (this.sprite.body) {
+            topOfHeadY = this.sprite.body.bottom - (frameH * scale);
         }
-        if (this.helpText && this.sprite) {
-            this.helpText.setPosition(this.sprite.x, this.sprite.y - 70);
+
+        if (this.nameTag) {
+            this.nameTag.setPosition(this.sprite.x, topOfHeadY - 15);
+        }
+        if (this.helpText) {
+            this.helpText.setPosition(this.sprite.x, topOfHeadY - 35);
         }
     }
 

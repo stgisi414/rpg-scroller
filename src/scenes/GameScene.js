@@ -304,11 +304,12 @@ class GameScene extends Phaser.Scene {
             this.anims.create({ key: 'plague_flies-die',  frames: this.anims.generateFrameNumbers('plague_flies', { start: 4, end: 4 }), frameRate: 8, repeat: 0 });
         }
 
+        } // End of animation registration guard
+
         // Loot Chest Animation (13 frames: 0 to 12)
-        if (this.textures.exists('loot_chest')) {
+        if (this.textures.exists('loot_chest') && !this.anims.exists('loot_chest_open')) {
             this.anims.create({ key: 'loot_chest_open', frames: this.anims.generateFrameNumbers('loot_chest', { start: 0, end: 12 }), frameRate: 12, repeat: 0 });
         }
-        } // End of animation registration guard
 
         // Setup world bounds (allowing vertical exploration and wider zones)
         this.physics.world.setBounds(0, -2000, 3840, 4000);
@@ -456,21 +457,33 @@ class GameScene extends Phaser.Scene {
         this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
         
         // Restore saved party members
-        if (window.saveData && window.saveData.party && window.saveData.party.length > 0) {
-            window.saveData.party.forEach((memberData, i) => {
-                const spawnX = this.player.sprite.x + 60 + (i * 60);
-                let classId = memberData.classId;
-                if (!['knight', 'wizard', 'ranger', 'samurai', 'warrior'].includes(classId)) {
-                    classId = 'knight'; // Default corrupted/bad saves to knight (warrior)
-                }
-                const hero = new PlayerController(this, spawnX, 400, this.inputManager, { 
-                    isAI: true, 
-                    aiState: 'party', 
-                    classId: classId,
-                    npcName: memberData.npcName,
-                    persona: memberData.persona,
-                    camaraderie: memberData.camaraderie || 0
-                });
+         if (window.saveData && window.saveData.party && window.saveData.party.length > 0) {
+             window.saveData.party.forEach((memberData, i) => {
+                 const spawnX = this.player.sprite.x + 60 + (i * 60);
+                 let classId = memberData.classId;
+                 if (!['knight', 'wizard', 'ranger', 'samurai', 'warrior'].includes(classId)) {
+                     if (classId && classId.startsWith('custom_npc_')) {
+                         if (this.textures.exists(classId)) {
+                             // Keep custom texture key if it still exists in memory
+                         } else if (memberData.customConfig && memberData.customConfig.layers) {
+                             // Recreate custom dynamic texture from saved config layers recipe
+                             window.CharacterComposer.recreateNPC(this, classId, memberData.customConfig.layers, memberData.customConfig.weaponType);
+                         } else {
+                             classId = 'knight'; // Default fallback if config is missing
+                         }
+                     } else {
+                         classId = 'knight'; // Default corrupted/bad saves or missing dynamic textures to knight
+                     }
+                 }
+                 const hero = new PlayerController(this, spawnX, 400, this.inputManager, { 
+                     isAI: true, 
+                     aiState: 'party', 
+                     classId: classId,
+                     npcName: memberData.npcName,
+                     persona: memberData.persona,
+                     camaraderie: memberData.camaraderie || 0,
+                     weaponType: memberData.weaponType || 'sword'
+                 });
                 hero.hp = memberData.hp || hero.maxHp;
                 this.partyMembers.push(hero);
                 if (this.heroGroup) this.heroGroup.add(hero.sprite);
@@ -901,13 +914,19 @@ class GameScene extends Phaser.Scene {
 
         // Update Loot Chests
         if (this.lootChests && this.lootChests.length > 0) {
-            const interactDistance = 60;
+            const interactDistance = this.isIndoors ? 90 : 60;
             const px = this.player.sprite.x;
             const py = this.player.sprite.y;
 
             for (let i = this.lootChests.length - 1; i >= 0; i--) {
                 const chest = this.lootChests[i];
                 if (chest.isOpen) continue;
+
+                // Track chest position dynamically with smooth hover animation
+                if (chest.promptText && chest.sprite) {
+                    const promptYOffset = this.isIndoors ? -90 : -50;
+                    chest.promptText.setPosition(chest.sprite.x, chest.sprite.y + promptYOffset + Math.sin(time / 150) * 3);
+                }
 
                 const dist = Phaser.Math.Distance.Between(px, py, chest.sprite.x, chest.sprite.y);
                 
@@ -919,39 +938,40 @@ class GameScene extends Phaser.Scene {
                     if (this.player.isInteractDown() && time - (this._lastChestInteractTime || 0) > 500) {
                         this._lastChestInteractTime = time;
                         chest.isOpen = true;
-                        chest.promptText.destroy();
+                        if (chest.promptText) chest.promptText.destroy();
                         
-                        // Play open animation
-                        chest.sprite.play('loot_chest_open');
+                        // Play open animation if it exists
+                        if (this.anims.exists('loot_chest_open')) {
+                            chest.sprite.play('loot_chest_open');
+                        }
                         
-                        chest.sprite.once('animationcomplete', () => {
-                            if (this.player && this.player.rollChestLoot) {
-                                this.player.rollChestLoot(chest.sprite.x, chest.sprite.y);
-                            }
-                            
-                            // Sparkle effect
-                            if (this.textures.exists('loot_sparkle')) {
-                                const emitter = this.add.particles(chest.sprite.x, chest.sprite.y, 'loot_sparkle', {
-                                    speed: { min: -100, max: 100 },
-                                    angle: { min: 0, max: 360 },
-                                    scale: { start: 1, end: 0 },
-                                    blendMode: 'ADD',
-                                    lifespan: 600,
-                                    quantity: 15
-                                });
-                                setTimeout(() => { if(emitter && emitter.active) emitter.destroy(); }, 1000);
-                            }
-
-                            // Fade out chest
-                            this.tweens.add({
-                                targets: chest.sprite,
-                                alpha: 0,
-                                duration: 1000,
-                                delay: 500,
-                                onComplete: () => {
-                                    if (chest.sprite) chest.sprite.destroy();
-                                }
+                        // Roll chest loot immediately for instant feedback
+                        if (this.player && this.player.rollChestLoot) {
+                            this.player.rollChestLoot(chest.sprite.x, chest.sprite.y);
+                        }
+                        
+                        // Sparkle effect
+                        if (this.textures.exists('loot_sparkle')) {
+                            const emitter = this.add.particles(chest.sprite.x, chest.sprite.y, 'loot_sparkle', {
+                                speed: { min: -100, max: 100 },
+                                angle: { min: 0, max: 360 },
+                                scale: { start: 1, end: 0 },
+                                blendMode: 'ADD',
+                                lifespan: 600,
+                                quantity: 15
                             });
+                            setTimeout(() => { if(emitter && emitter.active) emitter.destroy(); }, 1000);
+                        }
+
+                        // Fade out chest after showing the open animation state briefly
+                        this.tweens.add({
+                            targets: chest.sprite,
+                            alpha: 0,
+                            duration: 1000,
+                            delay: 500,
+                            onComplete: () => {
+                                if (chest.sprite) chest.sprite.destroy();
+                            }
                         });
                         
                         // Remove from active array so we don't process it anymore
@@ -967,18 +987,40 @@ class GameScene extends Phaser.Scene {
         if (this.angelStatue && this.angelStatue.active && this.angelStatueZone && !this.isIndoors) {
             const dist = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, this.angelStatue.x, this.angelStatue.y);
             if (dist < 100) {
-                if (!this.angelPromptText) {
-                    this.angelPromptText = this.add.text(this.angelStatue.x, this.angelStatue.y - 120, 'Press F - Town Directory', {
-                        fontFamily: '"Courier Prime", Courier, monospace',
-                        fontSize: '14px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 3
-                    }).setOrigin(0.5).setDepth(100);
-                } else {
-                    this.angelPromptText.setVisible(true);
+                // Check if any NPC is closer and within interact range
+                let npcCloser = false;
+                const chatUi = document.getElementById('chat-ui');
+                const shopUi = document.getElementById('ui-shop');
+                const isChatOpen = chatUi && window.getComputedStyle(chatUi).display !== 'none';
+                const isShopOpen = shopUi && window.getComputedStyle(shopUi).display !== 'none';
+                
+                if (this.npcs && !isChatOpen && !isShopOpen) {
+                    this.npcs.forEach(npc => {
+                        if (npc && npc.sprite && npc.sprite.active) {
+                            const distToNpc = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, npc.sprite.x, npc.sprite.y);
+                            if (distToNpc < 80 && distToNpc < dist) {
+                                npcCloser = true;
+                            }
+                        }
+                    });
                 }
 
-                if (this.player.isInteractDown() && time - (this._lastStatueInteractTime || 0) > 500) {
-                    this._lastStatueInteractTime = time;
-                    if (this.openTownDirectory) this.openTownDirectory();
+                if (!npcCloser && !isChatOpen && !isShopOpen) {
+                    if (!this.angelPromptText) {
+                        this.angelPromptText = this.add.text(this.angelStatue.x, this.angelStatue.y - 120, 'Press F - Town Directory', {
+                            fontFamily: '"Courier Prime", Courier, monospace',
+                            fontSize: '14px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 3
+                        }).setOrigin(0.5).setDepth(100);
+                    } else {
+                        this.angelPromptText.setVisible(true);
+                    }
+
+                    if (this.player.isInteractDown() && time - (this._lastStatueInteractTime || 0) > 500) {
+                        this._lastStatueInteractTime = time;
+                        if (this.openTownDirectory) this.openTownDirectory();
+                    }
+                } else if (this.angelPromptText) {
+                    this.angelPromptText.setVisible(false);
                 }
             } else if (this.angelPromptText) {
                 this.angelPromptText.setVisible(false);
@@ -1000,7 +1042,7 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0) {
+    spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0, weaponType = null) {
         if (!this.partyMembers) this.partyMembers = [];
         
         const isParty = (aiState === 'party');
@@ -1015,7 +1057,15 @@ class GameScene extends Phaser.Scene {
             console.trace();
             x = 400; // Fallback
         }
-        const hero = new PlayerController(this, x, spawnY, this.inputManager, { isAI: true, aiState: aiState, classId: spriteKey, npcName: npcName, persona: persona, camaraderie: camaraderie });
+        const hero = new PlayerController(this, x, spawnY, this.inputManager, { isAI: true, aiState: aiState, classId: spriteKey, npcName: npcName, persona: persona, camaraderie: camaraderie, weaponType: weaponType });
+        
+        if (this.isIndoors) {
+            if (typeof hero.setScaleWithPhysics === 'function') {
+                hero.setScaleWithPhysics(2.5);
+            } else {
+                hero.sprite.setScale(2.5);
+            }
+        }
         
         if (isParty) {
             this.partyMembers.push(hero);
@@ -1043,32 +1093,27 @@ class GameScene extends Phaser.Scene {
         if (!this.textures.exists('loot_chest')) return;
         
         const sprite = this.add.sprite(x, y, 'loot_chest', 0);
-        sprite.setScale(2);
+        sprite.setScale(this.isIndoors ? 3 : 2);
         sprite.setOrigin(0.5, 1); // anchor at bottom
         
         // Ensure it sits on ground
         this.physics.add.existing(sprite);
         sprite.body.setAllowGravity(true);
-        this.physics.add.collider(sprite, this.platforms);
+        if (this.isIndoors && this.indoorFloor) {
+            this.physics.add.collider(sprite, this.indoorFloor);
+        } else {
+            this.physics.add.collider(sprite, this.platforms);
+        }
 
         // Hover text
-        const promptText = this.add.text(x, y - 50, '[F] Open', {
+        const promptYOffset = this.isIndoors ? -90 : -50;
+        const promptText = this.add.text(x, y + promptYOffset, '[F] Open', {
             fontFamily: '"Space Grotesk", sans-serif',
             fontSize: '16px',
             fill: '#ffd700',
             stroke: '#000000',
             strokeThickness: 3
         }).setOrigin(0.5).setVisible(false);
-
-        // Floating animation for prompt
-        this.tweens.add({
-            targets: promptText,
-            y: y - 55,
-            yoyo: true,
-            repeat: -1,
-            duration: 1000,
-            ease: 'Sine.easeInOut'
-        });
 
         this.lootChests.push({
             sprite: sprite,

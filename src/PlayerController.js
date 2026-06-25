@@ -39,13 +39,14 @@ class PlayerController {
         this.persona = options.persona || null;
         this.camaraderie = options.camaraderie || 0;
         this.classId = options.classId || 'knight';
+        this.weaponType = options.weaponType || 'sword';
         this.aiInput = { left: false, right: false, up: false, attack: false, dashLeft: false, dashRight: false, superSpell: false, megaSpell: false, summonSpell: false };
         this.lastAITick = 0;
         this.currentAnimKey = null;
         this.tempStats = { vit: 0, str: 0, dex: 0, int: 0 };
 
         // Get the selected class from options (if AI) or window object
-        this.classData = this.isAI ? this._getAIClassData(options.classId) : (window.selectedClass || { id: 'knight', stats: { vit: 10, str: 10, dex: 10, int: 10 }, frameWidth: 80, frameHeight: 64, isSheet: true, idleRow: 0, idleFrames: 5 });
+        this.classData = this.isAI ? this._getAIClassData(options.classId, options.weaponType) : (window.selectedClass || { id: 'knight', stats: { vit: 10, str: 10, dex: 10, int: 10 }, frameWidth: 80, frameHeight: 64, isSheet: true, idleRow: 0, idleFrames: 5 });
         
         if (!this.isAI) {
             this.classId = this.classData.id;
@@ -69,7 +70,7 @@ class PlayerController {
         if (this.classData.flipX) this.sprite.setFlipX(true);
         this.sprite.controller = this;
         
-        if (this.classData.isSheet) {
+        if (this.classData.isSheet && !this.classData.id.startsWith('custom_npc_')) {
             const sceneAnimKey = 'anims_created_' + animPrefix;
             const hasTextures = this.scene.textures && typeof this.scene.textures.get === 'function';
             if (hasTextures && (!this.scene[sceneAnimKey] || !this.scene.anims.exists(animPrefix + '_idle'))) {
@@ -157,7 +158,11 @@ class PlayerController {
                 if (af.die) this.scene.anims.create({ key: animPrefix + '_die', frames: this.scene.anims.generateFrameNumbers(texKey, safeFrames(af.die)), frameRate: 8, repeat: 0 });
 
                 // Combo animation
-                if (classData.comboStartFrame !== undefined && classData.comboEndFrame !== undefined) {
+                if (af.combo) {
+                    this.scene.anims.create({ key: animPrefix + '_combo',
+                        frames: this.scene.anims.generateFrameNumbers(texKey, safeFrames(af.combo)),
+                        frameRate: 12, repeat: 0 });
+                } else if (classData.comboStartFrame !== undefined && classData.comboEndFrame !== undefined) {
                     this.scene.anims.create({ key: animPrefix + '_combo',
                         frames: this.scene.anims.generateFrameNumbers(texKey,
                             safeFrames({ start: classData.comboStartFrame, end: classData.comboEndFrame })),
@@ -188,11 +193,27 @@ class PlayerController {
 
         if (classData && classData.isSheet) {
             this.sprite.setScale(classData.spriteScale || 1.5);
-            // Frame is 64x64, displayed at 1.5x.
+            // Frame is 64x64 or 100x64, displayed at 1.5x.
             // Body is smaller to allow overlapping with environment
-            if (classData.id === 'knight' || classData.id === 'warrior') {
+            if (classData.id && classData.id.startsWith('custom_npc_')) {
+                const bodyW = 36;
+                const bodyH = 48;
+                let footY = 56; // Fallback
+                const fd = window.npcFootData && window.npcFootData[classData.id];
+                if (fd && fd[0] != null) {
+                    footY = fd[0] + 1;
+                }
+                this.sprite.body.setSize(bodyW, bodyH);
+                this.sprite.body.setOffset(
+                    (this.sprite.frame.width - bodyW) / 2,
+                    footY - bodyH
+                );
+            } else if (classData.id === 'knight' || classData.id === 'warrior') {
                 this.sprite.body.setSize(24, 48);
                 this.sprite.body.setOffset(28, 16);
+            } else if (classData.id === 'elven_spellblade' || classData.id === 'elven_spellblade_rival') {
+                this.sprite.body.setSize(31, 63);
+                this.sprite.body.setOffset(48, 31);
             } else {
                 this.sprite.body.setSize(24, 48);
                 this.sprite.body.setOffset(20, 16);
@@ -201,12 +222,34 @@ class PlayerController {
             this.sprite.setScale(classData ? (classData.spriteScale || 1.5) : 1.5);
         }
         
+        if (this.sprite.refreshBody) {
+            this.sprite.refreshBody();
+        }
+        
         // Save base settings for scaling later
         this.baseScale = classData && classData.spriteScale ? classData.spriteScale : 1.5;
         this.baseBodySize = { w: this.sprite.body.width / this.baseScale, h: this.sprite.body.height / this.baseScale };
         this.baseOffset = { x: this.sprite.body.offset.x / this.baseScale, y: this.sprite.body.offset.y / this.baseScale };
 
         this.sprite.setCollideWorldBounds(true);
+
+        if (this.classId && this.classId.startsWith('custom_npc_')) {
+            const originalPreUpdate = this.sprite.preUpdate;
+            const self = this;
+            this.sprite.preUpdate = function (time, delta) {
+                const oldFrame = this.frame;
+                const oldH = oldFrame ? oldFrame.height : 64;
+                const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
+                
+                originalPreUpdate.call(this, time, delta);
+                
+                const newFrame = this.frame;
+                if (newFrame && newFrame !== oldFrame) {
+                    const newIdx = (typeof newFrame.name === 'number') ? newFrame.name : parseInt(newFrame.name, 10);
+                    self._anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx);
+                }
+            };
+        }
 
         // --- NaN INTERCEPTOR ---
         const originalSetVelocityX = this.sprite.setVelocityX.bind(this.sprite);
@@ -266,7 +309,7 @@ class PlayerController {
         this.quests = [];
         
         this.isAttacking = false;
-        this.attackDuration = 300; // ms
+        this.attackDuration = this.classData.attackDuration || 300; // ms
         this.dashDuration = 300; // ms
         this.facingDirection = 1; // 1 for right, -1 for left
         
@@ -308,6 +351,7 @@ class PlayerController {
 
             this.quests = (window.saveData && window.saveData.quests) ? JSON.parse(JSON.stringify(window.saveData.quests)) : [];
             this.coliseumReputation = window.saveData && window.saveData.coliseumReputation ? window.saveData.coliseumReputation : 0;
+            this.coliseumHighestWave = window.saveData && window.saveData.coliseumHighestWave ? window.saveData.coliseumHighestWave : 0;
             this.renderQuests();
         } else {
             this.inventory = { weapon: { key: 'weapon-stick', damageBonus: 5 }, potions: 2 }; // Basic fallback for AI damage calculations
@@ -315,7 +359,46 @@ class PlayerController {
         }
     }
 
-    _getAIClassData(classId) {
+    _getAIClassData(classId, weaponType = 'sword') {
+        if (classId && classId.startsWith('custom_npc_')) {
+            // Stats configuration based on weaponType
+            let stats = { vit: 12, str: 12, dex: 12, int: 12 };
+            if (weaponType === 'magic') {
+                stats = { vit: 10, str: 8, dex: 11, int: 15 };
+            } else if (weaponType === 'axe' || weaponType === 'pickaxe') {
+                stats = { vit: 14, str: 15, dex: 8, int: 6 };
+            } else if (weaponType === 'hoe') {
+                stats = { vit: 13, str: 11, dex: 10, int: 8 };
+            } else { // sword / default
+                stats = { vit: 12, str: 13, dex: 12, int: 8 };
+            }
+            
+            // Auto-scale AI stats based on player's level
+            const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
+            stats.vit += (playerLvl - 1) * 2;
+            stats.str += (playerLvl - 1) * 2;
+            stats.dex += (playerLvl - 1) * 1;
+            stats.int += (playerLvl - 1) * (weaponType === 'magic' ? 2 : 0);
+
+            return {
+                id: classId,
+                stats: stats,
+                isSheet: true,
+                frameWidth: 100,
+                frameHeight: 64,
+                flipX: true,
+                idleRow: 0,
+                idleFrames: 4,
+                walkRow: 1,
+                attackRow: 2,
+                jumpRow: 1, // fallback to walk/run row
+                fallRow: 1,
+                dashRow: 1,
+                spriteScale: 1.5,
+                weaponType: weaponType
+            };
+        }
+
         if (classId === 'knight_rival' || classId === 'megaboss_rival' || classId === 'heavy_knight') {
             let stats;
             let spriteScale;
@@ -362,6 +445,7 @@ class PlayerController {
             wizard:   { vit: 8,  str: 6,  dex: 10, int: 18 },
             samurai: { vit: 10, str: 10, dex: 16, int: 10 },
             ranger:   { vit: 11, str: 12, dex: 15, int: 9  },
+            elven_spellblade: { vit: 12, str: 13, dex: 11, int: 14 },
             warrior:  { vit: 14, str: 16, dex: 8,  int: 6  } // fallback
         };
         const baseStats = classStats[classId] || { vit: 12, str: 12, dex: 12, int: 12 };
@@ -373,6 +457,7 @@ class PlayerController {
             wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
             samurai: { vit: 1, str: 1, dex: 3, int: 0 },
             ranger:   { vit: 1, str: 1, dex: 2, int: 1 },
+            elven_spellblade: { vit: 1, str: 2, dex: 1, int: 2 },
             warrior:  { vit: 2, str: 2, dex: 1, int: 0 }
         };
         const growth = growthTable[classId] || { vit: 1, str: 1, dex: 1, int: 1 };
@@ -421,6 +506,20 @@ class PlayerController {
                     walk: { start: 22, end: 29 },
                     hit: { start: 33, end: 36 },
                     die: { start: 44, end: 50 },
+                    duck: { frames: [0] },
+                    jump: { frames: [0] },
+                    fall: { frames: [0] }
+                }
+            };
+        } else if (classId === 'elven_spellblade') {
+            meta = { ...meta, frameWidth: 128, frameHeight: 128, idleFrames: 9, idleRow: 0,
+                animFrames: {
+                    idle: { start: 0, end: 8 },
+                    walk: { start: 9, end: 17 },
+                    attack: { start: 18, end: 26 },
+                    combo: { start: 27, end: 35 },
+                    hit: { start: 36, end: 40 },
+                    die: { start: 41, end: 49 },
                     duck: { frames: [0] },
                     jump: { frames: [0] },
                     fall: { frames: [0] }
@@ -500,6 +599,7 @@ class PlayerController {
         window.saveData.inventory = JSON.parse(JSON.stringify(this.inventory));
         window.saveData.quests = JSON.parse(JSON.stringify(this.quests));
         window.saveData.coliseumReputation = this.coliseumReputation;
+        window.saveData.coliseumHighestWave = this.coliseumHighestWave;
         window.saveData.alignment = this.alignment;
         window.saveData.hp = this.hp;
         window.saveData.mp = this.mp;
@@ -513,7 +613,9 @@ class PlayerController {
                 hp: hero.hp,
                 npcName: hero.npcName,
                 persona: hero.persona,
-                camaraderie: hero.camaraderie || 0
+                camaraderie: hero.camaraderie || 0,
+                weaponType: hero.classData.weaponType || hero.weaponType || 'sword',
+                customConfig: hero.customConfig || (window.npcLayers && window.npcLayers[hero.classId] ? { layers: window.npcLayers[hero.classId], weaponType: hero.classData.weaponType || hero.weaponType || 'sword' } : null)
             }));
         }
     }
@@ -651,14 +753,65 @@ class PlayerController {
     setScaleWithPhysics(scale) {
         this.sprite.setScale(scale);
         if (this.classData && this.classData.isSheet) {
-            if (this.classData.id === 'knight' || this.classData.id === 'warrior') {
+            if (this.classData.id && this.classData.id.startsWith('custom_npc_')) {
+                const bodyW = 36;
+                const bodyH = 48;
+                let footY = 56; // Fallback
+                const fd = window.npcFootData && window.npcFootData[this.classData.id];
+                if (fd && fd[0] != null) {
+                    footY = fd[0] + 1;
+                }
+                this.sprite.body.setSize(bodyW, bodyH);
+                this.sprite.body.setOffset(
+                    (this.sprite.frame.width - bodyW) / 2,
+                    footY - bodyH
+                );
+            } else if (this.classData.id === 'knight' || this.classData.id === 'warrior') {
                 this.sprite.body.setSize(24, 48);
                 this.sprite.body.setOffset(28, 16);
+            } else if (this.classData.id === 'elven_spellblade' || this.classData.id === 'elven_spellblade_rival') {
+                this.sprite.body.setSize(31, 63);
+                this.sprite.body.setOffset(48, 31);
             } else {
                 this.sprite.body.setSize(24, 48);
                 this.sprite.body.setOffset(20, 16);
             }
         }
+        if (this.sprite.refreshBody) {
+            this.sprite.refreshBody();
+        }
+    }
+
+    _anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx) {
+        const body = this.sprite.body;
+        if (!body) return;
+        
+        const scale = this.sprite.scaleY || 1.5;
+        const bodyW = body.sourceWidth;
+        const bodyH = body.sourceHeight;
+        const fw = newFrame.width;
+        const fh = newFrame.height;
+        
+        // Get old footY
+        let oldFootY = oldH;
+        const fd = window.npcFootData && window.npcFootData[this.classId];
+        if (fd) {
+            if (!isNaN(oldIdx) && fd[oldIdx] != null) oldFootY = fd[oldIdx] + 1;
+        }
+        const oldOffset = oldFootY - bodyH;
+        
+        // Get new footY
+        let newFootY = fh;
+        if (fd) {
+            if (!isNaN(newIdx) && fd[newIdx] != null) newFootY = fd[newIdx] + 1;
+        }
+        const newOffset = newFootY - bodyH;
+        
+        // Adjust sprite Y immediately to prevent body.position.y from jumping in preUpdate
+        this.sprite.y += scale * (0.5 * (fh - oldH) - (newOffset - oldOffset));
+        
+        // Update body offset
+        body.setOffset(fw / 2 - bodyW / 2, newOffset);
     }
 
     _playAnim(key) {
@@ -862,16 +1015,31 @@ class PlayerController {
             if (cd.isSheet) this._playAnim();
             // Shrink hitbox
             if (!this.wasDucking) {
-                this.sprite.body.setSize(cd.frameWidth * 0.38, cd.frameHeight * 0.45);
-                this.sprite.body.setOffset(cd.frameWidth * 0.31, cd.frameHeight * 0.55);
+                if (cd.id && cd.id.startsWith('custom_npc_')) {
+                    const bodyW = 36;
+                    const bodyH = 24;
+                    let footY = 56;
+                    const fd = window.npcFootData && window.npcFootData[cd.id];
+                    if (fd && fd[0] != null) footY = fd[0] + 1;
+                    this.sprite.body.setSize(bodyW, bodyH);
+                    this.sprite.body.setOffset((this.sprite.frame.width - bodyW) / 2, footY - bodyH);
+                } else if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+                    this.sprite.body.setSize(31, 31);
+                    this.sprite.body.setOffset(48, 63);
+                } else if (cd.id === 'knight' || cd.id === 'warrior') {
+                    this.sprite.body.setSize(24, 24);
+                    this.sprite.body.setOffset(28, 40);
+                } else {
+                    this.sprite.body.setSize(24, 24);
+                    this.sprite.body.setOffset(20, 40);
+                }
                 this.wasDucking = true;
             }
             return;
         } else {
             // Restore hitbox if was ducking
             if (this.wasDucking) {
-                this.sprite.body.setSize(cd.frameWidth * 0.38, cd.frameHeight * 0.85);
-                this.sprite.body.setOffset(cd.frameWidth * 0.31, cd.frameHeight * 0.15);
+                this.setScaleWithPhysics(this.sprite.scaleX);
                 this.wasDucking = false;
             }
         }

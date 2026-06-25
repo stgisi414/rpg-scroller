@@ -93,11 +93,11 @@ class WorldManager {
         const aliveEnemies = [];
         if (this.scene && this.scene.enemies) {
             this.scene.enemies.getChildren().forEach(sprite => {
-                if (sprite && sprite.active && sprite.controller) {
+                if (sprite && sprite.active && sprite.controller && !sprite.controller.isDead && sprite.controller.hp > 0) {
                     aliveEnemies.push({
                         type: sprite.controller.type || 'slime',
                         x: sprite.x,
-                        hp: sprite.controller.hp || 100,
+                        hp: sprite.controller.hp,
                         speed: sprite.controller.speed || 100
                     });
                 }
@@ -131,6 +131,7 @@ class WorldManager {
     buildZone(zoneData, spawnSide) {
         // Clear previous enemies/NPCs (handled in GameScene usually)
         this.currentZoneData = zoneData;
+        this.scene.zoneType = zoneData.type;
         
         // Update HUD Zone Name
         if (this.scene.hudElements && this.scene.hudElements.zoneName) {
@@ -311,8 +312,27 @@ class WorldManager {
             if (zoneData.npcs && Array.isArray(zoneData.npcs)) {
                 zoneData.npcs.forEach(nData => {
                     const rawKey = nData.spriteKey || nData.type || 'npc';
-                    const spriteKey = ['blacksmith', 'alchemist', 'knight', 'samurai', 'sage', 'ranger', 'wizard'].includes(rawKey) ? rawKey : 'npc';
-                    const npc = new NPCController(this.scene, nData.x, 100, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
+                    let spriteKey = rawKey;
+                    let combatClass = 'sword';
+                    
+                    if (['npc', 'blacksmith', 'alchemist', 'knight', 'samurai', 'sage', 'ranger', 'wizard', 'king'].includes(rawKey)) {
+                        spriteKey = rawKey;
+                    } else {
+                        // Restore custom modular NPC or generate one
+                        if (nData.customConfig) {
+                            const recreated = window.CharacterComposer.recreateNPC(this.scene, rawKey, nData.customConfig.layers, nData.customConfig.weaponType);
+                            spriteKey = recreated.spriteKey;
+                            combatClass = recreated.weaponType;
+                        } else {
+                            const npcData = window.CharacterComposer.generateRandomNPC(this.scene);
+                            spriteKey = npcData.spriteKey;
+                            combatClass = npcData.weaponType;
+                            nData.spriteKey = spriteKey; // save key
+                            nData.customConfig = npcData.config; // save recipe
+                        }
+                    }
+                    
+                    const npc = new NPCController(this.scene, nData.x, 624, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey, combatClass);
                     this.scene.physics.add.collider(npc.sprite, this.scene.platforms);
                     this.scene.npcs.push(npc);
                     this.scene.decorGroup.add(npc.nameText);
@@ -320,15 +340,55 @@ class WorldManager {
                 });
             }
 
+            // Spawn 2-3 ambient custom modular villagers so the town feels alive.
+            // These are separate from the named shop/quest NPCs above and never replace them.
+            // Persist ambient villagers in zoneData too so they don't change every time we load the zone!
+            if (!zoneData.ambientNpcs) {
+                zoneData.ambientNpcs = [];
+                const ambientCount = Math.floor(Math.random() * 2) + 2; // 2 or 3
+                const ambientSlots = [1300, 1500, 1700];
+                for (let i = 0; i < ambientCount; i++) {
+                    const npcData = window.CharacterComposer.generateRandomNPC(this.scene);
+                    const villagerName = window.CharacterComposer.generateRandomName();
+                    zoneData.ambientNpcs.push({
+                        name: villagerName,
+                        x: ambientSlots[i],
+                        spriteKey: npcData.spriteKey,
+                        weaponType: npcData.weaponType,
+                        customConfig: npcData.config
+                    });
+                }
+            }
+
+            zoneData.ambientNpcs.forEach(nData => {
+                const recreated = window.CharacterComposer.recreateNPC(this.scene, nData.spriteKey, nData.customConfig.layers, nData.customConfig.weaponType);
+                const villager = new NPCController(this.scene, nData.x, 624, this.scene.player, this.geminiService, nData.name, 'A friendly townsperson going about their day.', recreated.spriteKey, recreated.weaponType);
+                this.scene.physics.add.collider(villager.sprite, this.scene.platforms);
+                this.scene.npcs.push(villager);
+                this.scene.decorGroup.add(villager.nameText);
+                this.scene.decorGroup.add(villager.promptText);
+            });
+
             // FALLBACK: If it's zone 0 and Gemini forgot the Sage, force her to spawn!
             if (this.currentZoneIndex === 0) {
                 const hasSage = this.scene.npcs.find(n => n.npcName === 'Elara the Sage' || n.spriteKey === 'sage');
                 if (!hasSage) {
-                    const sage = new NPCController(this.scene, 500, 100, this.scene.player, this.geminiService, 'Elara the Sage', 'Elara is a wise and mysterious sage...', 'sage');
+                    const sage = new NPCController(this.scene, 500, 624, this.scene.player, this.geminiService, 'Elara the Sage', 'Elara is a wise and mysterious sage...', 'sage');
                     this.scene.physics.add.collider(sage.sprite, this.scene.platforms);
                     this.scene.npcs.push(sage);
                     this.scene.decorGroup.add(sage.nameText);
                     this.scene.decorGroup.add(sage.promptText);
+                }
+            }
+
+            // Persist the updated zone npcs/ambientNpcs configs to localStorage
+            if (window.saveData && window.saveData.zones) {
+                window.saveData.zones[this.currentZoneIndex] = JSON.parse(JSON.stringify(zoneData));
+                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
+                const idx = saves.findIndex(s => s.id === window.saveData.id);
+                if (idx > -1) {
+                    saves[idx] = window.saveData;
+                    localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
                 }
             }
         } else {
@@ -637,7 +697,7 @@ class WorldManager {
 
             if (zoneData.type !== 'Safe' && Math.random() < encounterChance) {
                 isRivalEncounter = true;
-                const rivalClasses = ['knight_rival', 'wizard_rival', 'samurai_rival', 'ranger_rival'];
+                const rivalClasses = ['knight_rival', 'wizard_rival', 'samurai_rival', 'ranger_rival', 'elven_spellblade_rival'];
                 
                 if (defeatedCount >= 4 && !(window.saveData && window.saveData.isSavior)) {
                     isMegaboss = true;
@@ -673,6 +733,7 @@ class WorldManager {
                 // Sanitize AI outputs which could be strings, undefined, or NaN
                 const spawnX = (eData.x !== undefined && !isNaN(Number(eData.x))) ? Number(eData.x) : 200 + Math.random() * 3400;
                 const hp = (eData.hp !== undefined && !isNaN(Number(eData.hp))) ? Number(eData.hp) : 100;
+                if (hp <= 0) return; // Skip dead/invalid enemies
                 const speed = (eData.speed !== undefined && !isNaN(Number(eData.speed))) ? Number(eData.speed) : 100;
 
                 // Spawn from above so they don't fall through the floor or spawn inside platforms!
@@ -850,13 +911,13 @@ class WorldManager {
 
             // Scrub town NPCs from wilderness zones
             if (zoneData.type !== 'Safe' && zoneData.npcs && zoneData.npcs.length > 0) {
-                const validHeroes = ['ranger', 'knight', 'samurai', 'wizard'];
+                const validHeroes = ['ranger', 'knight', 'samurai', 'wizard', 'elven_spellblade'];
                 zoneData.npcs = zoneData.npcs.filter(n => validHeroes.includes(n.spriteKey));
                 
                 // Spawn the valid wandering heroes in the wilderness
                 zoneData.npcs.forEach(nData => {
                     const spriteKey = nData.spriteKey || 'ranger';
-                    const npc = new NPCController(this.scene, nData.x, 100, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
+                    const npc = new NPCController(this.scene, nData.x, 624, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey);
                     this.scene.physics.add.collider(npc.sprite, this.scene.platforms);
                     this.scene.npcs.push(npc);
                     this.scene.decorGroup.add(npc.nameText);

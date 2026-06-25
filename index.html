@@ -83,6 +83,25 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.8);
             font-family: 'Courier New', Courier, monospace;
         }
+        #chat-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #222;
+            border: 1px solid #555;
+            color: #aaa;
+            padding: 4px 8px;
+            font-family: monospace;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s, color 0.2s;
+        }
+        #chat-close:hover {
+            background: #cc0000;
+            color: white;
+            border-color: #ff3333;
+        }
         #chat-history {
             height: 150px;
             overflow-y: auto;
@@ -312,22 +331,26 @@
                     </div>
                     
                     <!-- Class Selection Grid -->
-                    <div class="grid grid-cols-4 gap-2 md:gap-4 shrink-0" id="class-select-grid">
-                        <button data-class="knight" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-highest border-2 border-secondary shadow-[0_0_8px_rgba(246,190,59,0.4)] transition-all">
-                            <span class="material-symbols-outlined text-3xl md:text-4xl text-secondary" style="font-variation-settings: 'FILL' 1;">shield</span>
-                            <span class="font-label-caps text-[10px] text-secondary">Knight</span>
+                    <div class="grid grid-cols-5 gap-1 md:gap-2 shrink-0" id="class-select-grid">
+                        <button data-class="knight" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-highest border-2 border-secondary shadow-[0_0_8px_rgba(246,190,59,0.4)] transition-all">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-secondary" style="font-variation-settings: 'FILL' 1;">shield</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-secondary">Knight</span>
                         </button>
-                        <button data-class="wizard" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-tertiary hover:bg-surface-container-highest transition-all duration-200">
-                            <span class="material-symbols-outlined text-3xl md:text-4xl text-on-surface-variant group-hover:text-tertiary">magic_button</span>
-                            <span class="font-label-caps text-[10px] text-on-surface-variant group-hover:text-on-surface">Wizard</span>
+                        <button data-class="wizard" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-tertiary hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-tertiary">magic_button</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Wizard</span>
                         </button>
-                        <button data-class="samurai" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-error hover:bg-surface-container-highest transition-all duration-200">
-                            <span class="material-symbols-outlined text-3xl md:text-4xl text-on-surface-variant group-hover:text-error">colorize</span>
-                            <span class="font-label-caps text-[10px] text-on-surface-variant group-hover:text-on-surface">Samurai</span>
+                        <button data-class="samurai" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-error hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-error">colorize</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Samurai</span>
                         </button>
-                        <button data-class="ranger" class="class-btn relative group p-2 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-primary hover:bg-surface-container-highest transition-all duration-200">
-                            <span class="material-symbols-outlined text-3xl md:text-4xl text-on-surface-variant group-hover:text-primary">my_location</span>
-                            <span class="font-label-caps text-[10px] text-on-surface-variant group-hover:text-on-surface">Ranger</span>
+                        <button data-class="ranger" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-primary hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-primary">my_location</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Ranger</span>
+                        </button>
+                        <button data-class="elven_spellblade" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-cyan-500 hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-cyan-500">bolt</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Spellblade</span>
                         </button>
                     </div>
 
@@ -553,6 +576,7 @@
 
     <!-- NPC Chat UI -->
     <div id="chat-ui">
+        <button id="chat-close">CLOSE (ESC)</button>
         <div id="chat-npc-name" style="font-weight: bold; color: #ffaa00; margin-bottom: 10px;">NPC Name</div>
         <div id="chat-history"></div>
         <div id="chat-input-container">
@@ -656,8 +680,9 @@
     <script src="src/player/CompanionAI.js"></script>
     <script src="src/player/QuestAlignmentManager.js"></script>
     <script src="src/player/ChatManager.js"></script>
-    <script src="src/PlayerController.js"></script>
     <script src="src/GeminiService.js"></script>
+    <script src="src/scene_modules/ModularAssetLists.js"></script>
+    <script src="src/PlayerController.js"></script>
     <script src="src/EnemyController.js"></script>
     <script src="src/RescueeNPCFactory.js"></script>
     <script src="src/RescueeNPC.js"></script>
@@ -672,6 +697,7 @@
     <script src="src/scene_modules/ArenaManager.js"></script>
     <script src="src/scene_modules/WeatherManager.js"></script>
     <script src="src/scene_modules/ProgressionManager.js"></script>
+    <script src="src/scene_modules/CharacterComposer.js"></script>
     <script src="src/scenes/GameScene.js?v=EMPTY9"></script>
     <script src="src/main.js"></script>
     <script>

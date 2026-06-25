@@ -101,8 +101,29 @@ class QuestAlignmentManager {
 
     _completeQuest(quest, index) {
         const player = this.player;
-        const rewardGold = quest.rewardGold || 50;
+        let rewardGold = quest.rewardGold || 50;
         const rewardXP = quest.rewardXP || 0;
+
+        // Apply alignment multiplier to gold reward
+        if (quest.giverAlignment) {
+            let playerAlignType = 'Neutral';
+            if (player.alignment >= 10) playerAlignType = 'Good';
+            else if (player.alignment <= -10) playerAlignType = 'Evil';
+            
+            if (quest.giverAlignment === 'Good') {
+                if (playerAlignType === 'Good') {
+                    rewardGold = Math.round(rewardGold * 1.3); // 30% bonus
+                } else if (playerAlignType === 'Evil') {
+                    rewardGold = Math.round(rewardGold * 0.7); // 30% reduction
+                }
+            } else if (quest.giverAlignment === 'Evil') {
+                if (playerAlignType === 'Evil') {
+                    rewardGold = Math.round(rewardGold * 1.3); // 30% bonus
+                } else if (playerAlignType === 'Good') {
+                    rewardGold = Math.round(rewardGold * 0.7); // 30% reduction
+                }
+            }
+        }
 
         // Grant gold
         window.saveData.gold += rewardGold;

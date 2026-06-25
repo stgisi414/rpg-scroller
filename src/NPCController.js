@@ -1,34 +1,129 @@
 // NPCController.js - AI powered roleplaying NPC
 
 class NPCController {
-    constructor(scene, x, y, player, geminiService, npcName, persona, spriteKey = 'npc') {
+    constructor(scene, x, y, player, geminiService, npcName, persona, spriteKey = 'npc', combatClass = 'sword') {
         this.scene = scene;
         this.player = player;
         this.geminiService = geminiService;
         this.npcName = npcName;
         this.persona = persona;
         this.spriteKey = spriteKey;
+        this.combatClass = combatClass;
+        this.npcId = spriteKey + "_" + npcName.replace(/\s+/g, '');
         
+        // Load social score
+        if (!window.saveData) window.saveData = {};
+        if (!window.saveData.npcRelations) window.saveData.npcRelations = {};
+        this.socialScore = window.saveData.npcRelations[this.npcId] || 0;
+
+        // Load or assign persistent NPC alignment
+        if (!window.saveData.npcAlignments) window.saveData.npcAlignments = {};
+        if (!window.saveData.npcAlignments[this.npcId]) {
+            let alignment = 'Neutral';
+            const nameLower = npcName.toLowerCase();
+            const personaLower = persona.toLowerCase();
+            if (nameLower.includes('sage') || nameLower.includes('elara') || nameLower.includes('angel') || personaLower.includes('good') || personaLower.includes('wise') || personaLower.includes('helper')) {
+                alignment = 'Good';
+            } else if (nameLower.includes('shadow') || nameLower.includes('rogue') || nameLower.includes('vespera') || nameLower.includes('alchemist') || personaLower.includes('evil') || personaLower.includes('enigmatic') || personaLower.includes('dark')) {
+                alignment = 'Evil';
+            } else {
+                const choices = ['Good', 'Neutral', 'Evil'];
+                alignment = choices[Math.floor(Math.random() * choices.length)];
+            }
+            window.saveData.npcAlignments[this.npcId] = alignment;
+        }
+        this.alignment = window.saveData.npcAlignments[this.npcId];
+
+        // Define emoji animations if they don't exist
+        if (this.scene.anims && !this.scene.anims.exists('emoji_happy')) {
+            const emojis = [
+                { key: 'emoji_happy', row: 13 },
+                { key: 'emoji_neutral', row: 5 },
+                { key: 'emoji_sad', row: 10 },
+                { key: 'emoji_angry', row: 6 },
+                { key: 'emoji_love', row: 8 }
+            ];
+            emojis.forEach(e => {
+                this.scene.anims.create({
+                    key: e.key,
+                    frames: this.scene.anims.generateFrameNumbers('emojis', { start: e.row * 19, end: e.row * 19 + 4 }),
+                    frameRate: 15,
+                    repeat: 0
+                });
+            });
+        }
+
         // Chat state
         this.chatHistory = [];
         this.isChatOpen = false;
         this.isShopOpen = false;
 
         // Create the physics sprite using the appropriate sprite key
-        this.sprite = this.scene.physics.add.sprite(x, y, spriteKey);
-        this.sprite.setScale(1.5);
+        this.sprite = this.scene.physics.add.sprite(x, y, spriteKey, 0);
+        let baseScale = 1.5;
+        if (spriteKey === 'elven_spellblade' || spriteKey === 'elven_spellblade_rival') {
+            baseScale = 1.15;
+        }
+        this.baseScale = baseScale;
+        this.sprite.setScale(baseScale);
         this.sprite.setDepth(1);
         this.sprite.setCollideWorldBounds(true);
         this.sprite.body.immovable = false;
         this.sprite.body.setAllowGravity(true);
-        // Frame is 64x64 (or 80x64 for knight), displayed at 1.5x.
-        // Body: 36w × 80h, offset (30, 16) keeps feet on the ground.
-        if (spriteKey === 'knight') {
+        // Frame size can be dynamic. Use custom dynamic dimensions for modular NPCs.
+        const standardKeys = ['npc', 'wizard', 'ranger', 'knight', 'samurai', 'blacksmith', 'alchemist', 'sage', 'king', 'heavy_knight', 'knight_rival', 'megaboss_rival', 'elven_spellblade', 'elven_spellblade_rival'];
+        const isCustom = !standardKeys.includes(spriteKey);
+        this.isCustom = isCustom;
+
+        if (isCustom) {
+            const bodyW = 36;
+            const bodyH = 48;
+            
+            // Calculate foot Y based on frame 0 foot data to align the sprite's feet with the body bottom
+            let footY = this.sprite.frame.height;
+            const fd = window.npcFootData && window.npcFootData[spriteKey];
+            if (fd && fd[0] != null) {
+                footY = fd[0] + 1;
+            }
+            
+            this.sprite.body.setSize(bodyW, bodyH);
+            this.sprite.body.setOffset(
+                (this.sprite.frame.width - bodyW) / 2,
+                footY - bodyH
+            );
+            // Canvas textures don't have inherent bounds — the physics engine
+            // can't resolve collisions without an explicit refreshBody() call
+            // after setSize/setOffset/setScale to sync the body with the sprite.
+            this.sprite.refreshBody();
+
+            // Override preUpdate to handle dynamic foot anchoring on frame changes
+            const originalPreUpdate = this.sprite.preUpdate;
+            const self = this;
+            this.sprite.preUpdate = function (time, delta) {
+                const oldFrame = this.frame;
+                const oldH = oldFrame ? oldFrame.height : 64;
+                const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
+                
+                originalPreUpdate.call(this, time, delta);
+                
+                const newFrame = this.frame;
+                if (newFrame && newFrame !== oldFrame) {
+                    const newIdx = (typeof newFrame.name === 'number') ? newFrame.name : parseInt(newFrame.name, 10);
+                    self._anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx);
+                }
+            };
+        } else if (spriteKey === 'knight') {
             this.sprite.body.setSize(36, 48);
             this.sprite.body.setOffset(22, 16);
+            this.sprite.refreshBody();
+        } else if (spriteKey === 'elven_spellblade' || spriteKey === 'elven_spellblade_rival') {
+            this.sprite.body.setSize(47, 63);
+            this.sprite.body.setOffset(40, 31);
+            this.sprite.refreshBody();
         } else {
             this.sprite.body.setSize(36, 48);
             this.sprite.body.setOffset(30, 16);
+            this.sprite.refreshBody();
         }
         
         // Play idle animation for this sprite
@@ -48,7 +143,9 @@ class NPCController {
                 samurai: { start: 0, end: 4 },
                 blacksmith: { start: 0, end: 4 },
                 alchemist: { start: 0, end: 4 },
-                sage: { start: 0, end: 5 }
+                sage: { start: 0, end: 5 },
+                elven_spellblade: { start: 0, end: 8 },
+                elven_spellblade_rival: { start: 0, end: 8 }
             };
             
             let animConfig;
@@ -80,15 +177,27 @@ class NPCController {
         this.sprite.play(idleKey);
 
         // Name tag & prompt — positioned relative to sprite in update()
-        this.nameText = this.scene.add.text(x, 300, npcName, { fontSize: '13px', fill: '#ffffff', stroke: '#000000', strokeThickness: 3 });
+        const initialScale = 1.5;
+        const initialFrameH = (this.sprite.frame && this.sprite.frame.height) ? this.sprite.frame.height : 64;
+        const initialTopOfHeadY = y - (initialFrameH * initialScale) / 2;
+
+        this.nameText = this.scene.add.text(x, initialTopOfHeadY - 15, npcName, { fontSize: '13px', fill: '#ffffff', stroke: '#000000', strokeThickness: 3 });
         this.nameText.setOrigin(0.5);
         this.nameText.setDepth(2);
 
         // Interaction Prompt
-        this.promptText = this.scene.add.text(x, 280, "Press 'F' to Talk", { fontSize: '11px', fill: '#ffff00', stroke: '#000000', strokeThickness: 2 });
+        this.promptText = this.scene.add.text(x, initialTopOfHeadY - 35, "Press 'F' to Talk", { fontSize: '11px', fill: '#ffff00', stroke: '#000000', strokeThickness: 2 });
         this.promptText.setOrigin(0.5);
         this.promptText.setDepth(2);
         this.promptText.setVisible(false);
+
+        // Emoji Sprite
+        this.emojiSprite = this.scene.add.sprite(x, initialTopOfHeadY - 55, 'emojis', 0);
+        this.emojiSprite.setOrigin(0.5);
+        this.emojiSprite.setDepth(2);
+        this.emojiSprite.setScale(1.5);
+        this.emojiSprite.setVisible(false);
+        this.updateEmojiDisplay();
 
         // Bind UI Elements
         this.uiContainer = document.getElementById('chat-ui');
@@ -117,17 +226,139 @@ class NPCController {
             if (this.isChatOpen) this.closeChat();
             if (this.isShopOpen) this.closeShop();
         };
+        this.onCloseClick = () => {
+            if (this.isChatOpen) this.closeChat();
+            if (this.isShopOpen) this.closeShop();
+        };
+        this.onInputKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                if (this.isChatOpen) this.closeChat();
+                if (this.isShopOpen) this.closeShop();
+            }
+        };
+        this.onDocumentKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (this.isChatOpen) this.closeChat();
+                if (this.isShopOpen) this.closeShop();
+            }
+        };
 
         this.chatTradeBtn = document.getElementById('chat-trade');
         this.chatActivityBtn = document.getElementById('chat-activity');
+        this.chatCloseBtn = document.getElementById('chat-close');
+    }
+
+    updateEmojiDisplay() {
+        if (!this.emojiSprite) return;
+        
+        let animKey = '';
+        if (this.socialScore <= -20) animKey = 'emoji_angry';
+        else if (this.socialScore < 40) animKey = 'emoji_neutral';
+        else if (this.socialScore < 80) animKey = 'emoji_happy';
+        else animKey = 'emoji_love';
+
+        if (animKey) {
+            if (this.emojiSprite.anims && this.emojiSprite.anims.currentAnim?.key !== animKey) {
+                this.emojiSprite.play(animKey);
+                this.emojiSprite.setVisible(true);
+            }
+        } else {
+            this.emojiSprite.setVisible(false);
+        }
+    }
+
+    setScaleWithPhysics(scale) {
+        this.sprite.setScale(scale);
+        if (this.isCustom) {
+            const bodyW = 36;
+            const bodyH = 48;
+            let footY = 56; // Fallback
+            const fd = window.npcFootData && window.npcFootData[this.spriteKey];
+            if (fd && fd[0] != null) {
+                footY = fd[0] + 1;
+            }
+            this.sprite.body.setSize(bodyW, bodyH);
+            this.sprite.body.setOffset(
+                (this.sprite.frame.width - bodyW) / 2,
+                footY - bodyH
+            );
+        } else if (this.spriteKey === 'knight') {
+            this.sprite.body.setSize(36, 48);
+            this.sprite.body.setOffset(22, 16);
+        } else if (this.spriteKey === 'elven_spellblade' || this.spriteKey === 'elven_spellblade_rival') {
+            this.sprite.body.setSize(47, 63);
+            this.sprite.body.setOffset(40, 31);
+        } else {
+            this.sprite.body.setSize(36, 48);
+            this.sprite.body.setOffset(30, 16);
+        }
+        if (this.sprite.refreshBody) {
+            this.sprite.refreshBody();
+        }
+    }
+
+    // Anchors the physics body and sprite Y position when the animation frame changes.
+    // Adjusts sprite Y immediately to compensate for any changes in frame height or
+    // foot offset, keeping the physics body world position completely stable.
+    _anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx) {
+        const body = this.sprite.body;
+        if (!body) return;
+        
+        const scale = this.sprite.scaleY || 1.5;
+        const bodyW = body.sourceWidth;
+        const bodyH = body.sourceHeight;
+        const fw = newFrame.width;
+        const fh = newFrame.height;
+        
+        // Get old footY
+        let oldFootY = oldH;
+        const fd = window.npcFootData && window.npcFootData[this.spriteKey];
+        if (fd) {
+            if (!isNaN(oldIdx) && fd[oldIdx] != null) oldFootY = fd[oldIdx] + 1;
+        }
+        const oldOffset = oldFootY - bodyH;
+        
+        // Get new footY
+        let newFootY = fh;
+        if (fd) {
+            if (!isNaN(newIdx) && fd[newIdx] != null) newFootY = fd[newIdx] + 1;
+        }
+        const newOffset = newFootY - bodyH;
+        
+        // Adjust sprite Y immediately to prevent body.position.y from jumping in preUpdate
+        this.sprite.y += scale * (0.5 * (fh - oldH) - (newOffset - oldOffset));
+        
+        // Update body offset
+        body.setOffset(fw / 2 - bodyW / 2, newOffset);
     }
 
     update(time, delta) {
         if (!this.player || !this.player.sprite) return;
 
+        // Floor clamp for custom NPCs — safety net against Phaser canvas-texture collision bug
+        if (this.isCustom && this.sprite.body) {
+            const floorBodyTop = 672;
+            if (this.sprite.body.bottom > floorBodyTop + 2) {
+                const targetBodyY = floorBodyTop - this.sprite.body.height;
+                this.sprite.body.position.y = targetBodyY;
+                this.sprite.body.velocity.y = 0;
+            }
+        }
+
         // Keep name/prompt text floating above the sprite at all times
-        this.nameText.setPosition(this.sprite.x, this.sprite.y - 70);
-        this.promptText.setPosition(this.sprite.x, this.sprite.y - 90);
+        const scale = this.sprite.scaleY || 1.5;
+        const frameH = (this.sprite.frame && this.sprite.frame.height) ? this.sprite.frame.height : 64;
+        let topOfHeadY = this.sprite.y - (frameH * scale) / 2;
+        if (this.sprite.body) {
+            topOfHeadY = this.sprite.body.bottom - (frameH * scale);
+        }
+
+        this.nameText.setPosition(this.sprite.x, topOfHeadY - 15);
+        this.promptText.setPosition(this.sprite.x, topOfHeadY - 35);
+        if (this.emojiSprite) {
+            this.emojiSprite.setPosition(this.sprite.x, topOfHeadY - 55);
+        }
 
         // Calculate distance to player
         const distanceToPlayer = Phaser.Math.Distance.Between(
@@ -135,8 +366,9 @@ class NPCController {
             this.player.sprite.x, this.player.sprite.y
         );
 
-        // Face the player
-        const isLeftFacing = ['knight', 'samurai', 'blacksmith', 'alchemist', 'npc', 'king'].includes(this.spriteKey);
+        // Face the player. Modular (composite) NPCs use the GandalfHardcore Character Asset
+        // Pack, whose sprites face LEFT by default — same as the fixed left-facing keys below.
+        const isLeftFacing = this.isCustom || ['knight', 'samurai', 'blacksmith', 'alchemist', 'npc', 'king'].includes(this.spriteKey);
 
         if (this.player.sprite.x < this.sprite.x) {
             // Player is to the left
@@ -149,20 +381,39 @@ class NPCController {
         const interactDistance = 80;
 
         if (distanceToPlayer < interactDistance) {
-            if (!this.isChatOpen) {
-                this.promptText.setVisible(true);
-            } else {
-                this.promptText.setVisible(false);
+            let statueCloser = false;
+            const scene = this.scene;
+            const dirUi = document.getElementById('ui-town-directory');
+            const isDirOpen = dirUi && window.getComputedStyle(dirUi).display !== 'none';
+
+            if (scene.angelStatue && scene.angelStatue.active && !scene.isIndoors && !isDirOpen) {
+                const distToStatue = Phaser.Math.Distance.Between(
+                    scene.angelStatue.x, scene.angelStatue.y,
+                    this.player.sprite.x, this.player.sprite.y
+                );
+                if (distToStatue < 100 && distToStatue < distanceToPlayer) {
+                    statueCloser = true;
+                }
             }
 
-            // Check if player presses F to interact
-            if (this.player.isInteractDown() && !this.isChatOpen && !this.isShopOpen) {
-                if (time - (this.lastInteractTime || 0) > 500) {
-                    // Check for delivery quest completion before opening chat
-                    this._checkDeliveryQuestCompletion();
-                    this.openChat();
-                    this.lastInteractTime = time;
+            if (!statueCloser && !isDirOpen) {
+                if (!this.isChatOpen) {
+                    this.promptText.setVisible(true);
+                } else {
+                    this.promptText.setVisible(false);
                 }
+
+                // Check if player presses F to interact
+                if (this.player.isInteractDown() && !this.isChatOpen && !this.isShopOpen) {
+                    if (time - (this.lastInteractTime || 0) > 500) {
+                        // Check for delivery quest completion before opening chat
+                        this._checkDeliveryQuestCompletion();
+                        this.openChat();
+                        this.lastInteractTime = time;
+                    }
+                }
+            } else {
+                this.promptText.setVisible(false);
             }
         } else {
             this.promptText.setVisible(false);
@@ -228,6 +479,7 @@ class NPCController {
         }
         if (this.chatInput) {
             this.chatInput.addEventListener('keypress', this.onKeyPress);
+            this.chatInput.addEventListener('keydown', this.onInputKeyDown);
         }
         if (this.chatTradeBtn) {
             this.chatTradeBtn.addEventListener('click', this.onTradeClick);
@@ -235,9 +487,13 @@ class NPCController {
         if (this.chatActivityBtn) {
             this.chatActivityBtn.addEventListener('click', this.onActivityClick);
         }
+        if (this.chatCloseBtn) {
+            this.chatCloseBtn.addEventListener('click', this.onCloseClick);
+        }
         if (this.scene && this.scene.input && this.scene.input.keyboard) {
             this.scene.input.keyboard.on('keydown-ESC', this.onEscKeyDown);
         }
+        document.addEventListener('keydown', this.onDocumentKeyDown);
     }
 
     unregisterChatListeners() {
@@ -246,6 +502,7 @@ class NPCController {
         }
         if (this.chatInput) {
             this.chatInput.removeEventListener('keypress', this.onKeyPress);
+            this.chatInput.removeEventListener('keydown', this.onInputKeyDown);
         }
         if (this.chatTradeBtn) {
             this.chatTradeBtn.removeEventListener('click', this.onTradeClick);
@@ -253,9 +510,13 @@ class NPCController {
         if (this.chatActivityBtn) {
             this.chatActivityBtn.removeEventListener('click', this.onActivityClick);
         }
+        if (this.chatCloseBtn) {
+            this.chatCloseBtn.removeEventListener('click', this.onCloseClick);
+        }
         if (this.scene && this.scene.input && this.scene.input.keyboard) {
             this.scene.input.keyboard.off('keydown-ESC', this.onEscKeyDown);
         }
+        document.removeEventListener('keydown', this.onDocumentKeyDown);
     }
 
     openShop() {
@@ -308,8 +569,16 @@ class NPCController {
             }
         }
 
+        const isMismatched = (this.alignment === 'Good' && this.player.alignment <= -40) ||
+                             (this.alignment === 'Evil' && this.player.alignment >= 40);
+
+        if (this.chatTradeBtn) {
+            const isMerchant = ['blacksmith', 'alchemist', 'ranger', 'wizard', 'samurai', 'knight'].includes(this.spriteKey);
+            this.chatTradeBtn.style.display = (isMerchant && !isMismatched) ? 'inline-block' : 'none';
+        }
+
         if (this.chatActivityBtn) {
-            if (this.indoorAction && this.indoorAction !== 'spar') { // spar spawns enemy directly instead of using chat RP
+            if (this.indoorAction && this.indoorAction !== 'spar' && !isMismatched) {
                 const actionNames = {
                     'rest': 'Rest (Full Heal)',
                     'forge': 'Forge (+5 Dmg)',
@@ -618,7 +887,7 @@ class NPCController {
         this.chatHistory.push({ sender: "Player", text: text });
         this.chatHistory.push({ sender: this.npcName, text: response.response });
 
-        // 5. Apply Alignment Shift
+        // 5. Apply Alignment Shift & Social Score
         if (response.alignmentShift !== 0) {
             this.player.updateAlignment(response.alignmentShift);
             
@@ -627,9 +896,32 @@ class NPCController {
             const color = response.alignmentShift > 0 ? "#00ff00" : "#ff0000";
             this.addMessageToUI("System", `<span style="color:${color}">Alignment Shifted: ${sign}${response.alignmentShift}</span>`);
         }
+        
+        if (response.socialShift && typeof response.socialShift === 'number' && response.socialShift !== 0) {
+            this.socialScore += response.socialShift;
+            // Cap it between -100 and 100
+            this.socialScore = Math.max(-100, Math.min(100, this.socialScore));
+            
+            // Save it
+            window.saveData.npcRelations[this.npcId] = this.socialScore;
+            
+            // Update UI/Emoji
+            this.updateEmojiDisplay();
+            
+            const sign = response.socialShift > 0 ? "+" : "";
+            const color = response.socialShift > 0 ? "#ff69b4" : "#8b0000";
+            this.addMessageToUI("System", `<span style="color:${color}">Social Score ${sign}${response.socialShift} (Total: ${this.socialScore})</span>`);
+            
+            // Trigger marriage button if >= 100
+            if (this.socialScore >= 100 && !document.getElementById('chat-propose')) {
+                this._addMarriageButton();
+            }
+        }
 
         // 6. Accept Quests
         if (response.quest && this.player.addQuest) {
+            response.quest.giverName = this.npcName;
+            response.quest.giverAlignment = this.alignment;
             this.player.addQuest(response.quest);
             this.addMessageToUI("System", `<span style="color:#f6be3b">Quest Added: ${response.quest.title}</span>`);
         }
@@ -658,6 +950,7 @@ class NPCController {
                         if (this.spriteKey === 'alchemist' || this.spriteKey === 'npc' || lowerName.includes('sage') || lowerName.includes('wizard') || lowerName.includes('mage')) combatClass = 'wizard';
                         else if (this.spriteKey === 'ranger' || lowerName.includes('scout') || lowerName.includes('ranger') || lowerName.includes('hunter')) combatClass = 'ranger';
                         else if (this.spriteKey === 'samurai' || lowerName.includes('samurai') || lowerName.includes('thief') || lowerName.includes('rogue')) combatClass = 'samurai';
+                        else if (this.spriteKey === 'elven_spellblade' || lowerName.includes('spellblade') || lowerName.includes('elf')) combatClass = 'elven_spellblade';
                         this.scene.spawnHeroAI(combatClass, this.sprite.x, this.sprite.y, 'hostile');
                     }
                     this.removeFromWorld();
@@ -665,19 +958,24 @@ class NPCController {
                 }, 1500);
             }
         } else if (response.joinsParty) {
-            if (isSafeZone) {
+            if (isSafeZone && !this.isCustom) {
                 this.addMessageToUI("System", `<span style="color:#00ff00">They will not leave the safety of the town, but they consider you a friend.</span>`);
                 this.player.updateAlignment(5);
             } else {
                 setTimeout(() => {
                     this.closeChat();
                     if (this.scene.spawnHeroAI) {
-                        let combatClass = 'knight';
-                        const lowerName = this.npcName.toLowerCase();
-                        if (this.spriteKey === 'alchemist' || this.spriteKey === 'npc' || lowerName.includes('sage') || lowerName.includes('wizard') || lowerName.includes('mage')) combatClass = 'wizard';
-                        else if (this.spriteKey === 'ranger' || lowerName.includes('scout') || lowerName.includes('ranger') || lowerName.includes('hunter')) combatClass = 'ranger';
-                        else if (this.spriteKey === 'samurai' || lowerName.includes('samurai') || lowerName.includes('thief') || lowerName.includes('rogue')) combatClass = 'samurai';
-                        this.scene.spawnHeroAI(combatClass, this.sprite.x, this.sprite.y, 'party', this.npcName, this.persona);
+                        if (this.isCustom) {
+                            this.scene.spawnHeroAI(this.spriteKey, this.sprite.x, this.sprite.y, 'party', this.npcName, this.persona, 0, this.combatClass);
+                        } else {
+                            let combatClass = 'knight';
+                            const lowerName = this.npcName.toLowerCase();
+                            if (this.spriteKey === 'alchemist' || this.spriteKey === 'npc' || lowerName.includes('sage') || lowerName.includes('wizard') || lowerName.includes('mage')) combatClass = 'wizard';
+                            else if (this.spriteKey === 'ranger' || lowerName.includes('scout') || lowerName.includes('ranger') || lowerName.includes('hunter')) combatClass = 'ranger';
+                            else if (this.spriteKey === 'samurai' || lowerName.includes('samurai') || lowerName.includes('thief') || lowerName.includes('rogue')) combatClass = 'samurai';
+                            else if (this.spriteKey === 'elven_spellblade' || lowerName.includes('spellblade') || lowerName.includes('elf')) combatClass = 'elven_spellblade';
+                            this.scene.spawnHeroAI(combatClass, this.sprite.x, this.sprite.y, 'party', this.npcName, this.persona);
+                        }
                     }
                     this.removeFromWorld();
                     this.destroy();
@@ -690,8 +988,13 @@ class NPCController {
         if (window.saveData && window.saveData.zones && window.saveData.currentZone !== undefined) {
             const currentZone = window.saveData.currentZone;
             const zoneData = window.saveData.zones[currentZone];
-            if (zoneData && zoneData.npcs) {
-                zoneData.npcs = zoneData.npcs.filter(n => n.name !== this.npcName);
+            if (zoneData) {
+                if (zoneData.npcs) {
+                    zoneData.npcs = zoneData.npcs.filter(n => n.name !== this.npcName);
+                }
+                if (zoneData.ambientNpcs) {
+                    zoneData.ambientNpcs = zoneData.ambientNpcs.filter(n => n.name !== this.npcName);
+                }
                 
                 const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
                 const idx = saves.findIndex(s => s.id === window.saveData.id);
@@ -731,6 +1034,11 @@ class NPCController {
                 inventory: p.inventory,
                 quests: p.quests,
                 coliseumReputation: p.coliseumReputation || 0
+            },
+            npc: {
+                alignment: this.alignment,
+                socialScore: this.socialScore,
+                isMismatched: (this.alignment === 'Good' && p.alignment <= -40) || (this.alignment === 'Evil' && p.alignment >= 40)
             }
         };
     }
@@ -800,6 +1108,7 @@ class NPCController {
 
         if (this.nameText) this.nameText.destroy();
         if (this.promptText) this.promptText.destroy();
+        if (this.emojiSprite) this.emojiSprite.destroy();
         if (this.sprite) this.sprite.destroy();
         const index = this.scene.npcs.indexOf(this);
         if (index > -1) this.scene.npcs.splice(index, 1);

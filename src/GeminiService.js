@@ -153,6 +153,14 @@ Return ONLY a valid JSON object:
             if (state.player.coliseumReputation > 0) {
                 contextText += `- Coliseum Reputation: ${state.player.coliseumReputation} (Treat the player with increasing respect or fear as this number gets higher. They are an arena gladiator!)\n`;
             }
+            if (state.npc) {
+                contextText += `\nYour Profile (NPC):\n`;
+                contextText += `- Alignment: ${state.npc.alignment} (Good, Neutral, or Evil)\n`;
+                contextText += `- Relation/Social Score with Player: ${state.npc.socialScore} (Negative means they dislike you, positive means they like you)\n`;
+                if (state.npc.isMismatched) {
+                    contextText += `- CRITICAL: There is a severe alignment mismatch! You find this player's karma repulsive. Refuse to help them, trade with them, or cooperate in any way. Keep your response cold, hostile, or dismissive.\n`;
+                }
+            }
             contextText += `-------------------------------\n`;
         }
 
@@ -161,6 +169,15 @@ Your Persona: ${npcPersona}
 
 You must act perfectly in character. Do not break the fourth wall. 
 CRITICAL RAG INSTRUCTION: Use the Game Context provided below to dynamically weave the player's class, location, inventory, or active quests into your dialogue where natural. If they are heavily wounded, comment on it. If they have lots of gold, act greedy or impressed. If they are an samurai, be wary.
+If your alignment is Good:
+- Treat players with positive alignment (Good karma) with high respect, kindness, and warmth.
+- Treat players with negative alignment (Evil karma) with suspicion, hostility, or try to guide them back to the light.
+If your alignment is Evil:
+- Treat players with negative alignment (Evil karma) with respect, camaraderie, or wicked delight.
+- Treat players with positive alignment (Good karma) with mockery, disgust, or cold disdain.
+If your alignment is Neutral:
+- Treat players indifferently or pragmatically based on their actions, and value balance or wealth.
+
 ${contextText}
 
 Here is the conversation so far:
@@ -212,7 +229,7 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
     }
 
     async generateZoneData(zoneIndex, playerLevel, forceTown, playerClassId, targetBiome) {
-        const allHeroes = ['wizard', 'ranger', 'samurai', 'knight'];
+        const allHeroes = ['wizard', 'ranger', 'samurai', 'knight', 'elven_spellblade'];
         const availableHeroes = allHeroes.filter(c => c !== playerClassId);
 
         // Towns appear every 3-5 zones (or if forceTown)
@@ -253,13 +270,22 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
             ];
 
             if (isTown) {
-                const ni = Math.floor(Math.random() * townNpcNames.length);
+                const npcs = [];
+                for (let i = 0; i < 3; i++) {
+                    const ni = Math.floor(Math.random() * townNpcNames.length);
+                    npcs.push({
+                        name: townNpcNames[ni],
+                        persona: townPersonas[ni % townPersonas.length],
+                        x: 350 + Math.floor(Math.random() * 800) + (i * 150),
+                        spriteKey: 'npc'
+                    });
+                }
                 return {
                     name: townNames[absIdx % townNames.length],
                     type: 'Safe',
                     biome: 'Plains',
                     enemies: [],
-                    npcs: [{ name: townNpcNames[ni], persona: townPersonas[ni % townPersonas.length], x: 350 + Math.floor(Math.random() * 300), spriteKey: 'npc' }]
+                    npcs: npcs
                 };
             } else {
                 // Wilderness
@@ -312,12 +338,10 @@ The player is Level ${playerLevel}.
 Rules:
 1. "type" MUST be either "Safe" or "Dangerous".
 ${forceTown ? 
-`2. CRITICAL: This zone MUST be a Town/Castle. "type" MUST be "Safe". Safe zones MUST have exactly 4 NPCs:
-   - One with spriteKey "npc" (the Sage/Elder who offers lore and quests).
-   - One with spriteKey "blacksmith" (a weapon merchant).
-   - One with spriteKey "alchemist" (a potion and mystery chest merchant).
-   - One with spriteKey "ranger" (a hunter, scout, or captain offering wilderness goods or rumors).
-   Assign them unique fantasy names and personas based on their role.` 
+`2. CRITICAL: This zone MUST be a Town/Castle. "type" MUST be "Safe". Safe zones MUST have exactly 3 NPCs:
+   - Make all 3 NPCs have a spriteKey of "custom_townsfolk".
+   - Assign them unique fantasy names.
+   - Assign them personas based on town roles (e.g., merchant, guard, villager).` 
 :
 `2. CRITICAL: This zone MUST be a wilderness area. "type" MUST be "Dangerous".
 3. Wilderness zones MUST generate between ${minEnemies} and ${maxEnemies} enemies.
@@ -453,6 +477,7 @@ Keep it short, punchy, and atmospheric.`;
         else if (classId === 'wizard') persona = "A mysterious wizard who came from a rift of a foreign land.";
         else if (classId === 'samurai') persona = "A foreign samurai who traveled by boat to become a hero in Elden Soul's realm.";
         else if (classId === 'ranger') persona = "A stealthy ranger who is gruff but firm.";
+        else if (classId === 'elven_spellblade') persona = "An elegant elven spellblade who harmonizes blade combat with arcane magic.";
 
         const prompt = `You are playing the role of the main hero in a dark fantasy 2D RPG.
 Your Persona: ${persona}
@@ -462,7 +487,10 @@ Recent Chat Context:
 ${chatContext}
 
 Generate a short, 1-2 sentence response to the NPC's last message that perfectly fits your persona.
-Output ONLY the raw string of what your character says, without quotes.`;
+Return ONLY a valid JSON object in this format:
+{
+  "response": "Your dialogue here."
+}`;
 
         try {
             const result = await Promise.race([
@@ -470,7 +498,20 @@ Output ONLY the raw string of what your character says, without quotes.`;
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000))
             ]);
             let text = result.response.text().trim();
-            // Clean up any stray quotes
+            // Clean up any markdown code blocks
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            try {
+                const parsed = JSON.parse(text);
+                if (parsed && typeof parsed.response === 'string') {
+                    return parsed.response;
+                }
+            } catch (jsonErr) {
+                console.warn("GeminiService: JSON parse failed for hero autoplay response, using regex/fallback cleanup", jsonErr, text);
+            }
+            if (text.startsWith('{')) {
+                const match = text.match(/"response"\s*:\s*"([^"]+)"/) || text.match(/"storyText"\s*:\s*"([^"]+)"/);
+                if (match) return match[1];
+            }
             if (text.startsWith('"') && text.endsWith('"')) text = text.substring(1, text.length - 1);
             return text;
         } catch (e) {

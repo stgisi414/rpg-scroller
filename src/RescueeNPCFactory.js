@@ -132,7 +132,7 @@ class RescueeNPCFactory {
         // Create an offscreen canvas at the full sprite sheet size
         const canvas = document.createElement('canvas');
         canvas.width = sheetWidth;
-        canvas.height = sheetHeight;
+        canvas.height = 448; // 7 rows * 64px height
         const ctx = canvas.getContext('2d');
 
         // Draw each layer in order (skin first, hair last)
@@ -151,12 +151,39 @@ class RescueeNPCFactory {
             this.scene.textures.remove(textureKey);
         }
 
-        // Register the composited canvas as a Phaser spritesheet
-        // Frame size: 100×64, 8 columns × 7 rows
-        this.scene.textures.addSpriteSheet(textureKey, canvas, {
-            frameWidth: 100,
-            frameHeight: 64
-        });
+        const texture = this.scene.textures.addCanvas(textureKey, canvas);
+
+        // Asset pack canonical layout: 100x64 per frame, 8 cols x 7 rows.
+        const defaultRows = [];
+        for (let r = 0; r < 7; r++) {
+            defaultRows.push({ y: r * 64, h: 64 });
+        }
+
+        const baseSkinKey = layers[0];
+        const lookupSkin = (baseSkinKey && baseSkinKey.startsWith('npc_male_skin')) ? 'npc_male_skin1' : ((baseSkinKey && baseSkinKey.startsWith('npc_female_skin')) ? 'npc_female_skin1' : baseSkinKey);
+
+        const rowData = (window.sliceData && window.sliceData[lookupSkin])
+            ? window.sliceData[lookupSkin]
+            : defaultRows;
+
+        const colData = (window.sliceColData && window.sliceColData[lookupSkin]) ? window.sliceColData[lookupSkin] : null;
+
+        const numRows = rowData ? rowData.length : 7;
+
+        let frameIndex = 0;
+        for (let r = 0; r < numRows; r++) {
+            const overrideKey = lookupSkin + '_r' + r;
+            const rowCols = (window.sliceColData && window.sliceColData[overrideKey]) || colData;
+            const rowNumCols = rowCols ? rowCols.length : 8;
+            for (let c = 0; c < rowNumCols; c++) {
+                const x = rowCols ? rowCols[c].x : c * 100;
+                const w = rowCols ? rowCols[c].w : 100;
+                const y = rowData[r].y;
+                const h = rowData[r].h;
+                texture.add(frameIndex, 0, x, y, w, h);
+                frameIndex++;
+            }
+        }
     }
 
     /**

@@ -15,6 +15,18 @@ class ChatManager {
             
             player.chatSubmitHandler = () => this.handlePlayerMessage();
             player.chatKeyHandler = (e) => { if (e.key === 'Enter') this.handlePlayerMessage(); };
+            player.chatCloseHandler = () => this.closeChat();
+            player.chatInputKeydownHandler = (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.closeChat();
+                }
+            };
+            player.chatDocumentKeydownHandler = (e) => {
+                if (e.key === 'Escape') {
+                    this.closeChat();
+                }
+            };
         }
 
         player.isChatOpen = true;
@@ -30,19 +42,30 @@ class ChatManager {
         }
 
         // Ensure we remove previous listeners to avoid double-firing
+        const closeBtn = document.getElementById('chat-close');
         if (player.chatSubmitBtn) {
             player.chatSubmitBtn.removeEventListener('click', player.chatSubmitHandler);
         }
         if (player.chatInput) {
             player.chatInput.removeEventListener('keypress', player.chatKeyHandler);
+            player.chatInput.removeEventListener('keydown', player.chatInputKeydownHandler);
         }
+        if (closeBtn) {
+            closeBtn.removeEventListener('click', player.chatCloseHandler);
+        }
+        document.removeEventListener('keydown', player.chatDocumentKeydownHandler);
         
         if (player.chatSubmitBtn) {
             player.chatSubmitBtn.addEventListener('click', player.chatSubmitHandler);
         }
         if (player.chatInput) {
             player.chatInput.addEventListener('keypress', player.chatKeyHandler);
+            player.chatInput.addEventListener('keydown', player.chatInputKeydownHandler);
         }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', player.chatCloseHandler);
+        }
+        document.addEventListener('keydown', player.chatDocumentKeydownHandler);
 
         // Hide shop button if present
         const tradeBtn = document.getElementById('chat-trade');
@@ -82,6 +105,16 @@ class ChatManager {
         }
         if (player.chatInput && player.chatKeyHandler) {
             player.chatInput.removeEventListener('keypress', player.chatKeyHandler);
+        }
+        if (player.chatInput && player.chatInputKeydownHandler) {
+            player.chatInput.removeEventListener('keydown', player.chatInputKeydownHandler);
+        }
+        const closeBtn = document.getElementById('chat-close');
+        if (closeBtn && player.chatCloseHandler) {
+            closeBtn.removeEventListener('click', player.chatCloseHandler);
+        }
+        if (player.chatDocumentKeydownHandler) {
+            document.removeEventListener('keydown', player.chatDocumentKeydownHandler);
         }
 
         if (player.scene.inputManager) {

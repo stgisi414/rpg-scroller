@@ -92,14 +92,64 @@ class ShopManager {
         }
 
         // Filter items: only show generic items and items meant for the current class
-        items = items.filter(item => !item.classRestrict || item.classRestrict === player.classData.id);
+        items = items.filter(item => {
+            if (!item.classRestrict) return true;
+            if (item.classRestrict === player.classData.id) return true;
+            if ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
+                (item.classRestrict === 'knight' || item.classRestrict === 'samurai')) {
+                return true;
+            }
+            return false;
+        });
 
         // Apply Alignment Price Multiplier
         let multiplier = 1.0;
-        if (player.alignment >= 20) multiplier = 0.8; // Heroic discount
-        else if (player.alignment >= 10) multiplier = 0.9; // Good discount
-        else if (player.alignment <= -20) multiplier = 1.5; // Villainous markup
-        else if (player.alignment <= -10) multiplier = 1.2; // Evil markup
+        
+        // Find NPC to get their alignment
+        const npcObj = player.scene.npcs.find(n => n.npcName === npcName);
+        const npcAlignment = npcObj ? npcObj.alignment : 'Neutral';
+        
+        // Categorize player's alignment
+        let playerAlignType = 'Neutral';
+        if (player.alignment >= 10) playerAlignType = 'Good';
+        else if (player.alignment <= -10) playerAlignType = 'Evil';
+        
+        let suffix = '';
+        if (npcAlignment === 'Good') {
+            if (playerAlignType === 'Good') {
+                multiplier = 0.8; // Match! 20% discount
+                suffix = ' (Good - Trusted Discount)';
+            } else if (playerAlignType === 'Evil') {
+                multiplier = 1.5; // Mismatch! 50% markup
+                suffix = ' (Good - Hostile Markup)';
+            } else {
+                suffix = ' (Good)';
+            }
+        } else if (npcAlignment === 'Evil') {
+            if (playerAlignType === 'Evil') {
+                multiplier = 0.8; // Match! 20% discount
+                suffix = ' (Evil - Syndicate Discount)';
+            } else if (playerAlignType === 'Good') {
+                multiplier = 1.5; // Mismatch! 50% markup
+                suffix = ' (Evil - Hostile Markup)';
+            } else {
+                suffix = ' (Evil)';
+            }
+        } else { // Neutral NPC
+            if (playerAlignType === 'Good') {
+                multiplier = 0.9; // Good guys get slight discount (10%)
+                suffix = ' (Neutral - Friendly Discount)';
+            } else if (playerAlignType === 'Evil') {
+                multiplier = 1.1; // Evil guys get slight markup (10%)
+                suffix = ' (Neutral - Shady Markup)';
+            } else {
+                suffix = ' (Neutral)';
+            }
+        }
+        
+        if (shopTitle) {
+            shopTitle.innerText = npcName + suffix;
+        }
         
         items.forEach(item => {
             item.price = Math.max(1, Math.round(item.price * multiplier));
@@ -153,9 +203,18 @@ class ShopManager {
             
             let classBadge = '';
             if (item.classRestrict) {
-                const color = item.classRestrict === player.classData.id ? 'text-primary' : 'text-error';
+                const canUseThis = item.classRestrict === player.classData.id || 
+                                  ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
+                                   (item.classRestrict === 'knight' || item.classRestrict === 'samurai'));
+                const color = canUseThis ? 'text-primary' : 'text-error';
                 classBadge = `<br><span class="${color} font-bold">[${item.classRestrict.toUpperCase()}]</span>`;
             }
+
+            const isArtifactOwned = item.type === 'artifact' && player.inventory.artifacts && player.inventory.artifacts.includes(item.key);
+            const isWeaponEquipped = item.type === 'weapon' && player.inventory.weapon && player.inventory.weapon.key === item.key;
+            const isOwned = isArtifactOwned || isWeaponEquipped;
+
+            const priceText = isOwned ? '<span class="text-primary font-headline-sm font-bold uppercase tracking-wider">Owned</span>' : `${item.price}g`;
 
             const btnHtml = `
                 <div class="bg-surface-container-highest border border-outline-variant p-4 flex flex-col items-center gap-2 rounded hover:border-primary transition-colors cursor-pointer" id="shop-item-${idx}">
@@ -164,7 +223,7 @@ class ShopManager {
                     </div>
                     <div class="font-label-caps text-[12px] text-on-surface font-bold text-center">${item.name}</div>
                     <div class="font-body-sm text-[10px] text-on-surface-variant text-center h-8">${item.desc}${classBadge}</div>
-                    <div class="font-headline-sm text-secondary font-bold text-[14px] mt-2">${item.price}g</div>
+                    <div class="font-headline-sm text-secondary font-bold text-[14px] mt-2">${priceText}</div>
                 </div>
             `;
             itemsContainer.insertAdjacentHTML('beforeend', btnHtml);
@@ -172,7 +231,16 @@ class ShopManager {
             // Wait for DOM update
             setTimeout(() => {
                 const el = document.getElementById(`shop-item-${idx}`);
-                if (el) el.onclick = () => player.buyItem(item);
+                if (el) {
+                    if (isOwned) {
+                        el.style.opacity = '0.6';
+                        el.style.cursor = 'default';
+                        el.classList.remove('hover:border-primary', 'cursor-pointer');
+                        el.onclick = null;
+                    } else {
+                        el.onclick = () => player.buyItem(item);
+                    }
+                }
             }, 0);
         });
 
@@ -244,7 +312,11 @@ class ShopManager {
             itemObj = allItems.find(i => i.key === item) || { key: item, price: 0, type: 'unknown' };
         }
 
-        if (itemObj.classRestrict && itemObj.classRestrict !== player.classData.id) {
+        const canUse = !itemObj.classRestrict || 
+                      itemObj.classRestrict === player.classData.id || 
+                      ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
+                       (itemObj.classRestrict === 'knight' || itemObj.classRestrict === 'samurai'));
+        if (!canUse) {
             // Flash red for class restricted
             const ui = document.getElementById('shop-title');
             if(ui) {
@@ -329,7 +401,7 @@ class ShopManager {
         const player = this.player;
         const classId = player.classData.id;
         let chain = [];
-        if (classId === 'knight' || classId === 'warrior') {
+        if (classId === 'knight' || classId === 'warrior' || classId === 'elven_spellblade' || classId === 'elven_spellblade_rival') {
             chain = [
                 { key: 'weapon-bronze-sword', name: 'Bronze Sword', desc: '+2 Damage', damageBonus: 2, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_05.png' },
                 { key: 'weapon-iron-sword', name: 'Iron Broadsword', desc: '+5 Damage', damageBonus: 5, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/OneHanded/PixelArt_FantasyWeapons_01_OneHand_02.png' },

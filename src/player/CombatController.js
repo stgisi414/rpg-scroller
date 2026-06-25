@@ -14,7 +14,7 @@ class CombatController {
         }
 
         // Branch logic based on class
-        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
+        if (cd.id === 'wizard' || cd.id === 'wizard_rival' || (cd.id && cd.id.startsWith('custom_npc_') && cd.weaponType === 'magic')) {
             // Mana check - single shot costs 2 MP
             if (player.mp < 2) {
                 player.isAttacking = false;
@@ -64,10 +64,21 @@ class CombatController {
                     const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
                     // Class-specific damage formulas
                     let damage;
-                    if (cd.id === 'samurai') {
+                    if (cd.id && cd.id.startsWith('custom_npc_')) {
+                        const weaponType = cd.weaponType || 'sword';
+                        if (weaponType === 'axe' || weaponType === 'pickaxe') {
+                            damage = (cd.stats.str * 3.5) + weaponBonus + Math.floor(Math.random() * 5);
+                        } else if (weaponType === 'hoe') {
+                            damage = (cd.stats.str * 2.5) + (cd.stats.dex * 1.5) + weaponBonus + Math.floor(Math.random() * 5);
+                        } else { // sword / default
+                            damage = (cd.stats.str * 3) + weaponBonus + Math.floor(Math.random() * 5);
+                        }
+                    } else if (cd.id === 'samurai') {
                         damage = Math.floor(cd.stats.dex * 2.5) + Math.floor(cd.stats.str * 0.5) + weaponBonus + Math.floor(Math.random() * 5);
                     } else if (cd.id === 'ranger') {
                         damage = (cd.stats.dex * 2) + cd.stats.str + weaponBonus + Math.floor(Math.random() * 5);
+                    } else if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+                        damage = Math.floor(cd.stats.str * 3.5) + Math.floor(cd.stats.int * 1.5) + weaponBonus + Math.floor(Math.random() * 5);
                     } else {
                         // Knight / Warrior — STR primary
                         damage = (cd.stats.str * 3) + weaponBonus + Math.floor(Math.random() * 5);
@@ -226,20 +237,79 @@ class CombatController {
         const player = this.player;
         const cd = player.classData;
         
-        if (cd.id !== 'wizard' && cd.id !== 'wizard_rival') return;
+        if (cd.id !== 'wizard' && cd.id !== 'wizard_rival' && cd.id !== 'elven_spellblade' && cd.id !== 'elven_spellblade_rival') return;
         
-        // Mana check - mega AoE costs 10 MP
-        if (player.mp < 10) {
+        // Mana check - Spellblade burst costs 8 MP, wizard AoE costs 10 MP
+        const cost = (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') ? 8 : 10;
+        if (player.mp < cost) {
             if (!player.isAI && player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, 'No Mana!', 0x4488ff);
             return;
         }
-        player.mp -= 10;
+        player.mp -= cost;
         
         player.isAttacking = true;
         
         const comboKey = cd.id + '_combo';
         if (cd.isSheet && player.scene.anims.exists(comboKey)) {
             player._playAnim(comboKey);
+        }
+
+        if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+            player.scene.time.delayedCall(300, () => {
+                const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
+                const damage = Math.floor(cd.stats.int * 3.5) + weaponBonus + 5;
+                const dir = player.facingDirection || 1;
+                
+                // Fire 3 orbs in spread
+                for (let i = 0; i < 3; i++) {
+                    player.scene.time.delayedCall(i * 120, () => {
+                        if (!player.sprite || !player.sprite.active) return;
+                        
+                        const p = player.scene.physics.add.sprite(player.sprite.x + (dir * 25), player.sprite.y - 10, 'projectile_blue');
+                        if (player.scene.anims.exists('projectile_blue_anim')) {
+                            p.play('projectile_blue_anim');
+                        }
+                        p.body.setAllowGravity(false);
+                        p.setScale(1.8);
+                        
+                        const vy = (i - 1) * 60; // Spread: -60 (upward), 0 (straight), 60 (downward)
+                        p.setVelocity(dir * 500, vy);
+                        if (dir === -1) p.setFlipX(true);
+                        
+                        const targetGroup = player.aiState === 'hostile' ? p.scene.player.sprite : player.scene.enemies;
+                        const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
+                            if (player.aiState === 'hostile') {
+                                if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
+                                    const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
+                                    if (yDiff > 45) return;
+                                    player.scene.player.takeDamage(damage, dir);
+                                    proj.destroy();
+                                    player.scene.physics.world.removeCollider(overlap);
+                                }
+                            } else {
+                                if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
+                                    if (targetSprite.controller.isDead) return;
+                                    const yDiff = Math.abs(proj.y - targetSprite.y);
+                                    if (yDiff > 45) return;
+                                    targetSprite.controller.takeDamage(damage, dir);
+                                    this.applyLifesteal(damage);
+                                    if (Math.random() < 0.4 && targetSprite.controller.applyStatusEffect) {
+                                        targetSprite.controller.applyStatusEffect('burn', 3000, 10);
+                                    }
+                                    proj.destroy();
+                                    player.scene.physics.world.removeCollider(overlap);
+                                }
+                            }
+                        });
+                        
+                        player.scene.time.delayedCall(1500, () => { if (p.active) p.destroy(); });
+                    });
+                }
+            });
+            player.scene.time.delayedCall(800, () => {
+                player.isAttacking = false;
+            });
+            return;
         }
 
         // Trigger massive AoE explosion around the player
@@ -402,13 +472,14 @@ class CombatController {
         const player = this.player;
         const cd = player.classData;
         
-        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
-            // Mana check - burst costs 4 MP
-            if (player.mp < 4) {
+        if (cd.id === 'wizard' || cd.id === 'wizard_rival' || cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+            // Mana check - Spellblade super spell costs 4 MP
+            const cost = (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') ? 4 : 4;
+            if (player.mp < cost) {
                 if (!player.isAI && player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, 'No Mana!', 0x4488ff);
                 return;
             }
-            player.mp -= 4;
+            player.mp -= cost;
         } else if (cd.id === 'samurai') {
             // Stamina check - 80% of maxSP, lowered by vitality
             let costRatio = 0.8 - (cd.stats.vit * 0.015); // e.g. 10 vit = -15% = 65% of max
@@ -473,9 +544,7 @@ class CombatController {
                     y: curFrame.frame ? curFrame.frame.cutY : '?'
                 });
             }
-        }
-
-        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
+        }        if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
             // Trigger 3-orb burst after a short delay (approx when wand is raised)
             player.scene.time.delayedCall(400, () => {
                 const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
@@ -506,7 +575,7 @@ class CombatController {
                                 if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
                                     const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
                                     if (yDiff > 45) return;
-
+ 
                                     player.scene.player.takeDamage(damage, dir);
                                     proj.destroy();
                                     player.scene.physics.world.removeCollider(overlap);
@@ -517,7 +586,7 @@ class CombatController {
                                     
                                     const yDiff = Math.abs(proj.y - targetSprite.y);
                                     if (yDiff > 45) return;
-
+ 
                                     targetSprite.controller.takeDamage(damage, dir);
                                     this.applyLifesteal(damage);
                                     proj.destroy();
@@ -529,6 +598,52 @@ class CombatController {
                         player.scene.time.delayedCall(1200, () => { if(p.active) p.destroy(); });
                     });
                 }
+            });
+        } else if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+            player.scene.time.delayedCall(300, () => {
+                const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
+                const damage = Math.floor(cd.stats.int * 4.5) + weaponBonus + 10;
+                const dir = player.facingDirection || 1;
+                
+                if (!player.sprite || !player.sprite.active) return;
+                const p = player.scene.physics.add.sprite(player.sprite.x + (dir * 25), player.sprite.y - 10, 'projectile_blue');
+                if (player.scene.anims.exists('projectile_blue_anim')) {
+                    p.play('projectile_blue_anim');
+                }
+                p.body.setAllowGravity(false);
+                p.setScale(1.5);
+                p.setVelocity(dir * 500, 0);
+                
+                const targetGroup = player.aiState === 'hostile' ? p.scene.player.sprite : player.scene.enemies;
+                const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
+                    if (player.aiState === 'hostile') {
+                        if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
+                            const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
+                            if (yDiff > 45) return;
+                            player.scene.player.takeDamage(damage, dir);
+                            proj.destroy();
+                            player.scene.physics.world.removeCollider(overlap);
+                        }
+                    } else {
+                        if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
+                            if (targetSprite.controller.isDead) return;
+                            const yDiff = Math.abs(proj.y - targetSprite.y);
+                            if (yDiff > 45) return;
+                            targetSprite.controller.takeDamage(damage, dir);
+                            this.applyLifesteal(damage);
+                            if (Math.random() < 0.3 && targetSprite.controller.applyStatusEffect) {
+                                targetSprite.controller.applyStatusEffect('burn', 3000, 8);
+                            }
+                            proj.destroy();
+                            player.scene.physics.world.removeCollider(overlap);
+                        }
+                    }
+                });
+                
+                player.scene.time.delayedCall(1500, () => { if (p.active) p.destroy(); });
+            });
+            player.scene.time.delayedCall(600, () => {
+                player.isAttacking = false;
             });
         } else if (cd.id === 'samurai') {
             // Samurai combo: 16 frames, 4 hits

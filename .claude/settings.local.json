@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const s=require\\('image-size'\\); ['src/assets/GandalfHardcore Character Asset Pack/GandalfHardcore Character Asset Pack/Character skin colors/Male Skin1.png','src/assets/GandalfHardcore Character Asset Pack/GandalfHardcore Character Asset Pack/Male Hair/Male Hair1.png','src/assets/GandalfHardcore Character Asset Pack/GandalfHardcore Character Asset Pack/Male Clothing/Pants.png','src/assets/GandalfHardcore 36x Hand Items/GandalfHardcore 35x Hand Items/Male Hand/Diamond Sword.png','src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Male Hat1.png'].forEach\\(p=>{try{const d=s\\(p\\);console.log\\(p,'=>',d.width+'x'+d.height,'  /100w='+d.width/100,'/80w='+d.width/80,'/64h='+d.height/64\\);}catch\\(e\\){console.log\\('ERR',p,e.message\\);}}\\);\")",
+      "Bash(where ffmpeg *)",
+      "Bash(findstr /i \"mp4 mov webm gif avi mkv\")",
+      "Bash(curl -s -o NUL -w \"HTTP %{http_code}\" http://127.0.0.1:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:3000/)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(netstat -ano)",
+      "Bash(node verify_slice_variance.js)",
+      "Bash(node verify_town_npcs.js)"
+    ]
+  }
+}

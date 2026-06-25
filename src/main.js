@@ -49,6 +49,17 @@ window.INDOOR_LOCATIONS = {
         floorTint: 0x3D5A3D,
         action: 'brew'
     },
+    estate: {
+        name: 'Your Estate',
+        icon: 'home',
+        bg: 'bg_cottage',
+        desc: 'Rest and manage your homestead',
+        npcSprite: 'spouse', // We will dynamically set this
+        npcName: 'Your Spouse',
+        npcPersona: 'Your loving spouse who manages the estate while you adventure.',
+        floorTint: 0x5C4033,
+        action: 'estate'
+    },
     guild_hall: {
         name: 'Guild Hall',
         icon: 'military_tech',
@@ -228,6 +239,35 @@ const classesData = {
         idleFrames: 5, idleRow: 0,
         slotPortraitX: -6, slotPortraitY: -20,
         stats: { vit: 11, str: 12, dex: 15, int: 9 }
+    },
+    elven_spellblade: {
+        id: 'elven_spellblade',
+        name: 'Spellblade',
+        tagline: 'Arcane Blade, Swift as Wind',
+        desc: 'A mystical elven warrior who blends physical swordplay with powerful arcane spells. High physical and magical damage.',
+        image: 'src/assets/elven_spellblade.png?v=3',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 50,
+        spriteScale: 1.15,
+        previewScale: 1.6,
+        createPreviewScale: 1.6,
+        previewOffsetY: -19,
+        animFrames: {
+            idle: { start: 0, end: 8 },
+            walk: { start: 9, end: 17 },
+            attack: { start: 18, end: 26 },
+            combo: { start: 27, end: 35 },
+            hit: { start: 36, end: 40 },
+            die: { start: 41, end: 49 },
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] }
+        },
+        idleFrames: 9, idleRow: 0,
+        slotPortraitX: -22, slotPortraitY: -18,
+        stats: { vit: 12, str: 13, dex: 11, int: 14 },
+        attackDuration: 600
     }
 };
 
@@ -240,6 +280,8 @@ classesData.samurai_rival = { ...classesData.samurai, id: 'samurai_rival', stats
 classesData.samurai_rival.image = 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png';
 classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival', stats: { vit: 25, str: 15, dex: 25, int: 15 }, animFrames: JSON.parse(JSON.stringify(classesData.ranger.animFrames || {})) };
 classesData.ranger_rival.image = 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png';
+classesData.elven_spellblade_rival = { ...classesData.elven_spellblade, id: 'elven_spellblade_rival', stats: { vit: 24, str: 22, dex: 18, int: 26 }, animFrames: JSON.parse(JSON.stringify(classesData.elven_spellblade.animFrames || {})) };
+classesData.elven_spellblade_rival.image = 'src/assets/elven_spellblade.png?v=3';
 classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 }, animFrames: JSON.parse(JSON.stringify(classesData.heavy_knight.animFrames || {})) };
 classesData.megaboss_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
 
@@ -277,7 +319,7 @@ function selectClass(classId) {
     if (data.isSheet) {
         // Show only the first frame of the sprite sheet
         // Base scale entirely on height (64px) so all characters are equally tall
-        const scale = 256 / data.frameHeight;
+        const scale = (256 / data.frameHeight) * (data.createPreviewScale || 1);
         
         // Hide image until ready to prevent flashing the full sheet
         container.style.backgroundImage = 'none';

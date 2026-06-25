@@ -1,16 +1,37 @@
 class CompanionAI {
     constructor(player) {
         this.player = player;
+        this._wantsToAdventure = false;
+        this._lastZoneIndex = null;
+    }
+
+    _isElementVisible(id) {
+        const el = document.getElementById(id);
+        return el && window.getComputedStyle(el).display !== 'none';
     }
 
     updateAI(time, delta) {
         const player = this.player;
-        if (!player.sprite || !player.sprite.active) return;
+        if (!player.sprite || !player.sprite.active) {
+            return;
+        }
+
+        // Reset wantsToAdventure when entering a Safe zone
+        const currentZoneIndex = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : 0;
+        if (this._lastZoneIndex !== currentZoneIndex) {
+            this._lastZoneIndex = currentZoneIndex;
+            if (player.scene.zoneType === 'Safe') {
+                this._wantsToAdventure = false;
+                this._wantsToTravel = false;
+            }
+        }
         
         // DON'T reset inputs every frame - only reset on each AI tick
         // This ensures the shared update() sees the flags for movement/animation
         
-        if (time - player.lastAITick < 100) return;
+        if (time - player.lastAITick < 100) {
+            return;
+        }
         player.lastAITick = time;
 
         // Reset inputs at the start of each tick
@@ -24,7 +45,9 @@ class CompanionAI {
         player.aiInput.summonSpell = false;
 
         const p = player.scene.player;
-        if (!p || !p.sprite || !p.sprite.active) return;
+        if (!p || !p.sprite || !p.sprite.active) {
+            return;
+        }
         
         if (player.isAI && player === p) {
             this._handleMainHeroAutoPlay(time, delta);
@@ -32,7 +55,35 @@ class CompanionAI {
         
         let target = null;
         
-        if (player.aiState === 'party') {
+        let hasCloseNpc = false;
+        if (player === p && player.scene.zoneType === 'Safe') {
+            const isChatOpen = this._isElementVisible('chat-ui');
+            const isShopOpen = this._isElementVisible('ui-shop');
+            if (player.scene.npcs && !isChatOpen && !isShopOpen && (time - (this._lastChatClosedTime || 0) > 8000)) {
+                let minDist = Infinity;
+                player.scene.npcs.forEach(npc => {
+                    if (npc && npc.sprite && npc.sprite.active) {
+                        const d = Math.abs(npc.sprite.x - player.sprite.x);
+                        if (d < minDist) { minDist = d; }
+                    }
+                });
+                if (minDist < 200) {
+                    hasCloseNpc = true;
+                }
+            }
+        }
+
+        const hasMainHeroSafeZoneInput = player === p && player.scene.zoneType === 'Safe' && (
+            player.aiInput.left || 
+            player.aiInput.right || 
+            player.aiInput.interact ||
+            (!this._wantsToAdventure && hasCloseNpc) ||
+            this._isElementVisible('chat-ui') ||
+            this._isElementVisible('ui-shop') ||
+            this._isElementVisible('ui-town-directory')
+        );
+
+        if (player.aiState === 'party' && !hasMainHeroSafeZoneInput) {
             let closestEnemy = null;
             let minDist = Infinity;
             player.scene.enemies.getChildren().forEach(e => {
@@ -48,23 +99,49 @@ class CompanionAI {
                 }
             });
             
-            if (closestEnemy && minDist < 400) {
+            // Main hero in Auto-Play targets enemies at any distance (full zone seeking).
+            // Companions only target enemies within 400px to avoid running off-screen away from the player.
+            const maxDetectionDist = (player === p) ? 3000 : 400;
+            if (closestEnemy && minDist < maxDetectionDist) {
                 target = closestEnemy;
             } else {
-                let targetX = player.lastVirtualTargetX || player.sprite.x;
-                if (!player.lastVirtualTargetX || Math.abs(player.sprite.x - player.lastVirtualTargetX) < 15 || time % 8000 < 100) {
-                    const widthTiles = player.scene.zoneType === 'Safe' ? 40 : 84;
-                    const totalWidth = widthTiles * 46;
-                    // Wander towards the right, but if close to the border, wander towards the left
-                    if (player.sprite.x > totalWidth - 250) targetX = player.sprite.x - 200;
-                    else if (player.sprite.x < 250) targetX = player.sprite.x + 200;
-                    else targetX = player.sprite.x + (Math.random() < 0.5 ? 200 : -200);
+                let isProgression = false;
+                const widthTiles = player.scene.zoneType === 'Safe' ? 40 : 84;
+                const totalWidth = widthTiles * 46;
+                
+                if (player === p) {
+                    if (player.scene.zoneType !== 'Safe') {
+                        // Check if all enemies in the zone are dead
+                        let hasEnemies = false;
+                        player.scene.enemies.getChildren().forEach(e => {
+                            if (e.active && (!e.controller || !e.controller.isDead)) {
+                                hasEnemies = true;
+                            }
+                        });
+                        if (!hasEnemies) {
+                            isProgression = true;
+                        }
+                    } else if (this._wantsToAdventure) {
+                        isProgression = true;
+                    }
                 }
-                player.lastVirtualTargetX = targetX;
-                if (player !== p) {
-                    target = p.sprite;
+
+                if (isProgression) {
+                    target = { x: totalWidth + 100, y: player.sprite.y, isVirtual: true };
                 } else {
-                    target = { x: targetX, y: player.sprite.y, isVirtual: true };
+                    let targetX = player.lastVirtualTargetX || player.sprite.x;
+                    if (!player.lastVirtualTargetX || Math.abs(player.sprite.x - player.lastVirtualTargetX) < 15 || time % 8000 < 100) {
+                        // Wander towards the right, but if close to the border, wander towards the left
+                        if (player.sprite.x > totalWidth - 250) targetX = player.sprite.x - 200;
+                        else if (player.sprite.x < 250) targetX = player.sprite.x + 200;
+                        else targetX = player.sprite.x + (Math.random() < 0.5 ? 200 : -200);
+                    }
+                    player.lastVirtualTargetX = targetX;
+                    if (player !== p) {
+                        target = p.sprite;
+                    } else {
+                        target = { x: targetX, y: player.sprite.y, isVirtual: true };
+                    }
                 }
             }
         } else if (player.aiState === 'hostile') {
@@ -80,11 +157,14 @@ class CompanionAI {
                 if (time - (player.lastTacticTime || 0) > 3000) {
                     player.lastTacticTime = time;
                     let optimalDist = 40; // Melee
-                    if (player.classData.id === 'wizard' || player.classData.id === 'ranger') optimalDist = 150; // Ranged
+                    const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+                    if (isRanged) {
+                        optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                    }
 
                     const battleState = {
                         enemyType: player.classId || 'Rival',
-                        enemyClassType: (player.classId && (player.classId.includes('ranger') || player.classId.includes('wizard'))) ? 'RANGED' : 'MELEE',
+                        enemyClassType: isRanged ? 'RANGED' : 'MELEE',
                         distance: dist,
                         playerAction: p.isAttacking ? "Attacking" : "Idle",
                         playerHp: p.hp,
@@ -124,7 +204,10 @@ class CompanionAI {
                         player.currentTactic = 'IDLE';
                     } else if (player.currentTactic === 'CHASE') {
                         let optimalDist = 40; // Melee
-                        if (player.classData.id === 'wizard' || player.classData.id === 'ranger') optimalDist = 150; // Ranged
+                        const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+                        if (isRanged) {
+                            optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                        }
                         if (dist > optimalDist - 20) {
                             if (dx > 0) player.aiInput.right = true; else player.aiInput.left = true;
                         } else {
@@ -147,7 +230,10 @@ class CompanionAI {
             // --- END GEMINI AI ---
             
             let optimalDist = 40; // Melee
-            if (player.classData.id === 'wizard' || player.classData.id === 'ranger') optimalDist = 150; // Ranged
+            const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+            if (isRanged) {
+                optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+            }
             if (target === p.sprite && player.aiState === 'party') optimalDist = 80; // Follow distance
             
             // For virtual targets (wandering), ignore optimal distance and just walk there
@@ -199,8 +285,9 @@ class CompanionAI {
                 }
             }
 
-            // Attack logic - attack when in range
-            if (player.aiState === 'hostile' || target !== p.sprite) {
+            // Attack logic - attack when in range and target is an enemy
+            const isEnemy = target && !target.isVirtual && target !== p.sprite && target !== player.sprite;
+            if (player.aiState === 'hostile' || isEnemy) {
                 // Adjust trigger distance so melee units actually reach the target instead of swinging at air
                 let attackRange = optimalDist + 30;
                 if (!isVirtual && target.type === 'spider') attackRange = optimalDist + 60; // large hitbox
@@ -242,6 +329,14 @@ class CompanionAI {
                     let costRatio = 0.8 - ((player.classData.stats.vit || 10) * 0.015);
                     if (costRatio < 0.2) costRatio = 0.2;
                     if (player.sp >= player.maxSp * costRatio && dist <= attackRange + 50 && Math.random() < 0.15) {
+                        player.aiInput.superSpell = true;
+                        usedSpell = true;
+                    }
+                } else if (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') {
+                    if (player.mp >= 8 && Math.random() < 0.1) {
+                        player.aiInput.megaSpell = true;
+                        usedSpell = true;
+                    } else if (player.mp >= 4 && dist <= attackRange + 80 && Math.random() < 0.2) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
@@ -387,40 +482,69 @@ class CompanionAI {
 
         // 2. TOWN & SAFE ZONE BEHAVIORS
         if (scene.zoneType === 'Safe') {
+            // Leave indoor locations after a small duration
+            if (scene.isIndoors) {
+                const leaveBtn = scene.indoorLeaveBtn;
+                if (leaveBtn && leaveBtn.style.display !== 'none') {
+                    if (this._wantsToAdventure || Math.random() < 0.005) {
+                        leaveBtn.click();
+                        return;
+                    }
+                }
+            }
+
             // Emotes (Idle)
             if (Math.random() < 0.005 && player.sprite.body.velocity.x === 0 && scene.showFloatingText) {
                 const emotes = ["💤", "...", "✨", "🎵"];
                 scene.showFloatingText(player.sprite.x, player.sprite.y - 40, emotes[Math.floor(Math.random()*emotes.length)], 0xffffff);
             }
 
-            // Party Camaraderie Chat
-            if (scene.partyMembers && scene.partyMembers.length > 0 && Math.random() < 0.002) {
+            // NPC Interaction & Trading
+            const isChatOpen = this._isElementVisible('chat-ui');
+            const isShopOpen = this._isElementVisible('ui-shop');
+            const isDirOpen = this._isElementVisible('ui-town-directory');
+
+            // Randomly want to adventure if not already chatting/shopping/etc.
+            if (!isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && !this._wantsToAdventure && Math.random() < 0.002) {
+                this._wantsToAdventure = true;
+                this._wantsToTravel = false;
+            }
+
+            // Party Camaraderie Chat (only trigger if chat and shop are not already open)
+            if (!isChatOpen && !isShopOpen && scene.partyMembers && scene.partyMembers.length > 0 && Math.random() < 0.002) {
                 const chatIdx = Math.floor(Math.random() * scene.partyMembers.length);
                 if (window._gameScene && window._gameScene.startPartyChat) {
                     window._gameScene.startPartyChat(chatIdx);
                 }
             }
 
-            // NPC Interaction & Trading
-            const chatUI = document.getElementById('chat-ui');
-            const shopUI = document.getElementById('ui-shop');
-            const isChatOpen = chatUI && chatUI.style.display !== 'none';
-            const isShopOpen = shopUI && shopUI.style.display !== 'none';
+            // Detect when chat closes
+            if (!isChatOpen && this._wasChatOpen) {
+                this._wasChatOpen = false;
+                this._lastChatClosedTime = time;
+            }
 
             if (isShopOpen) {
+                if (this._wantsToAdventure) {
+                    const closeBtn = document.getElementById('btn-close-shop');
+                    if (closeBtn) closeBtn.click();
+                    return;
+                }
                 // Trading Logic
                 if (time - (this._lastTradeTime || 0) > 1500) {
                     this._lastTradeTime = time;
                     const itemsContainer = document.getElementById('shop-items-container');
                     if (itemsContainer && window.saveData) {
-                        const buyButtons = Array.from(itemsContainer.querySelectorAll('button')).filter(b => b.innerText.includes('Buy'));
-                        const affordable = buyButtons.filter(b => {
-                            const costMatch = b.innerText.match(/(\d+)g/);
+                        const itemCards = Array.from(itemsContainer.children);
+                        const affordable = itemCards.filter(card => {
+                            const priceEl = card.querySelector('.font-headline-sm');
+                            if (!priceEl) return false;
+                            const costMatch = priceEl.innerText.match(/(\d+)g/);
                             return costMatch && parseInt(costMatch[1]) <= window.saveData.gold;
                         });
 
                         if (affordable.length > 0 && Math.random() < 0.6) {
-                            // Buy something
+                            // Click the card to buy
                             affordable[Math.floor(Math.random() * affordable.length)].click();
                             if (scene.showFloatingText) scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "Bought item!", 0x00ff00);
                         } else {
@@ -434,6 +558,36 @@ class CompanionAI {
             }
 
             if (isChatOpen) {
+                this._wasChatOpen = true;
+
+                const inputField = document.getElementById('chat-input');
+                const submitBtn = document.getElementById('chat-submit');
+
+                // If the NPC is currently generating a response, wait!
+                if (inputField && inputField.disabled) {
+                    return;
+                }
+
+                // Initialize message count for this conversation
+                const npcName = document.getElementById('chat-npc-name')?.innerText || 'NPC';
+                if (this._currentChatNpc !== npcName) {
+                    this._currentChatNpc = npcName;
+                    this._chatMessageCount = 0;
+                }
+
+                // If we've chatted enough, close the chat (use 10% chance for a brief natural pause)
+                if (this._chatMessageCount >= 3 && Math.random() < 0.1) {
+                    const activeNpc = scene.npcs.find(n => n.isChatOpen);
+                    if (activeNpc) {
+                        activeNpc.closeChat();
+                        this._currentChatNpc = null;
+                        this._chatMessageCount = 0;
+                        this._wasChatOpen = false;
+                        this._lastChatClosedTime = time;
+                        return;
+                    }
+                }
+
                 // Roleplay Chat Logic
                 if (time - (this._lastChatTime || 0) > 4000) {
                     this._lastChatTime = time;
@@ -449,12 +603,9 @@ class CompanionAI {
                         // Extract recent chat context to reply
                         const chatLines = Array.from(historyDiv.querySelectorAll('div')).map(d => d.innerText);
                         const chatContext = chatLines.slice(-3).join('\n');
-                        
-                        const inputField = document.getElementById('chat-input');
-                        const submitBtn = document.getElementById('chat-submit');
-                        const npcName = document.getElementById('chat-npc-name')?.innerText || 'NPC';
 
                         if (inputField && submitBtn && !inputField.value) {
+                            this._chatMessageCount = (this._chatMessageCount || 0) + 1;
                             scene.geminiService.getHeroAutoPlayResponse(player.classData.id, npcName, chatContext).then(reply => {
                                 inputField.value = reply;
                                 submitBtn.click();
@@ -469,38 +620,43 @@ class CompanionAI {
             }
 
             // Find NPCs to talk to
-            if (scene.npcs && !isChatOpen && !isShopOpen) {
+            if (scene.npcs && !isChatOpen && !isShopOpen && !this._wantsToAdventure && time - (this._lastChatClosedTime || 0) > 8000) {
                 let closestNpc = null;
                 let minDist = Infinity;
-                scene.npcs.getChildren().forEach(npc => {
-                    if (npc.active) {
-                        const d = Math.abs(npc.x - player.sprite.x);
+                scene.npcs.forEach(npc => {
+                    if (npc && npc.sprite && npc.sprite.active) {
+                        const d = Math.abs(npc.sprite.x - player.sprite.x);
                         if (d < minDist) { minDist = d; closestNpc = npc; }
                     }
                 });
 
                 if (closestNpc && minDist < 200) {
                     if (minDist > 60) {
-                        if (closestNpc.x > player.sprite.x) player.aiInput.right = true;
-                        else player.aiInput.left = true;
-                    } else if (Math.random() < 0.02 && time - (this._lastInteractTime || 0) > 5000) {
-                        this._lastInteractTime = time;
+                        if (closestNpc.sprite.x > player.sprite.x) {
+                            player.aiInput.right = true;
+                        } else {
+                            player.aiInput.left = true;
+                        }
+                    } else {
                         player.aiInput.interact = true;
                     }
                 }
             }
 
             // Town Directory Navigation
-            const dirUI = document.getElementById('ui-town-directory');
-            const isDirOpen = dirUI && dirUI.style.display !== 'none';
             if (isDirOpen) {
-                if (time - (this._lastDirTime || 0) > 2000) {
-                    this._lastDirTime = time;
+                if (this._wantsToAdventure) {
+                    const closeBtn = document.getElementById('btn-close-directory');
+                    if (closeBtn) closeBtn.click();
+                    return;
+                }
+                if (time - (this._lastDirTime || 0) > 1000) {
                     const locContainer = document.getElementById('directory-locations-container');
                     if (locContainer) {
-                        const buttons = Array.from(locContainer.querySelectorAll('button'));
-                        if (buttons.length > 0) {
-                            buttons[Math.floor(Math.random() * buttons.length)].click();
+                        const cards = Array.from(locContainer.children);
+                        if (cards.length > 0) {
+                            this._lastDirTime = time;
+                            cards[Math.floor(Math.random() * cards.length)].click();
                         }
                     }
                 }
@@ -508,11 +664,11 @@ class CompanionAI {
             }
 
             if (scene.angelStatue && !isDirOpen && scene.zoneType === 'Safe') {
-                // 1% chance every tick to want to travel if idle
-                if (!this._wantsToTravel && Math.random() < 0.01) {
+                // 0.1% chance every tick to want to travel if idle
+                if (!this._wantsToTravel && !this._wantsToAdventure && Math.random() < 0.001) {
                     this._wantsToTravel = true;
                 }
-                if (this._wantsToTravel) {
+                if (this._wantsToTravel && !this._wantsToAdventure) {
                     const ax = scene.angelStatue.x;
                     const dist = Math.abs(ax - player.sprite.x);
                     if (dist > 60) {

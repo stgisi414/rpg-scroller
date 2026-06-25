@@ -11,38 +11,40 @@ class EnemyController {
         this.isZombie = ['zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3'].includes(this.type);
         this.zombieCrawling = false; // Phase 2: crawling after first death
 
+        this.scaleMultiplier = this.scene.isIndoors ? (2.5 / 1.5) : 1.0;
+
         // Create the physics sprite
         this.sprite = this.scene.physics.add.sprite(x, y, this.type);
         if (this.type === 'the_devil') {
-            this.sprite.setScale(1.3);
+            this.sprite.setScale(1.3 * this.scaleMultiplier);
             this.sprite.setSize(50, 92);
             this.sprite.setOffset(26, 0);
         } else if (this.type === 'skeleton') {
-            this.sprite.setScale(0.8);
+            this.sprite.setScale(0.8 * this.scaleMultiplier);
             this.sprite.setSize(40, 90);
             this.sprite.setOffset(31, 38); // 90+38 = 128
         } else if (this.type === 'frost_giant') {
-            this.sprite.setScale(1.0);
+            this.sprite.setScale(1.0 * this.scaleMultiplier);
             this.sprite.setSize(40, 100);
             this.sprite.setOffset(31, 28);
         } else if (this.type === 'lich_lord') {
-            this.sprite.setScale(1.0);
+            this.sprite.setScale(1.0 * this.scaleMultiplier);
             this.sprite.setSize(40, 90);
             this.sprite.setOffset(31, 38); // 90+38 = 128
         } else if (this.type === 'bandit') {
-            this.sprite.setScale(0.7);
+            this.sprite.setScale(0.7 * this.scaleMultiplier);
             this.sprite.setSize(40, 100);
             this.sprite.setOffset(31, 28);
         } else if (this.type === 'spider') {
-            this.sprite.setScale(1.5);
+            this.sprite.setScale(1.5 * this.scaleMultiplier);
             this.sprite.setSize(40, 40);
             this.sprite.setOffset(44, 40);
         } else if (this.isZombie) {
-            this.sprite.setScale(1.5);
+            this.sprite.setScale(1.5 * this.scaleMultiplier);
             this.sprite.setSize(40, 55);
             this.sprite.setOffset(20, 9); // 80x64 frame, center the hitbox
         } else {
-            this.sprite.setScale(this.type === 'goblin' ? 1.4 : 1.8);
+            this.sprite.setScale((this.type === 'goblin' ? 1.4 : 1.8) * this.scaleMultiplier);
         }
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setBounce(0);
@@ -139,7 +141,11 @@ class EnemyController {
         }
 
         if (!this.player || !this.player.sprite) return;
-        if (this.hp <= 0) return;
+        if (this.isDead) return;
+        if (this.hp <= 0) {
+            this.die();
+            return;
+        }
         
         // Apply status effects
         this.updateStatusEffects(delta);
@@ -424,7 +430,7 @@ class EnemyController {
     }
 
     takeDamage(amount, knockbackDirection) {
-        if (this.isDead || this.hp <= 0) return;
+        if (this.isDead) return;
 
         // Cooldown prevents overlap() from firing 60x/sec
         const now = this.scene.time.now;
@@ -577,7 +583,7 @@ class EnemyController {
             // Use burning_skull_blue for the tracking projectile
             const skull = this.scene.enemyProjectiles.create(this.sprite.x + (this.sprite.flipX ? -20 : 20), this.sprite.y - 20, 'burning_skull_blue');
             if (skull) {
-                skull.setScale(1.5);
+                skull.setScale(1.5 * (this.scaleMultiplier || 1.0));
                 skull.body.setSize(16, 16);
                 const dx = this.player.sprite.x - skull.x;
                 const dy = this.player.sprite.y - skull.y;
@@ -594,7 +600,7 @@ class EnemyController {
             // Devil shoots a large red burning skull
             const fireball = this.scene.enemyProjectiles.create(this.sprite.x + (this.sprite.flipX ? -40 : 40), this.sprite.y - 10, 'burning_skull');
             if (fireball) {
-                fireball.setScale(2);
+                fireball.setScale(2 * (this.scaleMultiplier || 1.0));
                 fireball.body.setSize(16, 16);
                 const dx = this.player.sprite.x - fireball.x;
                 const dy = this.player.sprite.y - fireball.y;

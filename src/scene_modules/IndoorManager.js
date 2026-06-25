@@ -12,6 +12,11 @@ class IndoorManager {
         const ui = document.getElementById('ui-town-directory');
         if (ui) ui.style.display = 'flex';
 
+        // Reset the autoplay directory navigation timer
+        if (scene.player.companionAI) {
+            scene.player.companionAI._lastDirTime = 0;
+        }
+
         // Add ESC listener
         scene._dirEscListener = (e) => {
             if (e.key === 'Escape') this.closeTownDirectory();
@@ -26,15 +31,18 @@ class IndoorManager {
             container.innerHTML = '';
             Object.keys(window.INDOOR_LOCATIONS).forEach(id => {
                 const loc = window.INDOOR_LOCATIONS[id];
-                const card = `
-                    <div class="bg-surface-container-highest border border-outline-variant p-4 flex flex-col items-center gap-3 rounded hover:border-tertiary transition-colors cursor-pointer group" onclick="if(window._gameScene) window._gameScene.enterIndoorLocation('${id}')">
-                        <span class="material-symbols-outlined text-4xl text-on-surface group-hover:text-tertiary transition-colors" style="font-variation-settings: 'FILL' 1;">${loc.icon}</span>
-                        <div class="font-headline-sm text-[16px] text-tertiary font-bold text-center tracking-wider uppercase">${loc.name}</div>
-                        <div class="font-body-sm text-[11px] text-on-surface-variant text-center flex-1">${loc.desc}</div>
-                        <button class="w-full mt-2 py-2 bg-surface-container border border-tertiary text-tertiary uppercase text-[10px] font-bold tracking-widest group-hover:bg-tertiary group-hover:text-background transition-colors">Enter</button>
-                    </div>
+                const cardEl = document.createElement('div');
+                cardEl.className = 'bg-surface-container-highest border border-outline-variant p-4 flex flex-col items-center gap-3 rounded hover:border-tertiary transition-colors cursor-pointer group';
+                cardEl.innerHTML = `
+                    <span class="material-symbols-outlined text-4xl text-on-surface group-hover:text-tertiary transition-colors" style="font-variation-settings: 'FILL' 1;">${loc.icon}</span>
+                    <div class="font-headline-sm text-[16px] text-tertiary font-bold text-center tracking-wider uppercase">${loc.name}</div>
+                    <div class="font-body-sm text-[11px] text-on-surface-variant text-center flex-1">${loc.desc}</div>
+                    <button class="w-full mt-2 py-2 bg-surface-container border border-tertiary text-tertiary uppercase text-[10px] font-bold tracking-widest group-hover:bg-tertiary group-hover:text-background transition-colors">Enter</button>
                 `;
-                container.insertAdjacentHTML('beforeend', card);
+                cardEl.addEventListener('click', () => {
+                    this.enterIndoorLocation(id);
+                });
+                container.appendChild(cardEl);
             });
         }
     }
@@ -233,10 +241,11 @@ class IndoorManager {
             if (scene.player && scene.player.sprite && scene.player.sprite.active) {
                 scene.player.sprite.setPosition(400, 500);
                 scene.player.sprite.setVelocity(0, 0);
+                const scale = (scene.player.baseScale || 1.5) * (2.5 / 1.5);
                 if (typeof scene.player.setScaleWithPhysics === 'function') {
-                    scene.player.setScaleWithPhysics(2.5);
+                    scene.player.setScaleWithPhysics(scale);
                 } else {
-                    scene.player.sprite.setScale(2.5);
+                    scene.player.sprite.setScale(scale);
                 }
                 scene.player.facingDirection = 1;
             }
@@ -245,27 +254,94 @@ class IndoorManager {
                     if (member && member.sprite && member.sprite.active) {
                         member.sprite.setPosition(300, 500);
                         member.sprite.setVelocity(0, 0);
+                        const scale = (member.baseScale || 1.5) * (2.5 / 1.5);
                         if (typeof member.setScaleWithPhysics === 'function') {
-                            member.setScaleWithPhysics(2.5);
+                            member.setScaleWithPhysics(scale);
                         } else {
-                            member.sprite.setScale(2.5);
+                            member.sprite.setScale(scale);
                         }
                         if (scene.indoorFloor) {
                             scene.physics.add.collider(member.sprite, scene.indoorFloor);
+                        }
+                        if (scene.indoorLeftWall) {
+                            scene.physics.add.collider(member.sprite, scene.indoorLeftWall);
+                        }
+                        if (scene.indoorRightWall) {
+                            scene.physics.add.collider(member.sprite, scene.indoorRightWall);
                         }
                     }
                 });
             }
 
             // Spawn Location NPC
-            const npc = new NPCController(scene, 900, 500, scene.player, scene.geminiService, loc.npcName, loc.npcPersona, loc.npcSprite);
+            let spriteKey = loc.npcSprite;
+            let finalNpcName = loc.npcName;
+            
+            if (spriteKey === 'spouse') {
+                if (window.saveData && window.saveData.spouseData) {
+                    spriteKey = window.saveData.spouseData.spriteKey;
+                    finalNpcName = window.saveData.spouseData.name;
+                } else {
+                    // Fallback if entering estate without spouse (shouldn't happen)
+                    const npcData = window.CharacterComposer.generateRandomNPC(scene);
+                    spriteKey = npcData.spriteKey;
+                    // We could also pass npcData.weaponType if needed later
+                    finalNpcName = "Lonely Ghost";
+                }
+            }
+
+            const npc = new NPCController(scene, 900, 500, scene.player, scene.geminiService, finalNpcName, loc.npcPersona, spriteKey);
             npc.isIndoorNPC = true;
             npc.indoorAction = loc.action;
-            npc.sprite.setScale(2.5); // NPCs aren't using setScaleWithPhysics yet, just standard scale
+            const scale = (npc.baseScale || 1.5) * (2.5 / 1.5);
+            if (typeof npc.setScaleWithPhysics === 'function') {
+                npc.setScaleWithPhysics(scale);
+            } else {
+                npc.sprite.setScale(scale);
+            }
             if (scene.indoorFloor) {
                 scene.physics.add.collider(npc.sprite, scene.indoorFloor);
             }
+            if (scene.indoorLeftWall) {
+                scene.physics.add.collider(npc.sprite, scene.indoorLeftWall);
+            }
+            if (scene.indoorRightWall) {
+                scene.physics.add.collider(npc.sprite, scene.indoorRightWall);
+            }
             scene.npcs.push(npc);
+
+            // Spawn 1-2 extra random background NPCs (if not in coliseum)
+            if (locationId !== 'coliseum') {
+                const extraNpcCount = Math.floor(Math.random() * 2) + 1;
+                for (let i = 0; i < extraNpcCount; i++) {
+                    const npcData = window.CharacterComposer.generateRandomNPC(scene);
+                    const rndKey = npcData.spriteKey;
+                    const rndWeaponType = npcData.weaponType;
+                    const rndName = window.CharacterComposer.generateRandomName();
+                    const rndPersona = "A random townsperson.";
+                    
+                    const randX = 300 + Math.random() * 500;
+                    const rndNpc = new NPCController(scene, randX, 500, scene.player, scene.geminiService, rndName, rndPersona, rndKey, rndWeaponType);
+                    rndNpc.isIndoorNPC = true;
+                    rndNpc.indoorAction = 'chat'; // They are just for chatting
+                    const rndScale = (rndNpc.baseScale || 1.5) * (2.5 / 1.5);
+                    if (typeof rndNpc.setScaleWithPhysics === 'function') {
+                        rndNpc.setScaleWithPhysics(rndScale);
+                    } else {
+                        rndNpc.sprite.setScale(rndScale);
+                    }
+                    if (scene.indoorFloor) {
+                        scene.physics.add.collider(rndNpc.sprite, scene.indoorFloor);
+                    }
+                    if (scene.indoorLeftWall) {
+                        scene.physics.add.collider(rndNpc.sprite, scene.indoorLeftWall);
+                    }
+                    if (scene.indoorRightWall) {
+                        scene.physics.add.collider(rndNpc.sprite, scene.indoorRightWall);
+                    }
+                    scene.npcs.push(rndNpc);
+                }
+            }
 
             // Add Leave Button to HUD
             this._addIndoorLeaveButton();
@@ -345,10 +421,11 @@ class IndoorManager {
 
             // Reset player scale back to normal
             if (scene.player && scene.player.sprite && scene.player.sprite.active) {
+                const scale = scene.player.baseScale || 1.5;
                 if (typeof scene.player.setScaleWithPhysics === 'function') {
-                    scene.player.setScaleWithPhysics(1.5);
+                    scene.player.setScaleWithPhysics(scale);
                 } else {
-                    scene.player.sprite.setScale(1.5);
+                    scene.player.sprite.setScale(scale);
                 }
             }
 
@@ -356,10 +433,11 @@ class IndoorManager {
             if (scene.partyMembers) {
                 scene.partyMembers.forEach(member => {
                     if (member && member.sprite && member.sprite.active) {
+                        const scale = member.baseScale || 1.5;
                         if (typeof member.setScaleWithPhysics === 'function') {
-                            member.setScaleWithPhysics(1.5);
+                            member.setScaleWithPhysics(scale);
                         } else {
-                            member.sprite.setScale(1.5);
+                            member.sprite.setScale(scale);
                         }
                     }
                 });
