@@ -45,15 +45,19 @@ class PlayerController {
         this.currentAnimKey = null;
         this.tempStats = { vit: 0, str: 0, dex: 0, int: 0 };
 
-        // Get the selected class from options (if AI) or window object
-        this.classData = this.isAI ? this._getAIClassData(options.classId, options.weaponType) : (window.selectedClass || { id: 'knight', stats: { vit: 10, str: 10, dex: 10, int: 10 }, frameWidth: 80, frameHeight: 64, isSheet: true, idleRow: 0, idleFrames: 5 });
+        const isFighterScene = this.scene && this.scene.sys && this.scene.sys.settings && this.scene.sys.settings.key === 'FighterScene';
+        const isCustomNpc = options.classId && options.classId.startsWith('custom_npc_');
+
+        // Get the selected class from options (if AI, in FighterScene, or a custom NPC) or window object
+        const rawClassData = (this.isAI || isFighterScene || isCustomNpc) 
+            ? this._getAIClassData(options.classId || 'knight', options.weaponType) 
+            : (window.selectedClass || { id: 'knight', stats: { vit: 10, str: 10, dex: 10, int: 10 }, frameWidth: 80, frameHeight: 64, isSheet: true, idleRow: 0, idleFrames: 5 });
+        this.classData = JSON.parse(JSON.stringify(rawClassData));
         
-        if (!this.isAI) {
-            this.classId = this.classData.id;
-        }
+        this.classId = this.classData.id;
         
         // Restore persisted stats from saveData (fixes stats resetting on reload)
-        if (!this.isAI && window.saveData && window.saveData.stats) {
+        if (!this.isAI && !isFighterScene && window.saveData && window.saveData.stats) {
             this.classData.stats = { ...window.saveData.stats };
         }
         const classData = this.classData;
@@ -170,10 +174,10 @@ class PlayerController {
                 }
 
                 // Dash animation
-                if (classData.dashRow !== undefined) {
+                if (classData.dashRow !== undefined || af.dash) {
                     this.scene.anims.create({ key: animPrefix + '_dash',
                         frames: this.scene.anims.generateFrameNumbers(texKey,
-                            safeFrames({ start: classData.dashRow * cols, end: classData.dashRow * cols + Math.min(5, cols - 1) })),
+                            safeFrames(af.dash || { start: classData.dashRow * cols, end: classData.dashRow * cols + Math.min(5, cols - 1) })),
                         frameRate: 15, repeat: -1 });
                 }
             }
@@ -193,11 +197,37 @@ class PlayerController {
 
         if (classData && classData.isSheet) {
             this.sprite.setScale(classData.spriteScale || 1.5);
-            // Frame is 64x64 or 100x64, displayed at 1.5x.
-            // Body is smaller to allow overlapping with environment
+            
+            // Register animation aliases for PixelLab monster textures if they exist
+            if (this.scene.anims) {
+                const baseKey = this.classId;
+                const suffixes = [
+                    { from: '-idle', to: '_idle' },
+                    { from: '-move', to: '_walk' },
+                    { from: '-attack', to: '_attack' },
+                    { from: '-attack2', to: '_combo' },
+                    { from: '-hit', to: '_hit' },
+                    { from: '-die', to: '_die' }
+                ];
+                suffixes.forEach(pair => {
+                    const fKey = baseKey + pair.from;
+                    const tKey = baseKey + pair.to;
+                    if (this.scene.anims.exists(fKey) && !this.scene.anims.exists(tKey)) {
+                        const anim = this.scene.anims.get(fKey);
+                        this.scene.anims.create({
+                            key: tKey,
+                            frames: anim.frames,
+                            frameRate: anim.frameRate,
+                            repeat: anim.repeat
+                        });
+                    }
+                });
+            }
+            
+            // Physics body — use per-class overrides if provided, otherwise generic
             if (classData.id && classData.id.startsWith('custom_npc_')) {
-                const bodyW = 36;
-                const bodyH = 48;
+                const bodyW = 24;
+                const bodyH = 40;
                 let footY = 56; // Fallback
                 const fd = window.npcFootData && window.npcFootData[classData.id];
                 if (fd && fd[0] != null) {
@@ -214,6 +244,24 @@ class PlayerController {
             } else if (classData.id === 'elven_spellblade' || classData.id === 'elven_spellblade_rival') {
                 this.sprite.body.setSize(31, 63);
                 this.sprite.body.setOffset(48, 31);
+            } else if (classData.id === 'heavenly_archangel') {
+                this.sprite.body.setSize(40, 63);
+                this.sprite.body.setOffset(44, 32);
+            } else if (classData.id === 'heavenly_valkyrie') {
+                this.sprite.body.setSize(40, 70);
+                this.sprite.body.setOffset(44, 25);
+            } else if (classData.id === 'heavenly_seraph') {
+                this.sprite.body.setSize(50, 70);
+                this.sprite.body.setOffset(39, 25);
+            } else if (classData.id === 'heavenly_cherub') {
+                this.sprite.body.setSize(30, 40);
+                this.sprite.body.setOffset(49, 40);
+            } else if (['male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'imp', 'old_demon'].includes(classData.id)) {
+                const w = classData.id === 'old_demon' ? 50 : 40;
+                const h = 64;
+                const ox = classData.id === 'old_demon' ? 15 : 12;
+                this.sprite.body.setSize(w, h);
+                this.sprite.body.setOffset(ox, 0);
             } else {
                 this.sprite.body.setSize(24, 48);
                 this.sprite.body.setOffset(20, 16);
@@ -233,22 +281,61 @@ class PlayerController {
 
         this.sprite.setCollideWorldBounds(true);
 
-        if (this.classId && this.classId.startsWith('custom_npc_')) {
-            const originalPreUpdate = this.sprite.preUpdate;
+        if (!window.npcFootData) window.npcFootData = {};
+        if (!window.npcFootData['troll']) {
+            window.npcFootData['troll'] = [
+                91, 91, 91, 91, 91, 91, 91, 91, 91, // idle (0..8)
+                91, 91, 90, 91, 94, 94, 93, 92, 92, // walk (9..17)
+                91, 91, 91, 91, 91, 91, 91, 92, 91, // attack (18..26)
+                91, 91, 91, 91, 91, 91, 91, 91, 91, // attack2 (27..35)
+                91, 91, 91, 91, 91,                 // hit (36..40)
+                91, 91, 93, 93, 94, 94, 94, 94, 94  // die (41..49)
+            ];
+        }
+
+        if (this.classId && (this.classId.startsWith('custom_npc_') || this.classId === 'troll' || (window.npcFootData && window.npcFootData[this.classId]))) {
+            const originalSetFrame = this.sprite.setFrame;
             const self = this;
-            this.sprite.preUpdate = function (time, delta) {
+            this.sprite.setFrame = function(frame, updateSize, updateArea) {
                 const oldFrame = this.frame;
                 const oldH = oldFrame ? oldFrame.height : 64;
                 const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
                 
-                originalPreUpdate.call(this, time, delta);
+                const res = originalSetFrame.call(this, frame, updateSize, updateArea);
                 
                 const newFrame = this.frame;
                 if (newFrame && newFrame !== oldFrame) {
                     const newIdx = (typeof newFrame.name === 'number') ? newFrame.name : parseInt(newFrame.name, 10);
                     self._anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx);
                 }
+                return res;
             };
+
+            // Also hook the animation system's setCurrentFrame to handle animation-driven changes
+            if (this.sprite.anims) {
+                const originalSetCurrentFrame = this.sprite.anims.setCurrentFrame;
+                this.sprite.anims.setCurrentFrame = function(parentFrame) {
+                    const oldFrame = self.sprite.frame;
+                    const oldH = oldFrame ? oldFrame.height : 64;
+                    const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
+                    
+                    const res = originalSetCurrentFrame.call(this, parentFrame);
+                    
+                    const newFrame = self.sprite.frame;
+                    if (newFrame && newFrame !== oldFrame) {
+                        const newIdx = (typeof newFrame.name === 'number') ? newFrame.name : parseInt(newFrame.name, 10);
+                        self._anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx);
+                    }
+                    return res;
+                };
+            }
+
+            // Sync initial frame immediately
+            const initFrame = this.sprite.frame;
+            if (initFrame) {
+                const initIdx = (typeof initFrame.name === 'number') ? initFrame.name : parseInt(initFrame.name, 10);
+                this._anchorBodyOnFrameChange(initFrame.height, initIdx, initFrame, initIdx);
+            }
         }
 
         // --- NaN INTERCEPTOR ---
@@ -328,8 +415,8 @@ class PlayerController {
         this.alignmentDisplay = document.getElementById('alignment-display');
         this.updateAlignment(0);
 
-        // Inventory System (only for real player)
-        if (!this.isAI) {
+        // Inventory System (only for real player outside FighterScene)
+        if (!this.isAI && !isFighterScene) {
             this.inventory = window.saveData && window.saveData.inventory ? JSON.parse(JSON.stringify(window.saveData.inventory)) : {
                 weapon: { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 0, desc: 'A basic stick.' },
                 potions: 5,
@@ -354,8 +441,19 @@ class PlayerController {
             this.coliseumHighestWave = window.saveData && window.saveData.coliseumHighestWave ? window.saveData.coliseumHighestWave : 0;
             this.renderQuests();
         } else {
-            this.inventory = { weapon: { key: 'weapon-stick', damageBonus: 5 }, potions: 2 }; // Basic fallback for AI damage calculations
-            this.recalculateStats(); // Ensure stats are fully initialized for AI companions too!
+            // For AI or when inside FighterScene (prevents carrying over items/potions from adventure mode)
+            this.inventory = { 
+                weapon: { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 5, desc: 'A basic stick.' }, 
+                potions: 2,
+                scrolls: 0,
+                artifacts: [],
+                equippedArtifact: -1
+            };
+            this.recalculateStats(); // Ensure stats are fully initialized for AI/Fighter scene too!
+        }
+
+        if (isFighterScene) {
+            this.setScaleWithPhysics(this.baseScale * (2.5 / 1.5));
         }
     }
 
@@ -390,12 +488,14 @@ class PlayerController {
                 idleRow: 0,
                 idleFrames: 4,
                 walkRow: 1,
-                attackRow: 2,
-                jumpRow: 1, // fallback to walk/run row
-                fallRow: 1,
+                attackRow: 5,
+                jumpRow: 3,
+                fallRow: 3,
+                duckRow: 1,
                 dashRow: 1,
                 spriteScale: 1.5,
-                weaponType: weaponType
+                weaponType: weaponType,
+                attackDuration: 400
             };
         }
 
@@ -429,7 +529,60 @@ class PlayerController {
                 spriteScale: spriteScale,
                 animFrames: {
                     hit: { start: 30, end: 34 },
-                    die: { start: 50, end: 54 }
+                    die: { start: 50, end: 54 },
+                    duck: { start: 25, end: 29 }
+                }
+            };
+        }
+
+        const pixelLabMonsters = [
+            'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub',
+            'male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'imp', 'old_demon'
+        ];
+        if (pixelLabMonsters.includes(classId)) {
+            let scale = 1.5;
+            if (classId === 'heavenly_cherub') scale = 0.6;
+            else if (classId === 'heavenly_seraph') scale = 1.0;
+            else if (classId === 'heavenly_valkyrie') scale = 1.0;
+            else if (classId === 'heavenly_archangel') scale = 1.2;
+            else if (classId === 'old_demon') scale = 1.8 * 1.5;
+            else scale = 1.8 * 1.5;
+            
+            const fw = (classId === 'old_demon') ? 80 : (classId.startsWith('heavenly_') ? 128 : 64);
+            const fh = (classId.startsWith('heavenly_') ? 128 : 64);
+            
+            const monsterStats = {
+                heavenly_archangel: { vit: 30, str: 20, dex: 15, int: 15 },
+                heavenly_valkyrie: { vit: 25, str: 18, dex: 16, int: 10 },
+                heavenly_seraph: { vit: 20, str: 15, dex: 18, int: 18 },
+                heavenly_cherub: { vit: 12, str: 8, dex: 12, int: 12 },
+                male_damned: { vit: 15, str: 14, dex: 10, int: 5 },
+                female_damned: { vit: 14, str: 12, dex: 12, int: 8 },
+                twisted_damned: { vit: 18, str: 16, dex: 8, int: 6 },
+                burning_damned: { vit: 16, str: 15, dex: 10, int: 10 },
+                imp: { vit: 10, str: 10, dex: 14, int: 12 },
+                old_demon: { vit: 22, str: 18, dex: 12, int: 10 }
+            };
+            const mStats = monsterStats[classId] || { vit: 15, str: 12, dex: 12, int: 10 };
+            
+            return {
+                id: classId,
+                stats: mStats,
+                isSheet: true,
+                frameWidth: fw,
+                frameHeight: fh,
+                spriteScale: scale,
+                animFrames: {
+                    idle: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
+                    walk: { start: 9, end: 17 },
+                    attack: { start: 18, end: 26 },
+                    combo: { start: 27, end: 35 },
+                    hit: { start: 36, end: 40 },
+                    die: { start: 41, end: 49 },
+                    jump: { start: 9, end: 17 },
+                    fall: { start: 9, end: 17 },
+                    duck: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
+                    dash: { start: 9, end: 17 }
                 }
             };
         }
@@ -475,13 +628,22 @@ class PlayerController {
             meta = { ...meta, frameWidth: 80, frameHeight: 64, idleFrames: 5, idleRow: 0, flipX: true, attackRow: 14, dashRow: 5,
                 animFrames: {
                     jump: { start: 40, end: 43 },
-                    fall: { start: 50, end: 53 }
+                    fall: { start: 50, end: 53 },
+                    hit: { start: 160, end: 164 },
+                    die: { start: 150, end: 157 },
+                    duck: { frames: [100] } // Row 10 col 0 — sword raised guard stance
                 }
             };
             // Make warrior ID map back to knight animations if 'warrior' was specifically requested
             meta.id = 'knight'; 
         } else if (classId === 'wizard') {
-            meta = { ...meta, frameWidth: 64, frameHeight: 64, idleFrames: 6, idleRow: 1, walkRow: 0, attackRow: 2, jumpRow: 3, fallRow: 3, comboStartFrame: 24, comboEndFrame: 41 };
+            meta = { ...meta, frameWidth: 64, frameHeight: 64, idleFrames: 6, idleRow: 1, walkRow: 0, attackRow: 2, jumpRow: 3, fallRow: 3, comboStartFrame: 24, comboEndFrame: 41,
+                animFrames: {
+                    hit: { start: 54, end: 54 },
+                    die: { start: 60, end: 64 },
+                    duck: { frames: [14] } // Casting frame — staff raised as magic block pose
+                }
+            };
         } else if (classId === 'samurai') {
             meta = { ...meta, frameWidth: 96, frameHeight: 64, idleFrames: 5, idleRow: 0, flipX: true,
                 animFrames: {
@@ -506,13 +668,13 @@ class PlayerController {
                     walk: { start: 22, end: 29 },
                     hit: { start: 33, end: 36 },
                     die: { start: 44, end: 50 },
-                    duck: { frames: [0] },
+                    duck: { frames: [15] }, // Bow drawn — block/ready stance
                     jump: { frames: [0] },
                     fall: { frames: [0] }
                 }
             };
         } else if (classId === 'elven_spellblade') {
-            meta = { ...meta, frameWidth: 128, frameHeight: 128, idleFrames: 9, idleRow: 0,
+            meta = { ...meta, frameWidth: 128, frameHeight: 128, spriteScale: 1.15, idleFrames: 9, idleRow: 0, attackDuration: 560,
                 animFrames: {
                     idle: { start: 0, end: 8 },
                     walk: { start: 9, end: 17 },
@@ -520,7 +682,7 @@ class PlayerController {
                     combo: { start: 27, end: 35 },
                     hit: { start: 36, end: 40 },
                     die: { start: 41, end: 49 },
-                    duck: { frames: [0] },
+                    duck: { start: 53, end: 53 },
                     jump: { frames: [0] },
                     fall: { frames: [0] }
                 }
@@ -582,6 +744,9 @@ class PlayerController {
     }
 
     saveGame() {
+        const isFighterScene = this.scene && this.scene.sys && this.scene.sys.settings && this.scene.sys.settings.key === 'FighterScene';
+        if (isFighterScene) return;
+
         if (window.saveData) {
             window.saveData = JSON.parse(JSON.stringify(window.saveData));
         } else {
@@ -643,6 +808,7 @@ class PlayerController {
             this.reticle.destroy();
             this.reticle = null;
         }
+        this._destroyBlockDome();
         if (this.sprite) {
             this.sprite.destroy();
         }
@@ -711,16 +877,17 @@ class PlayerController {
     renderQuests() {
         this.questManager.renderQuests();
     }
-    isLeftDown() { return this.isAI ? this.aiInput.left : this.inputManager.keys.left.isDown; }
-    isRightDown() { return this.isAI ? this.aiInput.right : this.inputManager.keys.right.isDown; }
-    isUpDown() { return this.isAI ? this.aiInput.up : (this.inputManager.keys.up.isDown || (this.inputManager.keys.space ? this.inputManager.keys.space.isDown : false)); }
-    isDownDown() { return this.isAI ? this.aiInput.down : this.inputManager.keys.down.isDown; }
-    isInteractDown() { return this.isAI ? this.aiInput.interact : this.inputManager.keys.interact.isDown; }
+    isLeftDown()  { if (this.isAI) return this.aiInput.left;    if (this.inputManager.blocked) return false; return this.inputManager.keys.left.isDown; }
+    isRightDown() { if (this.isAI) return this.aiInput.right;   if (this.inputManager.blocked) return false; return this.inputManager.keys.right.isDown; }
+    isUpDown()    { if (this.isAI) return this.aiInput.up;      if (this.inputManager.blocked) return false; return this.inputManager.keys.up.isDown || (this.inputManager.keys.space ? this.inputManager.keys.space.isDown : false); }
+    isDownDown()  { if (this.isAI) return this.aiInput.down;    if (this.inputManager.blocked) return false; return this.inputManager.keys.down.isDown; }
+    isInteractDown() { if (this.isAI) return this.aiInput.interact; if (this.inputManager.blocked) return false; return this.inputManager.keys.interact.isDown; }
     consumeDashLeft() { 
         if (this.isAI) {
             if (this.aiInput.dashLeft) { this.aiInput.dashLeft = false; return true; }
             return false;
         }
+        if (this.inputManager.blocked) return false;
         return this.inputManager.consumeDashLeft(); 
     }
     consumeDashRight() { 
@@ -728,6 +895,7 @@ class PlayerController {
             if (this.aiInput.dashRight) { this.aiInput.dashRight = false; return true; }
             return false;
         }
+        if (this.inputManager.blocked) return false;
         return this.inputManager.consumeDashRight(); 
     }
     consumeAttack() {
@@ -735,15 +903,19 @@ class PlayerController {
             if (this.aiInput.attack) { this.aiInput.attack = false; return true; }
             return false;
         }
+        if (this.inputManager.blocked) return false;
         return Phaser.Input.Keyboard.JustDown(this.inputManager.keys.attack);
     }
     consumeSuperSpell() {
+        if (this.inputManager.blocked && !this.isAI) return false;
         return this.isAI ? this.aiInput.superSpell : (this.inputManager.keys.superSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.superSpell));
     }
     consumeMegaSpell() {
+        if (this.inputManager.blocked && !this.isAI) return false;
         return this.isAI ? this.aiInput.megaSpell : (this.inputManager.keys.megaSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.megaSpell));
     }
     consumeSummonSpell() {
+        if (this.inputManager.blocked && !this.isAI) return false;
         return this.isAI ? this.aiInput.summonSpell : (this.inputManager.keys.summonSpell && Phaser.Input.Keyboard.JustDown(this.inputManager.keys.summonSpell));
     }
     updateAI(time, delta) {
@@ -772,6 +944,24 @@ class PlayerController {
             } else if (this.classData.id === 'elven_spellblade' || this.classData.id === 'elven_spellblade_rival') {
                 this.sprite.body.setSize(31, 63);
                 this.sprite.body.setOffset(48, 31);
+            } else if (this.classData.id === 'heavenly_archangel') {
+                this.sprite.body.setSize(40, 63);
+                this.sprite.body.setOffset(44, 32);
+            } else if (this.classData.id === 'heavenly_valkyrie') {
+                this.sprite.body.setSize(40, 70);
+                this.sprite.body.setOffset(44, 25);
+            } else if (this.classData.id === 'heavenly_seraph') {
+                this.sprite.body.setSize(50, 70);
+                this.sprite.body.setOffset(39, 25);
+            } else if (this.classData.id === 'heavenly_cherub') {
+                this.sprite.body.setSize(30, 40);
+                this.sprite.body.setOffset(49, 40);
+            } else if (['male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'imp', 'old_demon'].includes(this.classData.id)) {
+                const w = this.classData.id === 'old_demon' ? 50 : 40;
+                const h = 64;
+                const ox = this.classData.id === 'old_demon' ? 15 : 12;
+                this.sprite.body.setSize(w, h);
+                this.sprite.body.setOffset(ox, 0);
             } else {
                 this.sprite.body.setSize(24, 48);
                 this.sprite.body.setOffset(20, 16);
@@ -787,23 +977,34 @@ class PlayerController {
         if (!body) return;
         
         const scale = this.sprite.scaleY || 1.5;
-        const bodyW = body.sourceWidth;
-        const bodyH = body.sourceHeight;
+        const bodyW = body.width / (this.sprite.scaleX || 1);
+        const bodyH = body.height / (this.sprite.scaleY || 1);
         const fw = newFrame.width;
         const fh = newFrame.height;
+        
+        const isOldJumpFall = (oldIdx >= 30 && oldIdx <= 39);
+        const isNewJumpFall = (newIdx >= 30 && newIdx <= 39);
         
         // Get old footY
         let oldFootY = oldH;
         const fd = window.npcFootData && window.npcFootData[this.classId];
         if (fd) {
-            if (!isNaN(oldIdx) && fd[oldIdx] != null) oldFootY = fd[oldIdx] + 1;
+            if (isOldJumpFall) {
+                oldFootY = 63 + 1; // Default floor baseline
+            } else if (!isNaN(oldIdx) && fd[oldIdx] != null) {
+                oldFootY = fd[oldIdx] + 1;
+            }
         }
         const oldOffset = oldFootY - bodyH;
         
         // Get new footY
         let newFootY = fh;
         if (fd) {
-            if (!isNaN(newIdx) && fd[newIdx] != null) newFootY = fd[newIdx] + 1;
+            if (isNewJumpFall) {
+                newFootY = 63 + 1; // Default floor baseline
+            } else if (!isNaN(newIdx) && fd[newIdx] != null) {
+                newFootY = fd[newIdx] + 1;
+            }
         }
         const newOffset = newFootY - bodyH;
         
@@ -812,6 +1013,74 @@ class PlayerController {
         
         // Update body offset
         body.setOffset(fw / 2 - bodyW / 2, newOffset);
+    }
+
+    // ── Magic Dome (Wizard Block Shield) ──────────────────────────────
+    _createBlockDome() {
+        this._destroyBlockDome(); // Clean up any stale dome
+
+        const gfx = this.scene.add.graphics();
+        gfx.setDepth((this.sprite.depth || 0) + 1);
+
+        // Dome anchored at the wizard's feet, arcing up over the head.
+        // gfx is positioned at sprite.x, sprite.y (sprite center).
+        // Feet are roughly +32px below sprite center (64px frame * 1.5 scale / 2 ≈ 48, but body offset trims it).
+        const feetY = 80;      // Y offset from sprite center to ground
+        const domeRadius = 100; // Radius of dome — covers full body head to toe
+
+        // Outer dome glow fill (semicircle)
+        gfx.fillStyle(0x4488ff, 0.07);
+        gfx.beginPath();
+        gfx.arc(0, feetY, domeRadius, Math.PI, 0, false);
+        gfx.closePath();
+        gfx.fillPath();
+
+        // Inner dome fill (slightly smaller)
+        gfx.fillStyle(0x6644cc, 0.09);
+        gfx.beginPath();
+        gfx.arc(0, feetY, domeRadius - 10, Math.PI, 0, false);
+        gfx.closePath();
+        gfx.fillPath();
+
+        // Dome outline arc
+        gfx.lineStyle(1.5, 0x66aaff, 0.5);
+        gfx.beginPath();
+        gfx.arc(0, feetY, domeRadius, Math.PI, 0, false);
+        gfx.closePath();
+        gfx.strokePath();
+
+        // Ground-level arcane ring (flat ellipse at feet)
+        gfx.lineStyle(1.5, 0xaa66ff, 0.45);
+        gfx.strokeEllipse(0, feetY, domeRadius * 2, 16);
+
+        // Small highlight arc at the very top of dome
+        gfx.lineStyle(1, 0x88ccff, 0.35);
+        gfx.beginPath();
+        gfx.arc(0, feetY, domeRadius - 4, Math.PI + 1.1, -1.1, false);
+        gfx.strokePath();
+
+        gfx.setPosition(this.sprite.x, this.sprite.y);
+        this._blockDome = gfx;
+
+        // Pulse tween — breathe effect
+        this.scene.tweens.add({
+            targets: gfx,
+            alpha: { from: 0.7, to: 1.0 },
+            scaleX: { from: 0.97, to: 1.03 },
+            scaleY: { from: 0.97, to: 1.03 },
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+    }
+
+    _destroyBlockDome() {
+        if (this._blockDome) {
+            this.scene.tweens.killTweensOf(this._blockDome);
+            this._blockDome.destroy();
+            this._blockDome = null;
+        }
     }
 
     _playAnim(key) {
@@ -1008,21 +1277,23 @@ class PlayerController {
             return; // Don't process movement during attack
         }
 
-        // Duck (S key, only on ground)
-        const isDucking = this.isDownDown() && onGround;
+        // Duck / Block (S key, only on ground) — disabled for ranger (infinite ranged attacks, no need to block)
+        const isRanger = cd.id === 'ranger';
+        const isDucking = !isRanger && this.isDownDown() && onGround;
         if (isDucking) {
             this.sprite.setVelocityX(0);
+            const firstFrameOfDuck = !this.wasDucking;
+            this.wasDucking = true;
             if (cd.isSheet) this._playAnim();
             // Shrink hitbox
-            if (!this.wasDucking) {
+            if (firstFrameOfDuck) {
                 if (cd.id && cd.id.startsWith('custom_npc_')) {
-                    const bodyW = 36;
-                    const bodyH = 24;
-                    let footY = 56;
-                    const fd = window.npcFootData && window.npcFootData[cd.id];
-                    if (fd && fd[0] != null) footY = fd[0] + 1;
+                    const bodyW = 24;
+                    const bodyH = 20;
                     this.sprite.body.setSize(bodyW, bodyH);
-                    this.sprite.body.setOffset((this.sprite.frame.width - bodyW) / 2, footY - bodyH);
+                    const currentFrame = this.sprite.frame;
+                    const currentIdx = (typeof currentFrame.name === 'number') ? currentFrame.name : parseInt(currentFrame.name, 10);
+                    this._anchorBodyOnFrameChange(currentFrame.height, currentIdx, currentFrame, currentIdx);
                 } else if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
                     this.sprite.body.setSize(31, 31);
                     this.sprite.body.setOffset(48, 63);
@@ -1033,7 +1304,16 @@ class PlayerController {
                     this.sprite.body.setSize(24, 24);
                     this.sprite.body.setOffset(20, 40);
                 }
-                this.wasDucking = true;
+
+                // Wizard magic dome shield effect
+                if (cd.id === 'wizard' || cd.id === 'wizard_rival') {
+                    this._createBlockDome();
+                }
+            }
+
+            // Update dome position while ducking
+            if (this._blockDome && this._blockDome.active) {
+                this._blockDome.setPosition(this.sprite.x, this.sprite.y);
             }
             return;
         } else {
@@ -1041,12 +1321,19 @@ class PlayerController {
             if (this.wasDucking) {
                 this.setScaleWithPhysics(this.sprite.scaleX);
                 this.wasDucking = false;
+                if (cd.id && cd.id.startsWith('custom_npc_')) {
+                    const currentFrame = this.sprite.frame;
+                    const currentIdx = (typeof currentFrame.name === 'number') ? currentFrame.name : parseInt(currentFrame.name, 10);
+                    this._anchorBodyOnFrameChange(currentFrame.height, currentIdx, currentFrame, currentIdx);
+                }
+                // Destroy magic dome
+                this._destroyBlockDome();
             }
         }
 
         // Horizontal movement
         let movingX = false;
-        const spd = (typeof this.speed === 'number' && !isNaN(this.speed)) ? this.speed : 200;
+        const spd = ((typeof this.speed === 'number' && !isNaN(this.speed)) ? this.speed : 200) * (this.speedMultiplier || 1.0);
         if (this.isLeftDown()) {
             this.sprite.setVelocityX(-spd);
             movingX = true;

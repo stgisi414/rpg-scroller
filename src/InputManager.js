@@ -3,6 +3,7 @@
 class InputManager {
     constructor(scene) {
         this.scene = scene;
+        this.blocked = false; // True while any HTML UI (chat, party builder, etc.) is open
         
         // WASD
         this.keys = this.scene.input.keyboard.addKeys({
@@ -77,11 +78,13 @@ class InputManager {
 
     /** Call this when an HTML text input gains focus (e.g. chat box opens). */
     disableForInput() {
+        this.blocked = true;
         this.scene.input.keyboard.removeCapture(this._capturedKeys);
     }
 
     /** Call this when the HTML text input loses focus (e.g. chat box closes). */
     enableForInput() {
+        this.blocked = false;
         this.scene.input.keyboard.addCapture(this._capturedKeys);
     }
 

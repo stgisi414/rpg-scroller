@@ -1,3 +1,31 @@
+function getInsideFrame(floorKey, floorFrame) {
+    if (floorKey === 'floor') {
+        if (floorFrame === 109) return 118; // winter snow inside
+        return 10; // default grass/dirt inside
+    }
+    if (floorKey === 'floor_desert') {
+        return 138; // solid canyon clay inside (replaces frame 17/30/31 which had pillars/stripes/triangles)
+    }
+    if (floorKey === 'floor_hell') {
+        return 32; // solid hell slate inside (replaces frame 17 which was a pillar with transparency)
+    }
+    return 0; // fallback
+}
+
+function addDeepGround(scene, x, startY, endY, floorKey, floorFrame, floorTint) {
+    const insideFrame = getInsideFrame(floorKey, floorFrame);
+    // Spacing between blocks is 46px (32px * 1.5 = 48px, so 46px spacing gives a tiny overlap to avoid seams)
+    for (let dy = startY; dy <= endY; dy += 46) {
+        const img = scene.add.image(x, dy, floorKey, insideFrame);
+        img.setScale(1.5);
+        img.setDepth(-8);
+        if (floorTint !== 0xffffff) {
+            img.setTint(floorTint);
+        }
+        scene.bgLayers.push(img);
+    }
+}
+
 class LevelGenerator {
     constructor(scene) {
         this.scene = scene;
@@ -71,6 +99,14 @@ class LevelGenerator {
             bgConfig = [
                 { key: 'bg_hell_gemini', scroll: 0.1, depth: -9 }
             ];
+        } else if (biome === 'Heaven') {
+            skyColor = '#fff5e6'; // pearlescent golden sky
+            floorKey = 'floor';
+            floorFrame = undefined;
+            floorTint = 0xffe8aa; // golden-yellow floor blocks
+            bgConfig = [
+                { key: 'bg_coastal', scroll: 0.1, depth: -9, tint: 0xfff3cc } // golden coastal peaks
+            ];
         } else if (biome === 'Deadwoods') {
             skyColor = '#2b2a33';
             floorKey = 'floor';
@@ -134,6 +170,9 @@ class LevelGenerator {
             // Anchor backgrounds perfectly to the ground level (696)
             let yPos = 696 + (config.yOffset || 0);
             let bg = scene.add.image(640, yPos, config.key).setOrigin(0.5, 1).setScrollFactor(0, 1).setDepth(config.depth);
+            if (config.tint) {
+                bg.setTint(config.tint);
+            }
             // Scale appropriately based on image dimensions to completely fill the screen
             const scaleX = 1280 / bg.width;
             const scaleY = 720 / bg.height;
@@ -144,9 +183,9 @@ class LevelGenerator {
 
         // Build Floor / Platforms
         const widthTiles = type === 'Safe' ? 40 : 84;
-        // Set world bounds depending on biome height (Width totalWidth, height 4000 to allow falling into pits)
+        // Set world bounds depending on biome height (Width totalWidth, height 3200 to cap bottom scroll at Y = 1200)
         scene.physics.world.setBounds(0, -2000, widthTiles * 46, 4000);
-        scene.cameras.main.setBounds(0, -2000, widthTiles * 46, 4000);
+        scene.cameras.main.setBounds(0, -2000, widthTiles * 46, 3200);
 
         if (type === 'Safe') {
             // Flat floor for towns (40 blocks for 1840 width)
@@ -159,14 +198,7 @@ class LevelGenerator {
                 }
                 
                 // Fill dirt below for towns so they don't float!
-                let dirtTint = 0x443322; // default dark brown dirt
-                if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
-                else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
-                
-                for (let dy = 696 + 46; dy <= 1500; dy += 46) {
-                    const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
-                    scene.bgLayers.push(rect);
-                }
+                addDeepGround(scene, currentX, 696 + 24, 1500, floorKey, floorFrame, floorTint);
             }
         } else {
             // 2D Platforming logic
@@ -179,14 +211,7 @@ class LevelGenerator {
                 if (floorTint !== 0xffffff) block.setTint(floorTint);
                 
                 // Fill dirt below the safety floor to the bottom of the world (1500)
-                let dirtTint = 0x443322;
-                if (floorKey === 'floor_hell') dirtTint = 0x221122;
-                else if (floorKey === 'floor_desert') dirtTint = 0x886633;
-                
-                for (let dy = 820 + 46; dy <= 1500; dy += 46) {
-                    const rect = scene.add.rectangle(i * 46 + 24, dy, 46, 46, dirtTint).setDepth(-8);
-                    scene.bgLayers.push(rect);
-                }
+                addDeepGround(scene, i * 46 + 24, 820 + 24, 1500, floorKey, floorFrame, floorTint);
             }
 
             // Always ensure the first few blocks are solid so the player doesn't fall
@@ -197,14 +222,7 @@ class LevelGenerator {
                 if (floorTint !== 0xffffff) block.setTint(floorTint);
                 
                 // Fill dirt below
-                let dirtTint = 0x443322; // default dark brown dirt
-                if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
-                else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
-                
-                for (let dy = currentY + 46; dy <= 1500; dy += 46) {
-                    const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
-                    scene.bgLayers.push(rect);
-                }
+                addDeepGround(scene, currentX, currentY + 24, 1500, floorKey, floorFrame, floorTint);
             }
 
             let blockIndex = 6;
@@ -213,16 +231,9 @@ class LevelGenerator {
                 let gapWidth = Math.floor(Math.random() * 3) + 1;
                 
                 // Fill the background of the gap with dirt so we don't see the sky underground
-                let dirtTint = 0x443322;
-                if (floorKey === 'floor_hell') dirtTint = 0x221122;
-                else if (floorKey === 'floor_desert') dirtTint = 0x886633;
-                
                 for (let g = 0; g < gapWidth; g++) {
                     let gapX = (blockIndex + g) * 46 + 24;
-                    for (let dy = 696; dy <= 820; dy += 46) {
-                        const rect = scene.add.rectangle(gapX, dy, 46, 46, dirtTint).setDepth(-8);
-                        scene.bgLayers.push(rect);
-                    }
+                    addDeepGround(scene, gapX, 672, 844, floorKey, floorFrame, floorTint);
                 }
                 
                 blockIndex += gapWidth;
@@ -250,14 +261,7 @@ class LevelGenerator {
                     if (floorTint !== 0xffffff) block.setTint(floorTint);
                     
                     // Fill dirt below
-                    let dirtTint = 0x443322; // default dark brown dirt
-                    if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
-                    else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
-                    
-                    for (let dy = currentY + 46; dy <= 1500; dy += 46) {
-                        const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
-                        scene.bgLayers.push(rect);
-                    }
+                    addDeepGround(scene, currentX, currentY + 24, 1500, floorKey, floorFrame, floorTint);
                     
                     // 15% chance of a higher floating platform block above this one
                     if (Math.random() < 0.15) {
@@ -281,14 +285,7 @@ class LevelGenerator {
                 if (floorTint !== 0xffffff) block.setTint(floorTint);
                 
                 // Fill dirt below
-                let dirtTint = 0x443322; // default dark brown dirt
-                if (floorKey === 'floor_hell') dirtTint = 0x221122; // dark purple/black rock
-                else if (floorKey === 'floor_desert') dirtTint = 0x886633; // dark sand
-                
-                for (let dy = 696 + 46; dy <= 1500; dy += 46) {
-                    const rect = scene.add.rectangle(currentX, dy, 46, 46, dirtTint).setDepth(-8);
-                    scene.bgLayers.push(rect);
-                }
+                addDeepGround(scene, currentX, 696 + 24, 1500, floorKey, floorFrame, floorTint);
             }
         }
 

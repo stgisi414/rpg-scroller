@@ -126,7 +126,7 @@ Return ONLY a valid JSON object:
         }
     }
 
-    async getNpcResponse(npcPersona, chatHistory, playerMessage, state) {
+    async getNpcResponse(npcPersona, chatHistory, playerMessage, state, actionContext = '') {
         if (!this.isReady) {
             return { response: "I cannot speak right now, my mind is disconnected.", alignmentShift: 0 };
         }
@@ -180,7 +180,7 @@ If your alignment is Neutral:
 
 ${contextText}
 
-Here is the conversation so far:
+${actionContext ? actionContext + '\n\n' : ''}Here is the conversation so far:
 ${chatHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n')}
 Player: ${playerMessage}
 
@@ -188,29 +188,47 @@ Respond in character. Keep it brief (1-3 sentences).
 If the player says something that aligns with your values, return a positive alignmentShift (1 to 10).
 If they insult you or act evil, return a negative alignmentShift (-1 to -10).
 Otherwise, alignmentShift is 0.
+socialShift represents how this interaction changes your personal relationship with the player (-10 to 10). Positive gifts, kind roleplay actions (*bow*, *give gold*), and impressive deeds raise it. Insults and hostile actions lower it. Normal conversation is 0.
 
 You can optionally offer the player a quest if they ask for work, or if it fits the conversation. 
-If you offer a quest, include a "quest" object in the JSON. The only supported quest objective currently is to kill a certain number of a specific enemy type. 
-Supported enemy targetTypes: "slime", "goblin", "bat", "mushroom", "orc".
+IMPORTANT: Vary the quest types! Do NOT always give kill quests. Use rescue and delivery quests too.
+If you offer a quest, include a "quest" object in the JSON. Supported quest types:
+1. Kill quest: Slay a certain number of a specific enemy type. (fields: type: "kill", targetType: "<enemy>", targetCount: 3-5, rewardGold: 50-150)
+2. Rescue quest: Rescue a captive person from a dangerous zone. (fields: type: "rescue", rescueeName: "<name>", rescueeGender: "male"|"female", rescueeZone: <zone_number>, rescueState: "captive", targetCount: 1, rewardGold: 100-200)
+3. Delivery quest: Deliver an item to a target NPC in another zone. (fields: type: "delivery", deliveryItem: "<item_name>", deliveryTargetZone: <town_zone_number>, deliveryTargetNPC: "<npc_role>", targetCount: 1, deliveryPickedUp: true, rewardGold: 80-150)
+
+For kill quests, pick an enemy that fits the current biome. Supported enemy targetTypes: "slime", "goblin", "bat", "mushroom", "orc", "bandit", "skeleton", "troll", "ogre", "giant", "frost_giant", "dragon", "spider", "mummy".
+For rescue quests, rescueeZone should be a non-town zone near the current area (current zone ± 1-3, but NOT a multiple of 4 since those are towns). Pick a creative name for the rescuee.
+For delivery quests, deliveryTargetZone should be a nearby town zone (a multiple of 4). deliveryTargetNPC should be a role like "Elder", "Sage", "Apothecary", or "Master Smith".
+The current zone number is: ${(window.saveData && window.saveData.currentZone) || 0}.
 
 If the player's message is extremely insulting, threatening, or completely pisses you off, you can choose to attack them. If you decide to attack, set "turnsHostile" to true in the JSON.
 If the player's message is extremely kind, impressive, or they befriend you, you can choose to join their party and fight alongside them. If you decide to join them, set "joinsParty" to true in the JSON.
 (Do not set both to true).
 
-Return ONLY a valid JSON object in this format:
+Return ONLY a valid JSON object in this format (showing all 3 quest examples — pick ONE type per response):
+Kill example:
 {
   "response": "Your dialogue here...",
   "alignmentShift": 0,
+  "socialShift": 0,
   "turnsHostile": false,
   "joinsParty": false,
-  "quest": {
-    "id": "purge_goblins",
-    "title": "A Nuisance in the Wilds",
-    "description": "Kill 3 goblins and return to me.",
-    "targetType": "goblin",
-    "targetCount": 3,
-    "rewardGold": 50
-  }
+  "quest": { "id": "hunt_ogres_1", "title": "Ogre Menace", "description": "Slay 3 ogres terrorizing the region.", "type": "kill", "targetType": "ogre", "targetCount": 3, "rewardGold": 100 }
+}
+Rescue example:
+{
+  "response": "Your dialogue here...",
+  "alignmentShift": 0,
+  "socialShift": 0,
+  "quest": { "id": "rescue_lyra_1", "title": "Save Lyra", "description": "Rescue Lyra from captivity in the wilds.", "type": "rescue", "rescueeName": "Lyra", "rescueeGender": "female", "rescueeZone": 3, "rescueState": "captive", "targetCount": 1, "rewardGold": 150 }
+}
+Delivery example:
+{
+  "response": "Your dialogue here...",
+  "alignmentShift": 0,
+  "socialShift": 0,
+  "quest": { "id": "deliver_scroll_1", "title": "Urgent Scroll", "description": "Deliver this ancient scroll to the Sage in the next town.", "type": "delivery", "deliveryItem": "Ancient Scroll", "deliveryTargetZone": 4, "deliveryTargetNPC": "Sage", "targetCount": 1, "deliveryPickedUp": true, "rewardGold": 120 }
 }
 If you do NOT want to give a quest, simply omit the "quest" field.`;
 
@@ -232,6 +250,20 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
         const allHeroes = ['wizard', 'ranger', 'samurai', 'knight', 'elven_spellblade'];
         const availableHeroes = allHeroes.filter(c => c !== playerClassId);
 
+        const biomeEnemies = {
+            'Forest': ['slime', 'goblin', 'mushroom', 'spider', 'bat', 'bandit', 'wolfen', 'coyle', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_orc_male', 'special_enemy_orc_female', 'troll', 'ogre', 'willowisp'],
+            'Plains': ['slime', 'goblin', 'orc', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'ogre', 'willowisp'],
+            'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'troll', 'willowisp'],
+            'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp'],
+            'Coastal': ['slime', 'bat', 'plague_flies', 'bandit', 'willowisp'],
+            'Winter': ['slime', 'orc', 'burning_skull_blue', 'frost_giant', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp'],
+            'Dungeon': ['slime', 'bat', 'spider', 'old_demon', 'male_damned', 'female_damned', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'willowisp'],
+            'Deadwoods': ['slime', 'bat', 'spider', 'tree_damned', 'twisted_damned', 'plague_flies', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'troll', 'ogre', 'willowisp'],
+            'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'the_devil', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'willowisp', 'bloated_damned'],
+            'Heaven': ['heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub', 'special_enemy_ghost_male', 'special_enemy_ghost_female']
+        };
+        const validEnemies = biomeEnemies[targetBiome] || ['slime'];
+
         // Towns appear every 3-5 zones (or if forceTown)
         const absIdx = Math.abs(zoneIndex);
         let minEnemies = 3;
@@ -252,7 +284,12 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
             // --- Rich fallback zone generation (no AI needed) ---
             const townNames = ['Willowbrook', 'Thornhaven', 'Ashenmere', 'Goldfall', 'Cinderveil', 'Moonreach', 'Starholm', 'Briarvale'];
             const wildNames = ['The Whispering Woods', 'Darkhollow Thicket', 'Stormbreak Ridge', 'The Blighted Glen', 'Mistfang Wilds', 'Hollow of Echoes', 'The Tangled Expanse', 'Gloomveil Forest'];
-            const townNpcNames = ['Elara the Sage', 'Theron Ironhand', 'Lyra Nightbloom', 'Gareth the Keeper', 'Sylvia Brightwater', 'Orin Deepforge'];
+            const townNpcNames = [
+                'Theron Ironhand', 'Lyra Nightbloom', 'Gareth the Keeper', 'Sylvia Brightwater', 'Orin Deepforge',
+                'Bram Stonecarver', 'Elowen Greenleaf', 'Valerius the Watchful', 'Saskia Silverweave', 'Osric the Tall',
+                'Emeric the Elder', 'Linnea Brightwood', 'Darian Goldspire', 'Aisling Moonwhisper', 'Brynn Oakhaven',
+                'Halden Frostbeard', 'Corbin Nightshade', 'Daphne Suncrest', 'Emeric Ironclad', 'Godric Stormborn'
+            ];
             const townPersonas = [
                 'A wise elder who has studied the arcane arts for decades. Offers counsel on magical threats.',
                 'A burly blacksmith with a heart of gold. Happy to share tales of legendary weapons.',
@@ -261,7 +298,11 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
                 'A cheerful innkeeper who hears every rumor. Always has a warm meal ready.',
                 'A retired adventurer turned merchant. Sells supplies and shares hard-earned wisdom.'
             ];
-            const heroNpcNames = ['Aldric the Blade', 'Seraphel', 'Old Wren', 'Kael Duskmantle', 'Voss the Wanderer', 'Fenris Ashwalker'];
+            const heroNpcNames = [
+                'Aldric the Blade', 'Seraphel', 'Old Wren', 'Kael Duskmantle', 'Voss the Wanderer', 'Fenris Ashwalker',
+                "Yara Stormrider", "Cassian the Bold", "Garrick Shadowstep", "Lothar Stonefist", "Aurelia Brightshield",
+                "Orion the Hunted", "Zephyr the Swift", "Brand the Scythe", "Talon Hawke", "Scythe the Wanderer"
+            ];
             const heroPersonas = [
                 'A battle-worn adventurer resting between quests. Speaks little but offers hard-earned wisdom.',
                 'A wandering knight-errant seeking a worthy cause. Fiercely loyal once trust is earned.',
@@ -292,8 +333,9 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
                 const enemyCount = minEnemies + Math.floor(Math.random() * (maxEnemies - minEnemies + 1));
                 const enemies = [];
                 for (let i = 0; i < enemyCount; i++) {
+                    const eType = validEnemies[Math.floor(Math.random() * validEnemies.length)];
                     enemies.push({
-                        type: 'slime',
+                        type: eType,
                         x: 300 + Math.floor(Math.random() * 700),
                         hp: 80 + (playerLevel * 20) + (absIdx * 10) + Math.floor(Math.random() * 40),
                         speed: 80 + (playerLevel * 10) + (absIdx * 5) + Math.floor(Math.random() * 30)
@@ -317,19 +359,6 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
         }
 
         const suggestedBiome = targetBiome;
-
-        const biomeEnemies = {
-            'Forest': ['slime', 'goblin', 'mushroom', 'spider', 'bat', 'bandit'],
-            'Plains': ['slime', 'goblin', 'orc', 'bat', 'bandit'],
-            'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton'],
-            'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'bandit'],
-            'Coastal': ['slime', 'bat', 'plague_flies', 'bandit'],
-            'Winter': ['slime', 'orc', 'burning_skull_blue', 'frost_giant'],
-            'Dungeon': ['slime', 'bat', 'spider', 'old_demon', 'male_damned', 'female_damned'],
-            'Deadwoods': ['slime', 'bat', 'spider', 'tree_damned', 'twisted_damned', 'plague_flies'],
-            'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'the_devil']
-        };
-        const validEnemies = biomeEnemies[targetBiome] || ['slime'];
 
         const prompt = `You are a procedural generation engine for a 2D Action-RPG.
 Generate data for Zone Index ${zoneIndex}. Note: Negative zoneIndex values indicate backtracking or moving to the left from the starting town (Zone 0); please treat them as valid progression areas. Use the absolute index ${Math.abs(zoneIndex)} for biome/difficulty calculations. Each zone MUST be unique.
@@ -355,7 +384,12 @@ ${forceTown ?
    - If no NPC, return an empty npcs array [].`}
 5. The biome for this zone MUST be "${suggestedBiome}". Do NOT use a different biome.
 6. The x coordinate for entities must be between 200 and 3600.
-7. CRITICAL: NPC names MUST be highly diverse. Do NOT overuse names like "Kaelen", "Elara", "Lyra", or "Kael". Invent entirely unique and distinct names each time (e.g. "Brom the Stout", "Vespera", "Gareth of the Ash").
+7. CRITICAL: NPC names MUST be highly diverse and match their class style. Do NOT reuse names (such as "Elara", "Kaelen", "Lyra", "Kael"). Choose unique names or use these thematic guidelines:
+   - For Knights/Warriors: strong fantasy names (e.g., Theron, Aldric, Emeric, Godric, Valerius).
+   - For Wizards/Sages/Alchemists: magical or classic names (e.g., Zephyr, Ignatius, Sophia, Balthazar, Vespera).
+   - For Rangers/Hunters: nature-based or scout names (e.g., Orion, Robin, Sylas, Elowen, Rowan, Wren).
+   - For Samurai: classic Japanese/blade names (e.g., Kenji, Hiroshi, Takeshi, Nobu, Tomoe, Kaede).
+   - For Villagers/Townsfolk: simple fantasy names (e.g., Sylvia, Orin, Gareth, Mira, Brynn, Bram).
 8. NPC personas must be 1-2 sentences describing their personality and role in the world.
 9. Town NPC personas should be merchants, sages, or village folk. Wilderness NPC personas should be adventurers, scouts, or exiles.
 10. CRITICAL: The zone "name" MUST be unique and thematic to the biome. Examples:
@@ -368,6 +402,7 @@ ${forceTown ?
    - Dungeon: "Hollow of Echoes", "The Shattered Crypt", "Deepstone Ruins", "The Sunken Vault"
    - Deadwoods: "The Ashen Grove", "Withered Thicket", "Blighted Woods", "The Silent Copse"
    - Hell: "The Obsidian Crags", "Brimstone Wastes", "The Demon's Maw", "Lake of Fire"
+   - Heaven: "The Golden Gates", "Elisean Fields", "Aetherial Ascent", "The Cloudtop Sanctum", "Gates of Paradise"
    - Town: "Willowbrook", "Thornhaven", "Ashenmere", "Goldfall", "Cinderveil"
    Do NOT reuse "Whispering Thicket" or any name you have used before.
 11. Add a "lore" property. This should be 1-2 sentences of dark fantasy background lore about this specific zone.
@@ -400,6 +435,7 @@ Return ONLY a valid JSON object in this exact format:
             // Use the rich fallback instead of a bare error stub
             const isTownFallback = forceTown || (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0);
             const wildNames = ['The Whispering Woods', 'Darkhollow Thicket', 'Stormbreak Ridge', 'The Blighted Glen', 'Mistfang Wilds', 'Hollow of Echoes', 'The Tangled Expanse', 'Gloomveil Forest'];
+            const heavenNames = ['The Golden Gates', 'Elisean Fields', 'Aetherial Ascent', 'The Cloudtop Sanctum', 'Gates of Paradise'];
             const townNames = ['Willowbrook', 'Thornhaven', 'Ashenmere', 'Goldfall', 'Cinderveil', 'Moonreach', 'Starholm', 'Briarvale'];
             const aIdx = Math.abs(zoneIndex);
             
@@ -412,21 +448,45 @@ Return ONLY a valid JSON object in this exact format:
 
             const enemyCount = minEnemies + Math.floor(Math.random() * (maxEnemies - minEnemies + 1));
             const fallbackEnemies = [];
+            const heavenEnemyTypes = ['heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub', 'special_enemy_ghost_male', 'special_enemy_ghost_female'];
+            const standardEnemyTypes = biomeEnemies[suggestedBiome] || ['slime'];
+            
             for (let i = 0; i < enemyCount; i++) {
+                const enemyType = suggestedBiome === 'Heaven' 
+                    ? heavenEnemyTypes[Math.floor(Math.random() * heavenEnemyTypes.length)]
+                    : standardEnemyTypes[Math.floor(Math.random() * standardEnemyTypes.length)];
+                    
                 fallbackEnemies.push({
-                    type: 'slime',
-                    x: 300 + Math.floor(Math.random() * 700),
+                    type: enemyType,
+                    x: 300 + Math.floor(Math.random() * 3200), // Spread across platform range
                     hp: 80 + (playerLevel * 20) + (aIdx * 10) + Math.floor(Math.random() * 40),
                     speed: 80 + (playerLevel * 10) + (aIdx * 5) + Math.floor(Math.random() * 30)
                 });
             }
 
+            let finalName = '';
+            if (suggestedBiome === 'Heaven') {
+                finalName = heavenNames[aIdx % heavenNames.length];
+            } else {
+                finalName = isTownFallback ? townNames[aIdx % townNames.length] : wildNames[aIdx % wildNames.length];
+            }
+
+            let finalNpcs = fallbackTownNpcs;
+            if (zoneIndex !== 0) {
+                finalNpcs = [
+                    { name: window.CharacterComposer ? window.CharacterComposer.generateRandomName('wizard') + " the Sage" : "Ambervale Sage", persona: "A wise elder who offers counsel on magical threats.", x: 300, spriteKey: "npc" },
+                    { name: window.CharacterComposer ? window.CharacterComposer.generateRandomName('warrior') + " the Hammer" : "Bram Stonecarver", persona: "A gruff blacksmith who forged his weapons in dragon fire.", x: 600, spriteKey: "blacksmith" },
+                    { name: window.CharacterComposer ? window.CharacterComposer.generateRandomName('ranger') + " the Hunter" : "Lyra Nightbloom", persona: "A quiet tracker who knows the paths through the wilderness. He sells provisions and maps.", x: 900, spriteKey: "ranger" },
+                    { name: window.CharacterComposer ? window.CharacterComposer.generateRandomName('alchemist') + " the Alchemist" : "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 1200, spriteKey: "alchemist" }
+                ];
+            }
+
             return {
-                name: isTownFallback ? townNames[aIdx % townNames.length] : wildNames[aIdx % wildNames.length],
+                name: finalName,
                 type: isTownFallback ? "Safe" : "Dangerous",
                 biome: suggestedBiome,
                 enemies: isTownFallback ? [] : fallbackEnemies,
-                npcs: isTownFallback ? fallbackTownNpcs : []
+                npcs: isTownFallback ? finalNpcs : []
             };
         }
     }
@@ -472,12 +532,15 @@ Keep it short, punchy, and atmospheric.`;
     async getHeroAutoPlayResponse(classId, npcName, chatContext) {
         if (!this.model) return "Interesting.";
 
-        let persona = "A wandering adventurer seeking glory.";
-        if (classId === 'knight') persona = "A brave knight who was forced into exile but continues to bring justice to the realm.";
-        else if (classId === 'wizard') persona = "A mysterious wizard who came from a rift of a foreign land.";
-        else if (classId === 'samurai') persona = "A foreign samurai who traveled by boat to become a hero in Elden Soul's realm.";
-        else if (classId === 'ranger') persona = "A stealthy ranger who is gruff but firm.";
-        else if (classId === 'elven_spellblade') persona = "An elegant elven spellblade who harmonizes blade combat with arcane magic.";
+        let persona = (window.autoplayConfig && window.autoplayConfig.heroPersonality) ? window.autoplayConfig.heroPersonality : "";
+        if (!persona) {
+            if (classId === 'knight') persona = "A brave knight who was forced into exile but continues to bring justice to the realm.";
+            else if (classId === 'wizard') persona = "A mysterious wizard who came from a rift of a foreign land.";
+            else if (classId === 'samurai') persona = "A foreign samurai who traveled by boat to become a hero in Elden Soul's realm.";
+            else if (classId === 'ranger') persona = "A stealthy ranger who is gruff but firm.";
+            else if (classId === 'elven_spellblade') persona = "An elegant elven spellblade who harmonizes blade combat with arcane magic.";
+            else persona = "A wandering adventurer seeking glory.";
+        }
 
         const prompt = `You are playing the role of the main hero in a dark fantasy 2D RPG.
 Your Persona: ${persona}

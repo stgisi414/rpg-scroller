@@ -16,10 +16,14 @@ class SpriteDebugger {
         html += '</div>';
         html += '<div style="margin-bottom: 10px; font-size: 10px; color: #aaa;">Press ` (backtick) to toggle</div>';
         html += '<select id="debug-sprite" style="width: 100%; margin-bottom: 10px; color: black; background: white;">';
-        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant', 'house_inside_tiles', 'training_dummy', 'summon_angel', 'npc_male_skin1', 'npc_female_skin1'].forEach(key => {
+        ['house_inside_tiles', 'summon_angel', 'npc_male_skin1', 'npc_female_skin1'].forEach(key => {
             html += `<option value="${key}">${key}</option>`;
         });
         html += '</select>';
+        html += '<div id="debug-weapon-row" style="display: none; margin-bottom: 10px; flex-direction: column; gap: 4px;">';
+        html += '<label style="font-size: 11px; color: #aaa;">Overlay Weapon:</label>';
+        html += '<select id="debug-weapon" style="width: 100%; color: black; background: white;"></select>';
+        html += '</div>';
 
         html += '<div style="position: relative; overflow: auto; width: 100%; height: 200px; border: 1px solid #444; margin-bottom: 10px;">';
         html += '<canvas id="debug-canvas" width="1024" height="512"></canvas>';
@@ -28,7 +32,7 @@ class SpriteDebugger {
 
         html += '<div id="debug-controls"></div>';
 
-        html += '<button id="debug-apply" style="width: 100%; padding: 5px; margin-top: 10px;">Apply & Restart</button>';
+        html += '<button id="debug-apply" style="margin-top: 10px; width: 100%; padding: 8px; background: #00aa00; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">Apply & Restart</button>';
 
         panel.innerHTML = html;
         document.body.appendChild(panel);
@@ -89,7 +93,10 @@ class SpriteDebugger {
                     ];
                 } else if (key.startsWith('npc_male') || key.startsWith('npc_female')) {
                     rowData = window.sliceData[key] = [];
-                    for (let r = 0; r < 7; r++) rowData.push({ y: r * 64, h: 64 });
+                    for (let r = 0; r < 7; r++) {
+                        const h = (r === 3) ? 60 : 64;
+                        rowData.push({ y: r * 64, h: h });
+                    }
                 } else {
                     rowData = window.sliceData[key] = [
                         { y: 0, h: 85 }, { y: 85, h: 85 }, { y: 170, h: 85 }, { y: 255, h: 85 }, { y: 340, h: 85 }, { y: 425, h: 87 }
@@ -153,7 +160,6 @@ class SpriteDebugger {
                 }
             }
 
-            html += `<button id="debug-apply" style="margin-top: 10px; width: 100%; padding: 8px; background: #00aa00; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">Apply & Save</button>`;
             controls.innerHTML = html;
 
             document.querySelectorAll('input[name="debug-mode"]').forEach(radio => {
@@ -215,9 +221,11 @@ class SpriteDebugger {
                 localStorage.setItem('sprite_slice_data', JSON.stringify(window.sliceData));
                 localStorage.setItem('sprite_slice_coldata', JSON.stringify(window.sliceColData));
                 const btn = document.getElementById('debug-apply');
-                btn.textContent = '✓ Saved!';
+                btn.textContent = '✓ Restarting...';
                 btn.style.background = '#006600';
-                setTimeout(() => { btn.textContent = 'Apply & Save'; btn.style.background = '#00aa00'; }, 1500);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
             });
 
             drawCanvas();
@@ -228,8 +236,10 @@ class SpriteDebugger {
             const data = window.sliceData[key];
             if (!data) return;
             for (let r = 0; r < data.length; r++) {
-                data[r].y = parseInt(document.getElementById(`debug-${key}-r${r}-y`).value) || 0;
-                data[r].h = parseInt(document.getElementById(`debug-${key}-r${r}-h`).value) || 0;
+                const yElem = document.getElementById(`debug-${key}-r${r}-y`);
+                const hElem = document.getElementById(`debug-${key}-r${r}-h`);
+                if (yElem) data[r].y = parseInt(yElem.value) || 0;
+                if (hElem) data[r].h = parseInt(hElem.value) || 0;
             }
             drawCanvas();
         };
@@ -237,21 +247,26 @@ class SpriteDebugger {
         const drawCanvas = () => {
             const key = select.value;
             let img = null;
-            if (key === 'lich_lord') img = this.scene.registry.get('debug_tex_lich');
-            if (key === 'skeleton') img = this.scene.registry.get('debug_tex_skeleton');
-            if (key === 'the_devil') img = this.scene.registry.get('debug_tex_devil');
-            if (key === 'frost_giant') img = this.scene.registry.get('debug_tex_frost_giant');
             if (key === 'house_inside_tiles') img = this.scene.registry.get('debug_tex_house_tiles');
-            if (key === 'training_dummy') img = this.scene.registry.get('debug_tex_training_dummy');
             if (key === 'summon_angel') img = this.scene.registry.get('debug_tex_summon_angel');
 
             if (!img && this.scene.textures.exists(key)) {
                 img = this.scene.textures.get(key).getSourceImage();
             }
 
+            const weaponSelectElem = document.getElementById('debug-weapon');
+            const weaponKey = weaponSelectElem ? weaponSelectElem.value : '';
+            let weaponImg = null;
+            if (weaponKey && this.scene.textures.exists(weaponKey)) {
+                weaponImg = this.scene.textures.get(weaponKey).getSourceImage();
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (img && img.src) {
                 try { ctx.drawImage(img, 0, 0); } catch(e) { console.warn("Failed to draw image to debug canvas", e); }
+            }
+            if (weaponImg && weaponImg.src) {
+                try { ctx.drawImage(weaponImg, 0, 0); } catch(e) { console.warn("Failed to draw weapon overlay to debug canvas", e); }
             }
 
             ctx.strokeStyle = 'red';
@@ -461,11 +476,64 @@ class SpriteDebugger {
         };
         window.addEventListener('mouseup', this.scene._debugMouseUpListener);
 
+        const weaponNames = [
+            { name: 'None', suffix: '' },
+            { name: 'Basket', suffix: 'basket' },
+            { name: 'Bronze Axe', suffix: 'bronze_axe' },
+            { name: 'Bronze Pickaxe', suffix: 'bronze_pickaxe' },
+            { name: 'Bronze Sword', suffix: 'bronze_sword' },
+            { name: 'Diamond Axe', suffix: 'diamond_axe' },
+            { name: 'Diamond Pickaxe', suffix: 'diamond_pickaxe' },
+            { name: 'Diamond Sword', suffix: 'diamond_sword' },
+            { name: 'Flower', suffix: 'flower' },
+            { name: 'Golden Axe', suffix: 'golden_axe' },
+            { name: 'Golden Pickaxe', suffix: 'golden_pickaxe' },
+            { name: 'Golden Sword', suffix: 'golden_sword' },
+            { name: 'Hoe', suffix: 'hoe' },
+            { name: 'Iron Axe', suffix: 'iron_axe' },
+            { name: 'Iron Pickaxe', suffix: 'iron_pickaxe' },
+            { name: 'Iron Sword', suffix: 'iron_sword' },
+            { name: 'Stick', suffix: 'stick' },
+            { name: 'Wooden Axe', suffix: 'wooden_axe' },
+            { name: 'Wooden Pickaxe', suffix: 'wooden_pickaxe' },
+            { name: 'Wooden Sword', suffix: 'wooden_sword' }
+        ];
+
+        const updateWeaponOverlayVisibility = () => {
+            const key = select.value;
+            const row = document.getElementById('debug-weapon-row');
+            const weaponSelect = document.getElementById('debug-weapon');
+            if (key.startsWith('npc_male') || key.startsWith('npc_female')) {
+                if (row) row.style.display = 'flex';
+                if (weaponSelect) {
+                    weaponSelect.innerHTML = '';
+                    const isMale = key.startsWith('npc_male');
+                    weaponNames.forEach(w => {
+                        const opt = document.createElement('option');
+                        opt.value = w.suffix ? `mod_${w.suffix}_${isMale ? 'm' : 'f'}` : '';
+                        opt.textContent = w.name;
+                        weaponSelect.appendChild(opt);
+                    });
+                }
+            } else {
+                if (row) row.style.display = 'none';
+                if (weaponSelect) weaponSelect.innerHTML = '';
+            }
+        };
+
         select.addEventListener('change', () => {
             window.debugColRow = 'all';
+            updateWeaponOverlayVisibility();
             renderControls();
             updateData();
         });
+
+        const weaponSelect = document.getElementById('debug-weapon');
+        if (weaponSelect) {
+            weaponSelect.addEventListener('change', () => {
+                drawCanvas();
+            });
+        }
 
         document.getElementById('debug-close').addEventListener('click', () => {
             panel.style.display = 'none';
@@ -484,6 +552,7 @@ class SpriteDebugger {
             document.addEventListener('keydown', this.scene._debugKeyDownListener);
         }
 
+        updateWeaponOverlayVisibility();
         renderControls();
         updateData();
     }

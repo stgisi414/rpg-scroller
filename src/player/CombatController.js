@@ -58,8 +58,9 @@ class CombatController {
                     // Prevent AI from hitting other enemies if it's hostile AI
                     if (player.isAI && player.aiState === 'hostile') return;
                     
-                    const yDiff = Math.abs(player.sprite.y - enemySprite.y);
-                    if (yDiff > 45) return;
+                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                    const enemyBottom = enemySprite.body ? enemySprite.body.bottom : enemySprite.y;
+                    if (Math.abs(playerBottom - enemyBottom) > 65) return;
                     
                     const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
                     // Class-specific damage formulas
@@ -101,8 +102,9 @@ class CombatController {
             // If AI is hostile, also check overlap with Player!
             if (player.isAI && player.aiState === 'hostile') {
                 player.scene.physics.overlap(hitbox, player.scene.player.sprite, (box, pSprite) => {
-                    const yDiff = Math.abs(player.sprite.y - pSprite.y);
-                    if (yDiff > 45) return;
+                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                    const targetBottom = pSprite.body ? pSprite.body.bottom : pSprite.y;
+                    if (Math.abs(playerBottom - targetBottom) > 65) return;
                     
                     const damage = (cd.stats.str * 2) + 5 + Math.floor(Math.random() * 5);
                     player.scene.player.takeDamage(damage, player.facingDirection);
@@ -139,8 +141,9 @@ class CombatController {
                 if (player.isAI && player.aiState === 'hostile') return; // AI doesn't hit enemies
                 if (enemySprite.controller.isDead) return; // Fix: ignore already dead enemies
 
-                const yDiff = Math.abs(proj.y - enemySprite.y);
-                if (yDiff > 45) return; // Fix: don't hit ambush enemies falling from the sky
+                const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                const enemyBottom = enemySprite.body ? enemySprite.body.bottom : enemySprite.y;
+                if (Math.abs(playerBottom - enemyBottom) > 65) return;
 
                 let isCrit = false;
                 let finalDamage = damage;
@@ -202,8 +205,9 @@ class CombatController {
         const overlap = player.scene.physics.add.overlap(proj, targetGroup, (p, targetSprite) => {
             if (player.aiState === 'hostile') {
                 if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
-                    const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
-                    if (yDiff > 45) return;
+                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                    const targetBottom = player.scene.player.sprite.body ? player.scene.player.sprite.body.bottom : player.scene.player.sprite.y;
+                    if (Math.abs(playerBottom - targetBottom) > 65) return;
                     
                     player.scene.player.takeDamage(damage, player.facingDirection);
                     p.destroy();
@@ -213,8 +217,9 @@ class CombatController {
                 if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
                     if (targetSprite.controller.isDead) return;
                     
-                    const yDiff = Math.abs(proj.y - targetSprite.y);
-                    if (yDiff > 45) return;
+                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                    const targetBottom = targetSprite.body ? targetSprite.body.bottom : targetSprite.y;
+                    if (Math.abs(playerBottom - targetBottom) > 65) return;
 
                     targetSprite.controller.takeDamage(damage, player.facingDirection);
                     this.applyLifesteal(damage);
@@ -259,29 +264,26 @@ class CombatController {
                 const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
                 const damage = Math.floor(cd.stats.int * 3.5) + weaponBonus + 5;
                 const dir = player.facingDirection || 1;
+                const orbSpeed = 500;
                 
-                // Fire 3 orbs in spread
                 for (let i = 0; i < 3; i++) {
-                    player.scene.time.delayedCall(i * 120, () => {
+                    player.scene.time.delayedCall(i * 100, () => {
                         if (!player.sprite || !player.sprite.active) return;
-                        
                         const p = player.scene.physics.add.sprite(player.sprite.x + (dir * 25), player.sprite.y - 10, 'projectile_blue');
                         if (player.scene.anims.exists('projectile_blue_anim')) {
                             p.play('projectile_blue_anim');
                         }
                         p.body.setAllowGravity(false);
-                        p.setScale(1.8);
-                        
-                        const vy = (i - 1) * 60; // Spread: -60 (upward), 0 (straight), 60 (downward)
-                        p.setVelocity(dir * 500, vy);
-                        if (dir === -1) p.setFlipX(true);
+                        p.setScale(1.5);
+                        p.setVelocity(dir * orbSpeed * (player.magicRangeMultiplier || 1.0), 0);
                         
                         const targetGroup = player.aiState === 'hostile' ? p.scene.player.sprite : player.scene.enemies;
                         const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
                             if (player.aiState === 'hostile') {
                                 if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
-                                    const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
-                                    if (yDiff > 45) return;
+                                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                                    const targetBottom = player.scene.player.sprite.body ? player.scene.player.sprite.body.bottom : player.scene.player.sprite.y;
+                                    if (Math.abs(playerBottom - targetBottom) > 65) return;
                                     player.scene.player.takeDamage(damage, dir);
                                     proj.destroy();
                                     player.scene.physics.world.removeCollider(overlap);
@@ -289,12 +291,13 @@ class CombatController {
                             } else {
                                 if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
                                     if (targetSprite.controller.isDead) return;
-                                    const yDiff = Math.abs(proj.y - targetSprite.y);
-                                    if (yDiff > 45) return;
+                                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                                    const targetBottom = targetSprite.body ? targetSprite.body.bottom : targetSprite.y;
+                                    if (Math.abs(playerBottom - targetBottom) > 65) return;
                                     targetSprite.controller.takeDamage(damage, dir);
                                     this.applyLifesteal(damage);
-                                    if (Math.random() < 0.4 && targetSprite.controller.applyStatusEffect) {
-                                        targetSprite.controller.applyStatusEffect('burn', 3000, 10);
+                                    if (Math.random() < 0.3 && targetSprite.controller.applyStatusEffect) {
+                                        targetSprite.controller.applyStatusEffect('burn', 3000, 8);
                                     }
                                     proj.destroy();
                                     player.scene.physics.world.removeCollider(overlap);
@@ -302,7 +305,7 @@ class CombatController {
                             }
                         });
                         
-                        player.scene.time.delayedCall(1500, () => { if (p.active) p.destroy(); });
+                        player.scene.time.delayedCall(Math.floor(1500 * (player.magicRangeMultiplier || 1.0)), () => { if (p.active) p.destroy(); });
                     });
                 }
             });
@@ -325,12 +328,20 @@ class CombatController {
             }
 
             // Visual effect - circle of magic bolts expanding
+            if (!player.scene.textures.exists('magic_particle')) {
+                const graphics = player.scene.add.graphics();
+                graphics.fillStyle(0xffffff, 1);
+                graphics.fillCircle(8, 8, 8);
+                graphics.generateTexture('magic_particle', 16, 16);
+                graphics.destroy();
+            }
+
             for (let i = 0; i < 12; i++) {
                 const angle = (i / 12) * Math.PI * 2;
                 const dist = 120;
                 const px = player.sprite.x + Math.cos(angle) * dist;
                 const py = player.sprite.y + Math.sin(angle) * dist;
-                const effect = player.scene.add.sprite(player.sprite.x, player.sprite.y, 'magic_bolt').setScale(0.5);
+                const effect = player.scene.add.sprite(player.sprite.x, player.sprite.y, 'magic_particle').setScale(0.5);
                 effect.setTint(0xff00ff);
                 
                 player.scene.tweens.add({
@@ -383,6 +394,128 @@ class CombatController {
         const player = this.player;
         const cd = player.classData;
         
+        if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+            // Mana check - costs 10 MP
+            const cost = 10;
+            if (player.mp < cost) {
+                if (!player.isAI && player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, 'No Mana!', 0x4488ff);
+                return;
+            }
+            player.mp -= cost;
+            player.isAttacking = true;
+
+            // Play combo animation
+            const comboKey = cd.id + '_combo';
+            if (cd.isSheet && player.scene.anims.exists(comboKey)) {
+                player._playAnim(comboKey);
+            }
+
+            // Apply Spellblade Buff (10 seconds)
+            player.hasSpellbladeBuff = true;
+            player.speedMultiplier = 1.5;
+            player.magicRangeMultiplier = 1.8;
+            
+            const strBoost = 15;
+            cd.stats.str += strBoost;
+            
+            if (player.sprite && player.sprite.active) {
+                player.sprite.setTint(0xffd700); // Golden glow
+            }
+
+            if (!player.isAI && player.scene.showFloatingText) {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "M-BUFF ACTIVATED!", 0xffd700);
+            }
+
+            player.scene.time.delayedCall(10000, () => {
+                player.hasSpellbladeBuff = false;
+                player.speedMultiplier = 1.0;
+                player.magicRangeMultiplier = 1.0;
+                cd.stats.str -= strBoost;
+                if (player.sprite && player.sprite.active) {
+                    player.sprite.clearTint();
+                }
+                if (player.scene && player.scene.showFloatingText) {
+                    player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, "Buff Expired", 0xffaa00);
+                }
+            });
+
+            // Summon one ally based on alignment
+            let summonClassId = '';
+            const align = player.alignment || 0;
+            if (align > 20) {
+                // Good alignment: one heavenly type ally
+                const goodAllies = ['heavenly_archangel', 'heavenly_cherub', 'heavenly_seraph', 'heavenly_valkyrie'];
+                summonClassId = goodAllies[Math.floor(Math.random() * goodAllies.length)];
+            } else if (align < -20) {
+                // Evil alignment: one hell biome enemy
+                const evilAlliesClean = ['male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'imp', 'old_demon'];
+                summonClassId = evilAlliesClean[Math.floor(Math.random() * evilAlliesClean.length)];
+            } else {
+                // Neutral alignment: ambient custom hero
+                const npcData = window.CharacterComposer.generateRandomNPC(player.scene, Math.random() < 0.5 ? 'male' : 'female');
+                summonClassId = npcData.spriteKey;
+            }
+
+            if (summonClassId) {
+                const spawnX = player.sprite.x - (player.facingDirection * 50);
+                const spawnY = player.sprite.y;
+                const ally = new PlayerController(player.scene, spawnX, spawnY, player.inputManager, {
+                    isAI: true,
+                    aiState: 'party',
+                    classId: summonClassId
+                });
+
+                if (player.scene.partyMembers) {
+                    player.scene.partyMembers.push(ally);
+                }
+                if (player.scene.heroGroup) {
+                    player.scene.heroGroup.add(ally.sprite);
+                }
+                // Add collision with floor/platforms
+                const groundCollider = player.scene.floor || player.scene.platforms;
+                if (groundCollider) {
+                    player.scene.physics.add.collider(ally.sprite, groundCollider);
+                }
+
+                if (player.scene.showFloatingText) {
+                    player.scene.showFloatingText(spawnX, spawnY - 30, `Summoned ${summonClassId.replace('heavenly_', '').replace('custom_npc_', 'Hero')}`, 0xffff00);
+                }
+
+                // Clean up summoned unit after 15 seconds (rather than leaving dead on floor)
+                player.scene.time.delayedCall(15000, () => {
+                    if (ally && ally.sprite && ally.sprite.active) {
+                        // Visual effect on vanish
+                        const vanish = player.scene.add.sprite(ally.sprite.x, ally.sprite.y, 'magic_particle');
+                        vanish.setScale(ally.sprite.scaleX);
+                        vanish.setTint(0xffd700);
+                        player.scene.tweens.add({
+                            targets: vanish,
+                            scaleX: ally.sprite.scaleX * 2,
+                            scaleY: ally.sprite.scaleY * 2,
+                            alpha: 0,
+                            duration: 500,
+                            onComplete: () => vanish.destroy()
+                        });
+                        
+                        // Fade out and destroy
+                        player.scene.tweens.add({
+                            targets: ally.sprite,
+                            alpha: 0,
+                            duration: 500,
+                            onComplete: () => {
+                                ally.destroy();
+                            }
+                        });
+                    }
+                });
+            }
+
+            player.scene.time.delayedCall(800, () => {
+                player.isAttacking = false;
+            });
+            return;
+        }
+
         if (cd.id !== 'wizard' && cd.id !== 'wizard_rival') return;
         
         // Mana check - summon costs 30 MP (massive heal)
@@ -573,8 +706,9 @@ class CombatController {
                             // If hitting player, structure is slightly different
                             if (player.aiState === 'hostile') {
                                 if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
-                                    const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
-                                    if (yDiff > 45) return;
+                                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                                    const targetBottom = player.scene.player.sprite.body ? player.scene.player.sprite.body.bottom : player.scene.player.sprite.y;
+                                    if (Math.abs(playerBottom - targetBottom) > 65) return;
  
                                     player.scene.player.takeDamage(damage, dir);
                                     proj.destroy();
@@ -584,8 +718,9 @@ class CombatController {
                                 if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
                                     if (targetSprite.controller.isDead) return;
                                     
-                                    const yDiff = Math.abs(proj.y - targetSprite.y);
-                                    if (yDiff > 45) return;
+                                    const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                                    const targetBottom = targetSprite.body ? targetSprite.body.bottom : targetSprite.y;
+                                    if (Math.abs(playerBottom - targetBottom) > 65) return;
  
                                     targetSprite.controller.takeDamage(damage, dir);
                                     this.applyLifesteal(damage);
@@ -612,14 +747,15 @@ class CombatController {
                 }
                 p.body.setAllowGravity(false);
                 p.setScale(1.5);
-                p.setVelocity(dir * 500, 0);
+                p.setVelocity(dir * 500 * (player.magicRangeMultiplier || 1.0), 0);
                 
                 const targetGroup = player.aiState === 'hostile' ? p.scene.player.sprite : player.scene.enemies;
                 const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
                     if (player.aiState === 'hostile') {
                         if (player.scene.player && typeof player.scene.player.takeDamage === 'function') {
-                            const yDiff = Math.abs(proj.y - player.scene.player.sprite.y);
-                            if (yDiff > 45) return;
+                            const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                            const targetBottom = player.scene.player.sprite.body ? player.scene.player.sprite.body.bottom : player.scene.player.sprite.y;
+                            if (Math.abs(playerBottom - targetBottom) > 65) return;
                             player.scene.player.takeDamage(damage, dir);
                             proj.destroy();
                             player.scene.physics.world.removeCollider(overlap);
@@ -627,8 +763,9 @@ class CombatController {
                     } else {
                         if (targetSprite.controller && typeof targetSprite.controller.takeDamage === 'function') {
                             if (targetSprite.controller.isDead) return;
-                            const yDiff = Math.abs(proj.y - targetSprite.y);
-                            if (yDiff > 45) return;
+                            const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                            const targetBottom = targetSprite.body ? targetSprite.body.bottom : targetSprite.y;
+                            if (Math.abs(playerBottom - targetBottom) > 65) return;
                             targetSprite.controller.takeDamage(damage, dir);
                             this.applyLifesteal(damage);
                             if (Math.random() < 0.3 && targetSprite.controller.applyStatusEffect) {
@@ -640,7 +777,7 @@ class CombatController {
                     }
                 });
                 
-                player.scene.time.delayedCall(1500, () => { if (p.active) p.destroy(); });
+                player.scene.time.delayedCall(Math.floor(1500 * (player.magicRangeMultiplier || 1.0)), () => { if (p.active) p.destroy(); });
             });
             player.scene.time.delayedCall(600, () => {
                 player.isAttacking = false;
@@ -710,8 +847,9 @@ class CombatController {
                             if (player.isAI && player.aiState === 'hostile') return;
                             if (enemySprite.controller.isDead) return;
                             
-                            const yDiff = Math.abs(proj.y - enemySprite.y);
-                            if (yDiff > 45) return;
+                            const playerBottom = player.sprite.body ? player.sprite.body.bottom : player.sprite.y;
+                            const enemyBottom = enemySprite.body ? enemySprite.body.bottom : enemySprite.y;
+                            if (Math.abs(playerBottom - enemyBottom) > 65) return;
 
                             enemySprite.controller.takeDamage(damage, dir);
                             this.applyLifesteal(damage);
@@ -844,6 +982,9 @@ class CombatController {
         const player = this.player;
         if (player.hp <= 0) return; // Already dead
 
+        // Block / Parry check — any class can block when ducking
+        const isBlocking = player.wasDucking;
+
         // Apply damage reduction if shield artifact is equipped
         let finalAmount = amount;
         if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
@@ -861,29 +1002,42 @@ class CombatController {
             }
         }
 
+        // Apply 75% parry reduction
+        if (isBlocking) {
+            finalAmount = Math.max(0, Math.floor(finalAmount * 0.25));
+        }
+
         player.hp -= finalAmount;
         
         // Show damage text
         if (player.scene && player.scene.showFloatingText) {
-            player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, `-${finalAmount}`, 0xff0000);
+            if (isBlocking) {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, `Blocked! -${finalAmount}`, 0x8888ff);
+            } else {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, `-${finalAmount}`, 0xff0000);
+            }
         }
 
-        // Apply knockback
+        // Apply knockback (negated if parrying)
         if (player.sprite && player.sprite.body) {
-            let kbDir = 1;
-            if (knockbackDirection !== undefined && !isNaN(knockbackDirection)) {
-                // If the number is large, it might be a raw X coordinate passed by mistake
-                if (Math.abs(knockbackDirection) > 5) {
-                    kbDir = player.sprite.x < knockbackDirection ? -1 : 1;
-                } else {
-                    kbDir = knockbackDirection > 0 ? 1 : -1;
-                }
+            if (isBlocking) {
+                player.sprite.setVelocityX(0);
             } else {
-                // Fallback to pushing them backwards based on their current facing direction
-                kbDir = player.facingDirection === 1 ? -1 : 1;
+                let kbDir = 1;
+                if (knockbackDirection !== undefined && !isNaN(knockbackDirection)) {
+                    // If the number is large, it might be a raw X coordinate passed by mistake
+                    if (Math.abs(knockbackDirection) > 5) {
+                        kbDir = player.sprite.x < knockbackDirection ? -1 : 1;
+                    } else {
+                        kbDir = knockbackDirection > 0 ? 1 : -1;
+                    }
+                } else {
+                    // Fallback to pushing them backwards based on their current facing direction
+                    kbDir = player.facingDirection === 1 ? -1 : 1;
+                }
+                player.sprite.setVelocityX(kbDir * 200);
+                player.sprite.setVelocityY(-150);
             }
-            player.sprite.setVelocityX(kbDir * 200);
-            player.sprite.setVelocityY(-150);
         }
 
         // Damage flash visual
@@ -897,7 +1051,7 @@ class CombatController {
         });
 
         const hitKey = player.classData.id + '_hit';
-        if (player.scene.anims.exists(hitKey) && !player.isAttacking) {
+        if (player.scene.anims.exists(hitKey) && !player.isAttacking && !isBlocking) {
             player._playAnim(hitKey);
         }
 
@@ -1139,34 +1293,41 @@ class CombatController {
             // Real Player dies
             player.scene.showFloatingText(player.sprite.x, player.sprite.y - 50, "YOU DIED", 0xff0000);
             
-            // Penalty: lose 1% XP
-            if (window.saveData) {
-                const currentXp = window.saveData.xp || 0;
-                const xpLoss = Math.floor(currentXp * 0.01);
-                window.saveData.xp = Math.max(0, currentXp - xpLoss);
-                if (xpLoss > 0) {
-                    player.scene.time.delayedCall(1000, () => {
-                        player.scene.showFloatingText(player.sprite.x, player.sprite.y - 70, `Lost ${xpLoss} XP`, 0xffa500);
-                    });
-                }
-
-                // Respawn at nearest town backwards
-                let respawnZone = 0;
-                if (window.saveData.zones) {
-                    for (let i = window.saveData.currentZone || 0; i >= 0; i--) {
-                        if (window.saveData.zones[i] && window.saveData.zones[i].type === 'Safe') {
-                            respawnZone = i;
-                            break;
-                        }
-                    }
-                }
-                window.saveData.currentZone = respawnZone;
-                window.saveData.hp = window.saveData.maxHp || player.maxHp || 100;
-                // Save it so the reload picks it up
-                player.hp = window.saveData.hp;
-                player.saveGame();
-                player._persistToLocalStorage();
-            }
+            // Penalty: lose 10% XP in Hell, 1% otherwise
+             if (window.saveData) {
+                 const currentZone = window.saveData.currentZone || 0;
+                 const isHell = currentZone === -666 || (player.scene.worldManager && player.scene.worldManager.currentZoneData && player.scene.worldManager.currentZoneData.biome === 'Hell');
+                 const lossPct = isHell ? 0.10 : 0.01;
+                 
+                 const currentXp = window.saveData.xp || 0;
+                 const xpLoss = Math.floor(currentXp * lossPct);
+                 window.saveData.xp = Math.max(0, currentXp - xpLoss);
+                 if (xpLoss > 0) {
+                     player.scene.time.delayedCall(1000, () => {
+                         player.scene.showFloatingText(player.sprite.x, player.sprite.y - 70, `Lost ${xpLoss} XP`, 0xffa500);
+                     });
+                 }
+ 
+                 // Respawn at nearest town backwards (or zone 0 if in Hell)
+                 let respawnZone = 0;
+                 if (!isHell && window.saveData.zones) {
+                     for (let i = currentZone; i >= 0; i--) {
+                         if (window.saveData.zones[i] && window.saveData.zones[i].type === 'Safe') {
+                             respawnZone = i;
+                             break;
+                         }
+                     }
+                 }
+                 window.saveData.currentZone = respawnZone;
+                 if (window.saveData.preWrathZone !== undefined) {
+                     delete window.saveData.preWrathZone;
+                 }
+                 window.saveData.hp = window.saveData.maxHp || player.maxHp || 100;
+                 // Save it so the reload picks it up
+                 player.hp = window.saveData.hp;
+                 player.saveGame();
+                 player._persistToLocalStorage();
+             }
 
             // Quick reload
             player.scene.time.delayedCall(3500, () => {

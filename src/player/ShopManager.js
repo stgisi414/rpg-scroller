@@ -104,46 +104,51 @@ class ShopManager {
 
         // Apply Alignment Price Multiplier
         let multiplier = 1.0;
-        
-        // Find NPC to get their alignment
-        const npcObj = player.scene.npcs.find(n => n.npcName === npcName);
-        const npcAlignment = npcObj ? npcObj.alignment : 'Neutral';
-        
-        // Categorize player's alignment
-        let playerAlignType = 'Neutral';
-        if (player.alignment >= 10) playerAlignType = 'Good';
-        else if (player.alignment <= -10) playerAlignType = 'Evil';
-        
         let suffix = '';
-        if (npcAlignment === 'Good') {
-            if (playerAlignType === 'Good') {
-                multiplier = 0.8; // Match! 20% discount
-                suffix = ' (Good - Trusted Discount)';
-            } else if (playerAlignType === 'Evil') {
-                multiplier = 1.5; // Mismatch! 50% markup
-                suffix = ' (Good - Hostile Markup)';
-            } else {
-                suffix = ' (Good)';
-            }
-        } else if (npcAlignment === 'Evil') {
-            if (playerAlignType === 'Evil') {
-                multiplier = 0.8; // Match! 20% discount
-                suffix = ' (Evil - Syndicate Discount)';
-            } else if (playerAlignType === 'Good') {
-                multiplier = 1.5; // Mismatch! 50% markup
-                suffix = ' (Evil - Hostile Markup)';
-            } else {
-                suffix = ' (Evil)';
-            }
-        } else { // Neutral NPC
-            if (playerAlignType === 'Good') {
-                multiplier = 0.9; // Good guys get slight discount (10%)
-                suffix = ' (Neutral - Friendly Discount)';
-            } else if (playerAlignType === 'Evil') {
-                multiplier = 1.1; // Evil guys get slight markup (10%)
-                suffix = ' (Neutral - Shady Markup)';
-            } else {
-                suffix = ' (Neutral)';
+        
+        if (player.scene.zoneBiome === 'Heaven') {
+            multiplier = 0.2; // 80% discount
+            suffix = ' (Celestial Discount)';
+        } else {
+            // Find NPC to get their alignment
+            const npcObj = player.scene.npcs.find(n => n.npcName === npcName);
+            const npcAlignment = npcObj ? npcObj.alignment : 'Neutral';
+            
+            // Categorize player's alignment
+            let playerAlignType = 'Neutral';
+            if (player.alignment >= 10) playerAlignType = 'Good';
+            else if (player.alignment <= -10) playerAlignType = 'Evil';
+            
+            if (npcAlignment === 'Good') {
+                if (playerAlignType === 'Good') {
+                    multiplier = 0.8; // Match! 20% discount
+                    suffix = ' (Good - Trusted Discount)';
+                } else if (playerAlignType === 'Evil') {
+                    multiplier = 1.5; // Mismatch! 50% markup
+                    suffix = ' (Good - Hostile Markup)';
+                } else {
+                    suffix = ' (Good)';
+                }
+            } else if (npcAlignment === 'Evil') {
+                if (playerAlignType === 'Evil') {
+                    multiplier = 0.8; // Match! 20% discount
+                    suffix = ' (Evil - Syndicate Discount)';
+                } else if (playerAlignType === 'Good') {
+                    multiplier = 1.5; // Mismatch! 50% markup
+                    suffix = ' (Evil - Hostile Markup)';
+                } else {
+                    suffix = ' (Evil)';
+                }
+            } else { // Neutral NPC
+                if (playerAlignType === 'Good') {
+                    multiplier = 0.9; // Good guys get slight discount (10%)
+                    suffix = ' (Neutral - Friendly Discount)';
+                } else if (playerAlignType === 'Evil') {
+                    multiplier = 1.1; // Evil guys get slight markup (10%)
+                    suffix = ' (Neutral - Shady Markup)';
+                } else {
+                    suffix = ' (Neutral)';
+                }
             }
         }
         
@@ -310,6 +315,9 @@ class ShopManager {
                 { key: 'artifact-crystal-aegis', name: 'Crystal Aegis', desc: '20% DR, +30 Max HP', price: 1200, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_03.png' }
             ];
             itemObj = allItems.find(i => i.key === item) || { key: item, price: 0, type: 'unknown' };
+            if (player.scene.zoneBiome === 'Heaven') {
+                itemObj.price = Math.max(1, Math.round(itemObj.price * 0.2));
+            }
         }
 
         const canUse = !itemObj.classRestrict || 

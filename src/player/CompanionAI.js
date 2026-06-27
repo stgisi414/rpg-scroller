@@ -10,6 +10,71 @@ class CompanionAI {
         return el && window.getComputedStyle(el).display !== 'none';
     }
 
+    _getQuestTargetZone(player) {
+        if (!player.quests || player.quests.length === 0) return null;
+        
+        // 1. Rescue quest takes highest priority
+        const rescueQuest = player.quests.find(q => q.type === 'rescue');
+        if (rescueQuest) {
+            if (rescueQuest.rescueState === 'captive') {
+                return rescueQuest.rescueeZone; // Go to captive zone
+            } else if (rescueQuest.rescueState === 'following') {
+                // Return to nearest town
+                const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+                const townZone = Math.round(currentZone / 4) * 4;
+                return townZone;
+            }
+        }
+        
+        // 2. Delivery quest
+        const deliveryQuest = player.quests.find(q => q.type === 'delivery');
+        if (deliveryQuest && deliveryQuest.deliveryPickedUp) {
+            return deliveryQuest.deliveryTargetZone; // Go to target town zone
+        }
+        
+        // 3. Kill quest — hunt in non-town zones, progressing toward the compass target
+        const killQuest = player.quests.find(q => q.type === 'kill');
+        if (killQuest) {
+            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+            const compassTarget = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+            const isInTown = Math.abs(currentZone) > 0 ? (Math.abs(currentZone) % 4 === 0) : currentZone === 0;
+
+            if (isInTown) {
+                // In a town — go to the next non-town zone in the compass direction
+                return compassTarget > currentZone ? currentZone + 1 : currentZone - 1;
+            }
+
+            // In a non-town zone: check if there are live matching enemies here
+            const scene = player.scene;
+            if (scene && scene.enemies) {
+                let hasMatchingEnemies = false;
+                scene.enemies.getChildren().forEach(e => {
+                    if (e.active && e.controller && !e.controller.isDead) {
+                        const etype = (e.controller.type || '').toLowerCase();
+                        const targetType = (killQuest.targetType || '').toLowerCase();
+                        if (etype.includes(targetType) || targetType.includes(etype)) {
+                            hasMatchingEnemies = true;
+                        }
+                    }
+                });
+                if (hasMatchingEnemies) {
+                    return currentZone; // Stay and fight
+                }
+            }
+
+            // No matching enemies — progress toward the compass target through non-town zones
+            const direction = compassTarget >= currentZone ? 1 : -1;
+            let nextZone = currentZone + direction;
+            // Skip town zones
+            if (Math.abs(nextZone) > 0 && Math.abs(nextZone) % 4 === 0) {
+                nextZone += direction;
+            }
+            return nextZone;
+        }
+        
+        return null;
+    }
+
     updateAI(time, delta) {
         const player = this.player;
         if (!player.sprite || !player.sprite.active) {
@@ -25,9 +90,6 @@ class CompanionAI {
                 this._wantsToTravel = false;
             }
         }
-        
-        // DON'T reset inputs every frame - only reset on each AI tick
-        // This ensures the shared update() sees the flags for movement/animation
         
         if (time - player.lastAITick < 100) {
             return;
@@ -55,8 +117,11 @@ class CompanionAI {
         
         let target = null;
         
+        const isArenaActive = player.scene.currentIndoorLocation === 'coliseum' && player.scene.arenaManager && player.scene.arenaManager.isActive;
+        const isActuallySafe = player.scene.zoneType === 'Safe' && !isArenaActive;
+
         let hasCloseNpc = false;
-        if (player === p && player.scene.zoneType === 'Safe') {
+        if (player === p && isActuallySafe) {
             const isChatOpen = this._isElementVisible('chat-ui');
             const isShopOpen = this._isElementVisible('ui-shop');
             if (player.scene.npcs && !isChatOpen && !isShopOpen && (time - (this._lastChatClosedTime || 0) > 8000)) {
@@ -73,7 +138,7 @@ class CompanionAI {
             }
         }
 
-        const hasMainHeroSafeZoneInput = player === p && player.scene.zoneType === 'Safe' && (
+        const hasMainHeroSafeZoneInput = player === p && isActuallySafe && (
             player.aiInput.left || 
             player.aiInput.right || 
             player.aiInput.interact ||
@@ -85,62 +150,110 @@ class CompanionAI {
 
         if (player.aiState === 'party' && !hasMainHeroSafeZoneInput) {
             let closestEnemy = null;
-            let minDist = Infinity;
+            let bestScore = -Infinity;
+            let chosenDist = Infinity;
+
             player.scene.enemies.getChildren().forEach(e => {
                 if (e.active && (!e.controller || !e.controller.isDead)) {
                     // Prevent AI Main Hero from chasing enemies near zone borders to avoid transition loops
                     if (player === p && player.scene && player.scene.zoneType) {
-                        const widthTiles = player.scene.zoneType === 'Safe' ? 40 : 84;
+                        const widthTiles = isActuallySafe ? 40 : 84;
                         const totalWidth = widthTiles * 46;
                         if (e.x < 150 || e.x > totalWidth - 150) return; // Ignore enemies near borders
                     }
                     const d = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, e.x, e.y);
-                    if (d < minDist) { minDist = d; closestEnemy = e; }
+                    
+                    // --- PART 1: WEIGHTED TARGET RANKING ---
+                    let score = -d; // base priority is closeness
+                    
+                    // Bosses: +500
+                    const isBoss = e.controller && (e.controller.isBoss || ['bandit', 'frost_giant', 'the_devil', 'lich_lord'].includes(e.controller.type));
+                    if (isBoss) score += 500;
+                    
+                    // Ranged Snipers: +300
+                    const eTexture = e.texture ? e.texture.key : '';
+                    const isRanged = eTexture.includes('wizard') || eTexture.includes('ranger') || eTexture.includes('archer') || eTexture.includes('witch') || eTexture.includes('mage') || eTexture.includes('devil') || eTexture.includes('lich') || (e.scene && e.scene.anims.exists(eTexture + '-shoot'));
+                    if (isRanged) score += 300;
+                    
+                    // Low Health: +200
+                    if (e.controller && e.controller.hp && e.controller.maxHp) {
+                        const healthPct = e.controller.hp / e.controller.maxHp;
+                        if (healthPct < 0.3) score += 200;
+                    }
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        closestEnemy = e;
+                        chosenDist = d;
+                    }
                 }
             });
             
             // Main hero in Auto-Play targets enemies at any distance (full zone seeking).
             // Companions only target enemies within 400px to avoid running off-screen away from the player.
             const maxDetectionDist = (player === p) ? 3000 : 400;
-            if (closestEnemy && minDist < maxDetectionDist) {
+            if (closestEnemy && chosenDist < maxDetectionDist) {
                 target = closestEnemy;
             } else {
-                let isProgression = false;
-                const widthTiles = player.scene.zoneType === 'Safe' ? 40 : 84;
-                const totalWidth = widthTiles * 46;
-                
-                if (player === p) {
-                    if (player.scene.zoneType !== 'Safe') {
-                        // Check if all enemies in the zone are dead
-                        let hasEnemies = false;
-                        player.scene.enemies.getChildren().forEach(e => {
-                            if (e.active && (!e.controller || !e.controller.isDead)) {
-                                hasEnemies = true;
-                            }
-                        });
-                        if (!hasEnemies) {
-                            isProgression = true;
-                        }
-                    } else if (this._wantsToAdventure) {
-                        isProgression = true;
-                    }
-                }
-
-                if (isProgression) {
-                    target = { x: totalWidth + 100, y: player.sprite.y, isVirtual: true };
+                // Target captive rescuee if present in zone and not following
+                const rescuee = player.scene.activeRescuee;
+                if (player === p && rescuee && rescuee.sprite && rescuee.sprite.active && rescuee.state !== 'following') {
+                    target = rescuee.sprite;
                 } else {
-                    let targetX = player.lastVirtualTargetX || player.sprite.x;
-                    if (!player.lastVirtualTargetX || Math.abs(player.sprite.x - player.lastVirtualTargetX) < 15 || time % 8000 < 100) {
-                        // Wander towards the right, but if close to the border, wander towards the left
-                        if (player.sprite.x > totalWidth - 250) targetX = player.sprite.x - 200;
-                        else if (player.sprite.x < 250) targetX = player.sprite.x + 200;
-                        else targetX = player.sprite.x + (Math.random() < 0.5 ? 200 : -200);
+                    let isProgression = false;
+                    const widthTiles = isActuallySafe ? 40 : 84;
+                    const totalWidth = widthTiles * 46;
+                    
+                    let targetZone = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+                    const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
+                    const wantsToQuest = player.quests && player.quests.length > 0 && (Math.random() * 100 < questFocus);
+                    if (wantsToQuest) {
+                        const questZone = this._getQuestTargetZone(player);
+                        if (questZone !== null) {
+                            targetZone = questZone;
+                        }
                     }
-                    player.lastVirtualTargetX = targetX;
-                    if (player !== p) {
-                        target = p.sprite;
-                    } else {
+                    
+                    if (player === p) {
+                        if (player.scene.zoneType !== 'Safe') {
+                            // Check if all enemies in the zone are dead
+                            let hasEnemies = false;
+                            player.scene.enemies.getChildren().forEach(e => {
+                                if (e.active && (!e.controller || !e.controller.isDead)) {
+                                    hasEnemies = true;
+                                }
+                            });
+                            if (!hasEnemies && currentZoneIndex !== targetZone) {
+                                isProgression = true;
+                            }
+                        } else {
+                            // Safe town
+                            if (currentZoneIndex !== targetZone) {
+                                isProgression = true;
+                            } else if (this._wantsToAdventure) {
+                                isProgression = true;
+                            }
+                        }
+                    }
+
+                    // --- COMPASS DIRECTION TRANSITION ---
+                    if (isProgression) {
+                        const targetX = targetZone < currentZoneIndex ? -100 : totalWidth + 100;
                         target = { x: targetX, y: player.sprite.y, isVirtual: true };
+                    } else {
+                        let targetX = player.lastVirtualTargetX || player.sprite.x;
+                        if (!player.lastVirtualTargetX || Math.abs(player.sprite.x - player.lastVirtualTargetX) < 15 || time % 8000 < 100) {
+                            // Wander towards the right, but if close to the border, wander towards the left
+                            if (player.sprite.x > totalWidth - 250) targetX = player.sprite.x - 200;
+                            else if (player.sprite.x < 250) targetX = player.sprite.x + 200;
+                            else targetX = player.sprite.x + (Math.random() < 0.5 ? 200 : -200);
+                        }
+                        player.lastVirtualTargetX = targetX;
+                        if (player !== p) {
+                            target = p.sprite;
+                        } else {
+                            target = { x: targetX, y: player.sprite.y, isVirtual: true };
+                        }
                     }
                 }
             }
@@ -149,8 +262,8 @@ class CompanionAI {
         }
         
         if (target) {
-            const dx = target.x - player.sprite.x;
-            const dist = Math.abs(dx);
+            let dx = target.x - player.sprite.x;
+            let dist = Math.abs(dx);
             
             // --- GEMINI AI OVERHAUL ---
             if (player.scene.geminiService && player.scene.geminiService.isReady && player.aiState === 'hostile') {
@@ -239,13 +352,13 @@ class CompanionAI {
             // For virtual targets (wandering), ignore optimal distance and just walk there
             const isVirtual = target.isVirtual;
             
-            // Movement logic
+            // --- PART 1: COMBAT SPACING & EVASION (Kiting) ---
             if (dist > optimalDist || (isVirtual && dist > 10)) {
                 if (dx > 5) player.aiInput.right = true;
                 else if (dx < -5) player.aiInput.left = true;
             } else if (dist < optimalDist - 20 && !isVirtual) {
-                // Back away if too close (unless melee, then stay close)
-                if (player.classData.id !== 'knight' && player.classData.id !== 'warrior' && player.classData.id !== 'samurai') {
+                // Back away if too close and ranged
+                if (isRanged && player.classData.id !== 'knight' && player.classData.id !== 'warrior' && player.classData.id !== 'samurai') {
                     if (dx > 5) player.aiInput.left = true;
                     else if (dx < -5) player.aiInput.right = true;
                 }
@@ -261,24 +374,57 @@ class CompanionAI {
                 }
             }
 
+            // Dash-jump evasion when cornered
+            const isMoving = player.aiInput.left || player.aiInput.right;
+            const isStuckWall = player.sprite.body.blocked.left || player.sprite.body.blocked.right;
+            if (!isVirtual && isMoving && isStuckWall && dist < 100) {
+                player.aiInput.up = true;
+                if (player.aiInput.left) player.aiInput.dashLeft = true;
+                if (player.aiInput.right) player.aiInput.dashRight = true;
+                if (player.scene.showFloatingText && Math.random() < 0.1) {
+                    player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "Evade!", 0x2ddbde);
+                }
+            }
+
+            // --- PART 1: WAYPOINT PATHFINDING (Vertical navigation) ---
+            if (!isVirtual && target.y < player.sprite.y - 45 && player.scene.platforms) {
+                let bestWaypoint = null;
+                let minWaypointDist = Infinity;
+                player.scene.platforms.getChildren().forEach(pBlock => {
+                    // Check blocks that are higher than us, but below/near target height
+                    if (pBlock.y < player.sprite.y - 30 && pBlock.y >= target.y - 30) {
+                        const d = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, pBlock.x, pBlock.y);
+                        if (d < minWaypointDist && Math.abs(pBlock.x - player.sprite.x) < 240) {
+                            minWaypointDist = d;
+                            bestWaypoint = pBlock;
+                        }
+                    }
+                });
+                if (bestWaypoint) {
+                    // Steer towards the waypoint instead of the direct dx
+                    dx = bestWaypoint.x - player.sprite.x;
+                    dist = Math.abs(dx);
+                    if (dx > 5) {
+                        player.aiInput.right = true;
+                        player.aiInput.left = false;
+                    } else if (dx < -5) {
+                        player.aiInput.left = true;
+                        player.aiInput.right = false;
+                    }
+                }
+            }
+
             // Vertical traversal (jumping)
             if (!isVirtual) {
                 const dy = target.y - player.sprite.y;
-                
-                // If the target is WAY above us (unreachable by direct double jump), 
-                // we should wander horizontally to find a lower platform or stairs
                 if (dy < -180) {
                     if (time % 4000 < 2000) player.aiInput.left = true;
                     else player.aiInput.right = true;
-                    
-                    // Periodically jump while wandering to get onto ledges
                     if (Math.random() < 0.05) player.aiInput.up = true;
                 }
-                // If target is above us by at least 40 pixels, and we are horizontally close, jump!
                 else if (dy < -40 && dist < 150) {
                     player.aiInput.up = true;
                 }
-                // If target is below us and we are directly above them, keep walking to fall off the ledge
                 else if (dy > 50 && dist < 30) {
                     if (target.x > player.sprite.x) player.aiInput.right = true;
                     else player.aiInput.left = true;
@@ -286,57 +432,64 @@ class CompanionAI {
             }
 
             // Attack logic - attack when in range and target is an enemy
-            const isEnemy = target && !target.isVirtual && target !== p.sprite && target !== player.sprite;
+            const isEnemy = target && !target.isVirtual && target !== p.sprite && target !== player.sprite && (!player.scene.activeRescuee || target !== player.scene.activeRescuee.sprite);
             if (player.aiState === 'hostile' || isEnemy) {
-                // Adjust trigger distance so melee units actually reach the target instead of swinging at air
                 let attackRange = optimalDist + 30;
-                if (!isVirtual && target.type === 'spider') attackRange = optimalDist + 60; // large hitbox
+                if (!isVirtual && target.type === 'spider') attackRange = optimalDist + 60;
+
+                // --- PART 2: SLIDER INTEGRATION (Spell Casting Frequency) ---
+                const spellRateMult = (window.autoplayConfig ? window.autoplayConfig.spellRate : 50) / 50;
 
                 // Super Spells and Abilities
                 let usedSpell = false;
+                
+                // Contextual spell check: vertically aligned?
+                const verticallyAligned = Math.abs(target.y - player.sprite.y) < 40;
+
                 if (player.classData.id === 'wizard' || player.classData.id === 'wizard_rival') {
-                    if (player.hp < player.maxHp * 0.4 && player.mp >= 30 && Math.random() < 0.2) {
+                    if (player.hp < player.maxHp * 0.4 && player.mp >= 30 && Math.random() < 0.2 * spellRateMult) {
                         player.aiInput.summonSpell = true;
                         usedSpell = true;
-                    } else if (player.mp >= 10 && Math.random() < 0.1) {
+                    } else if (player.mp >= 10 && Math.random() < 0.1 * spellRateMult) {
+                        // --- PART 1: CONTEXTUAL SPELL CASTING (3 Enemies grouped for Mega Spell) ---
                         let closeEnemies = 0;
                         if (player.scene && player.scene.enemies) {
                             player.scene.enemies.getChildren().forEach(e => {
-                                if (e.active && Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, e.x, e.y) < 150) {
+                                if (e.active && (!e.controller || !e.controller.isDead) && Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, e.x, e.y) < 200) {
                                     closeEnemies++;
                                 }
                             });
                         }
-                        if (closeEnemies >= 2 || (target !== p.sprite && dist < 120)) {
+                        if (closeEnemies >= 3 || (target !== p.sprite && dist < 120)) {
                             player.aiInput.megaSpell = true;
                             usedSpell = true;
                         }
-                    } else if (player.mp >= 4 && dist <= attackRange && Math.random() < 0.2) {
+                    } else if (verticallyAligned && player.mp >= 4 && dist <= attackRange && Math.random() < 0.2 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
                 } else if (player.classData.id === 'ranger' || player.classData.id === 'ranger_rival') {
-                    if (player.sp >= player.maxSp * 0.4 && dist <= attackRange + 100 && Math.random() < 0.15) {
+                    if (verticallyAligned && player.sp >= player.maxSp * 0.4 && dist <= attackRange + 100 && Math.random() < 0.15 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
                 } else if (player.classData.id === 'knight' || player.classData.id === 'warrior' || player.classData.id === 'knight_rival') {
-                    if (player.sp >= player.maxSp * 0.5 && dist <= attackRange && Math.random() < 0.15) {
+                    if (player.sp >= player.maxSp * 0.5 && dist <= attackRange && Math.random() < 0.15 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
                 } else if (player.classData.id === 'samurai' || player.classData.id === 'samurai_rival') {
                     let costRatio = 0.8 - ((player.classData.stats.vit || 10) * 0.015);
                     if (costRatio < 0.2) costRatio = 0.2;
-                    if (player.sp >= player.maxSp * costRatio && dist <= attackRange + 50 && Math.random() < 0.15) {
+                    if (player.sp >= player.maxSp * costRatio && dist <= attackRange + 50 && Math.random() < 0.15 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
                 } else if (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') {
-                    if (player.mp >= 8 && Math.random() < 0.1) {
+                    if (player.mp >= 8 && Math.random() < 0.1 * spellRateMult) {
                         player.aiInput.megaSpell = true;
                         usedSpell = true;
-                    } else if (player.mp >= 4 && dist <= attackRange + 80 && Math.random() < 0.2) {
+                    } else if (verticallyAligned && player.mp >= 4 && dist <= attackRange + 80 && Math.random() < 0.2 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
@@ -345,82 +498,113 @@ class CompanionAI {
                 if (!usedSpell && dist <= attackRange) {
                     if (Math.random() < 0.3) player.aiInput.attack = true;
                 }
+                
+                const isRescuee = player.scene.activeRescuee && target === player.scene.activeRescuee.sprite;
+                if (isRescuee && dist <= 80) {
+                    player.aiInput.interact = true;
+                }
 
-                // Dodge and Potion logic for Rivals (or smart enemies)
+                // Active dodging for Rivals
                 if (player.aiState === 'hostile' && player.classId && player.classId.includes('rival')) {
-                    if (player.inventory.potions === undefined) player.inventory.potions = 2; // Rivals get 2 potions
+                    if (player.inventory.potions === undefined) player.inventory.potions = 2;
                     
-                    // Potion use
-                    if (player.hp < player.maxHp * 0.4 && player.inventory.potions > 0 && Math.random() < 0.05) {
+                    const selfPotionThresh = (window.autoplayConfig ? window.autoplayConfig.selfPotionPct : 40) / 100;
+                    if (player.hp < player.maxHp * selfPotionThresh && player.inventory.potions > 0 && Math.random() < 0.05) {
                         player.inventory.potions--;
                         player.hp = Math.min(player.maxHp, player.hp + 50);
                         if (player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "Potion!", 0x00ff00);
                     }
                     
-                    // Active dodging
                     if (p.isAttacking && dist < optimalDist + 50) {
                         if (Math.random() < 0.2) {
                             if (dx > 0) player.aiInput.dashLeft = true;
                             else player.aiInput.dashRight = true;
                         } else if (Math.random() < 0.1) {
-                            player.aiInput.up = true; // Jump away
+                            player.aiInput.up = true;
                         }
                     }
                 }
 
-                // Class specific tactics (Ranged)
-                if (player.classData.id === 'ranger' || player.classData.id === 'mage') {
-                    // Try to maintain distance
-                    if (dist < 150) {
-                        if (dx > 0) player.aiInput.left = true; else player.aiInput.right = true;
-                        if (Math.random() < 0.05) player.aiInput.up = true; // jump away
-                    }
+                // --- PART 2: SLIDER INTEGRATION (Block Rate) ---
+                const blockRateChance = (window.autoplayConfig ? window.autoplayConfig.blockRate : 20) / 100;
+                const isEnemyAttacking = target && target.controller && target.controller.isAttacking;
+                if (isEnemyAttacking && dist < 80 && Math.random() < blockRateChance) {
+                    player.aiInput.down = true;
                 }
             }
 
-            // Dash logic - charge into combat or catch up to player
+            // Dash logic - respect dashFreq slider
             if ((player.aiInput.left || player.aiInput.right) && !isVirtual) {
                 let dashChance = 0;
-                
-                // Dash to catch up to player
                 if (target === p.sprite && dist > 150) {
                     dashChance = 0.2;
-                } 
-                // Dash to attack enemy
-                else if (target !== p.sprite && dist > optimalDist + 20) {
-                    dashChance = 0.02; // Default
+                } else if (target !== p.sprite && dist > optimalDist + 20) {
+                    dashChance = 0.02;
                     if (player.classData.id === 'knight' || player.classData.id === 'warrior' || player.classData.id === 'samurai') {
-                        dashChance = 0.15; // Melee charge
+                        dashChance = 0.15;
                     }
                 }
-                
-                if (Math.random() < dashChance) {
+                const dashFreqMult = (window.autoplayConfig ? window.autoplayConfig.dashFreq : 30) / 30;
+                if (Math.random() < dashChance * dashFreqMult) {
                     if (player.aiInput.left) player.aiInput.dashLeft = true;
                     if (player.aiInput.right) player.aiInput.dashRight = true;
                 }
             }
             
-            // Jump logic - only jump if stuck for multiple consecutive ticks
+            // --- PART 1: PREDICTIVE RAYCASTING ---
+            const dir = player.sprite.body.velocity.x > 0 ? 1 : (player.sprite.body.velocity.x < 0 ? -1 : (player.aiInput.right ? 1 : (player.aiInput.left ? -1 : 0)));
+            if (dir !== 0) {
+                const checkX = player.sprite.x + dir * 65;
+                let hasPlatformBelow = false;
+                let wallAhead = false;
+                
+                if (player.scene.platforms) {
+                    player.scene.platforms.getChildren().forEach(tile => {
+                        if (Math.abs(tile.x - checkX) < 25) {
+                            if (tile.y >= player.sprite.y && tile.y <= player.sprite.y + 150) {
+                                hasPlatformBelow = true;
+                            }
+                            if (Math.abs(tile.y - player.sprite.y) < 32) {
+                                wallAhead = true;
+                            }
+                        }
+                    });
+                }
+                
+                // If on floor and no platform ahead, jump!
+                if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
+                    if (!hasPlatformBelow) {
+                        player.aiInput.up = true;
+                        // Sprint jump
+                        const dashFreqThresh = (window.autoplayConfig ? window.autoplayConfig.dashFreq : 30) / 100;
+                        if (Math.random() < dashFreqThresh) {
+                            if (dir > 0) player.aiInput.dashRight = true;
+                            else player.aiInput.dashLeft = true;
+                        }
+                    } else if (wallAhead) {
+                        player.aiInput.up = true;
+                    }
+                }
+            }
+
+            // Jump logic - stuck ticks
             if (!player._stuckTicks) player._stuckTicks = 0;
-            // Ignore attack when checking if stuck, otherwise melee attack stops them from jumping pits!
             const isMovingButStuck = (player.aiInput.left || player.aiInput.right) && Math.abs(player.sprite.body.velocity.x) < 5 && !player.aiInput.attack;
             if (isMovingButStuck) {
                 player._stuckTicks++;
             } else {
                 player._stuckTicks = 0;
             }
-            // Jump if stuck (handles double jumping if stuck mid-air against a wall)
             if (player._stuckTicks >= 5) {
                 if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
                     player.aiInput.up = true;
-                    player._stuckTicks = 0; // Reset after jumping
+                    player._stuckTicks = 0;
                 } else if (player.jumps < 2 && player.sprite.body.velocity.y > -50) {
                     player.aiInput.up = true;
                     player._stuckTicks = 0;
                 }
             }
             
-            // Also jump if target is significantly higher, regardless of horizontal distance
             if (!isVirtual && target.y < player.sprite.y - 40) {
                 if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
                     player.aiInput.up = true;
@@ -429,14 +613,12 @@ class CompanionAI {
                 }
             }
             
-            // Double jump across pits! If we are falling fast, and still trying to move left/right
             if (player.sprite.body.velocity.y > 50 && (player.aiInput.left || player.aiInput.right)) {
                 if (player.jumps < 2) {
                     player.aiInput.up = true;
                 }
             }
             
-            // Teleport failsafe for Party Members who get trapped in deep pits or left behind
             if (player.aiState === 'party' && target === p.sprite) {
                 if (dist > 1000 || Math.abs(player.sprite.y - p.sprite.y) > 600) {
                     player.sprite.setPosition(p.sprite.x, p.sprite.y - 50);
@@ -447,9 +629,6 @@ class CompanionAI {
                 }
             }
 
-            // Always face the target if we are in combat or following!
-            // We set this here, but update() overrides it based on left/right input.
-            // We will store the targetDx so update() can override its facing logic.
             player.aiTargetDx = dx;
         }
     }
@@ -459,8 +638,49 @@ class CompanionAI {
         const scene = player.scene;
         if (!scene) return;
 
+        const isArenaActive = scene.currentIndoorLocation === 'coliseum' && scene.arenaManager && scene.arenaManager.isActive;
+        const isActuallySafe = scene.zoneType === 'Safe' && !isArenaActive;
+
+        // Periodically check if we want to abandon/ignore quests based on questFocus slider
+        if (isActuallySafe && (!this._lastQuestCheckTime || time - this._lastQuestCheckTime > 5000)) {
+            this._lastQuestCheckTime = time;
+            const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
+            if (player.quests && player.quests.length > 0) {
+                for (let i = player.quests.length - 1; i >= 0; i--) {
+                    const q = player.quests[i];
+                    if (Math.random() * 100 > questFocus && q.rescueState !== 'following') {
+                        if (scene.showFloatingText) {
+                            scene.showFloatingText(player.sprite.x, player.sprite.y - 45, `*Ignoring Quest: ${q.title}*`, 0xffaa44);
+                        }
+                        player.quests.splice(i, 1);
+                        if (player.questManager) {
+                            player.questManager.renderQuests();
+                        }
+                        player._persistToLocalStorage();
+                    }
+                }
+            }
+        }
+
+        // Target captive rescuee if present in zone and not following
+        const rescuee = scene.activeRescuee;
+        if (player === scene.player && rescuee && rescuee.sprite && rescuee.sprite.active && rescuee.state !== 'following') {
+            const rx = rescuee.sprite.x;
+            const dist = Math.abs(rx - player.sprite.x);
+            if (dist > 40) {
+                if (rx > player.sprite.x) player.aiInput.right = true;
+                else player.aiInput.left = true;
+                if (dist > 150 && Math.random() < 0.1) {
+                    if (rx > player.sprite.x) player.aiInput.dashRight = true;
+                    else player.aiInput.dashLeft = true;
+                }
+            } else {
+                player.aiInput.interact = true;
+            }
+            return;
+        }
+
         // 1. CHEST LOOTING & BREAKABLES
-        // Prioritize chests over wandering
         if (scene.lootChests && scene.lootChests.length > 0) {
             const chest = scene.lootChests.find(c => !c.isOpen);
             if (chest) {
@@ -476,17 +696,50 @@ class CompanionAI {
                 } else {
                     player.aiInput.interact = true;
                 }
-                return; // Stop other logic while going for loot
+                return;
             }
         }
 
         // 2. TOWN & SAFE ZONE BEHAVIORS
-        if (scene.zoneType === 'Safe') {
-            // Leave indoor locations after a small duration
+        if (isActuallySafe) {
+            const townFocus = window.autoplayConfig ? window.autoplayConfig.townFocus : 50;
+            const partyBuildFocus = window.autoplayConfig ? window.autoplayConfig.partyBuildFocus : 50;
+
+            // Coliseum King AutoPlay Wave Interaction Override
+            if (scene.currentIndoorLocation === 'coliseum') {
+                const king = scene.npcs ? scene.npcs.find(n => n.name === 'The King') : null;
+                if (king && king.sprite && king.sprite.active) {
+                    if (!isChatOpen) {
+                        const dist = Math.abs(king.sprite.x - player.sprite.x);
+                        if (dist > 60) {
+                            if (king.sprite.x > player.sprite.x) player.aiInput.right = true;
+                            else player.aiInput.left = true;
+                        } else {
+                            player.aiInput.interact = true;
+                        }
+                    } else {
+                        // Click activity button immediately to start next wave
+                        const activityBtn = document.getElementById('chat-activity');
+                        if (activityBtn && activityBtn.style.display !== 'none' && !activityBtn.disabled) {
+                            activityBtn.click();
+                        }
+                    }
+                    return;
+                }
+            }
+
+            // --- Coliseum & Indoor traversal duration override ---
             if (scene.isIndoors) {
                 const leaveBtn = scene.indoorLeaveBtn;
                 if (leaveBtn && leaveBtn.style.display !== 'none') {
-                    if (this._wantsToAdventure || Math.random() < 0.005) {
+                    // Do not leave Coliseum until wanted, or if townFocus is low
+                    const coliseumGrind = window.autoplayConfig && window.autoplayConfig.coliseumGrind;
+                    const isGuildHall = scene.currentIndoorLocation === 'guild_hall';
+                    const leaveChance = coliseumGrind ? 0 : (scene.currentIndoorLocation === 'coliseum' ? 0.0001 : ((100 - townFocus) / 100) * 0.02 + 0.001);
+                    // Stay in the Guild Hall while we need quests
+                    if (this._wantsGuildHall && isGuildHall) {
+                        // Don't leave — we need to pick up a contract
+                    } else if (this._wantsToAdventure || Math.random() < leaveChance) {
                         leaveBtn.click();
                         return;
                     }
@@ -504,13 +757,69 @@ class CompanionAI {
             const isShopOpen = this._isElementVisible('ui-shop');
             const isDirOpen = this._isElementVisible('ui-town-directory');
 
-            // Randomly want to adventure if not already chatting/shopping/etc.
-            if (!isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && !this._wantsToAdventure && Math.random() < 0.002) {
-                this._wantsToAdventure = true;
-                this._wantsToTravel = false;
+            // --- PART 2: PARTY BUILDING COMPANIONS RECRUITMENT ---
+            if (partyBuildFocus > 10 && scene.partyMembers && scene.partyMembers.length < 5 && !isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && Math.random() < (partyBuildFocus / 100) * 0.03) {
+                const classes = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade'];
+                const randomClass = classes[Math.floor(Math.random() * classes.length)];
+                const randomName = window.CharacterComposer ? window.CharacterComposer.generateRandomName(randomClass) : "Companion";
+                const px = player.sprite.x + (Math.random() < 0.5 ? 50 : -50);
+                const py = player.sprite.y - 10;
+                if (typeof scene.spawnHeroAI === 'function') {
+                    scene.spawnHeroAI(randomClass, px, py, 'party', randomName, "Recruited by AutoPlay AI");
+                    if (scene.showFloatingText) {
+                        scene.showFloatingText(player.sprite.x, player.sprite.y - 45, `Recruited ${randomName}!`, 0x2ddbde);
+                    }
+                }
             }
 
-            // Party Camaraderie Chat (only trigger if chat and shop are not already open)
+            // Wants to adventure - respect townFocus
+            const currentZoneIndex = scene.worldManager ? scene.worldManager.currentZoneIndex : 0;
+            let targetZone = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+            const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
+            const wantsToQuest = player.quests && player.quests.length > 0 && (Math.random() * 100 < questFocus);
+            if (wantsToQuest) {
+                const questZone = this._getQuestTargetZone(player);
+                if (questZone !== null) {
+                    targetZone = questZone;
+                }
+            }
+
+            if (currentZoneIndex !== targetZone) {
+                // When coliseum grind is on, only want to adventure if not in zone 0 (town)
+                const coliseumGrind = window.autoplayConfig && window.autoplayConfig.coliseumGrind;
+                if (coliseumGrind) {
+                    this._wantsToAdventure = false; // Stay in town for coliseum
+                } else {
+                    this._wantsToAdventure = true;
+                }
+            } else if (!isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && !this._wantsToAdventure) {
+                const coliseumGrind = window.autoplayConfig && window.autoplayConfig.coliseumGrind;
+                if (coliseumGrind) {
+                    // In coliseum grind mode, never want to adventure — stay in town
+                    this._wantsToAdventure = false;
+                } else {
+                    const adventureChance = ((100 - townFocus) / 100) * 0.01;
+                    if (Math.random() < adventureChance) {
+                        this._wantsToAdventure = true;
+                        this._wantsToTravel = false;
+                    }
+                }
+            }
+
+            // Override: if questFocus is high and the player has no quests,
+            // suppress _wantsToAdventure so the AI visits the Guild Hall first
+            const activeQuestCountNav = player.quests ? player.quests.length : 0;
+            if (this._wantsToAdventure && activeQuestCountNav < 1 && questFocus > 50 && !scene.isIndoors) {
+                this._wantsToAdventure = false;
+                this._wantsGuildHall = true;
+            }
+            // Clear the guild hall flag once we have quests
+            if (this._wantsGuildHall && activeQuestCountNav >= 1) {
+                this._wantsGuildHall = false;
+                this._wantsToAdventure = true;
+            }
+
+            // Party Camaraderie Chat
             if (!isChatOpen && !isShopOpen && scene.partyMembers && scene.partyMembers.length > 0 && Math.random() < 0.002) {
                 const chatIdx = Math.floor(Math.random() * scene.partyMembers.length);
                 if (window._gameScene && window._gameScene.startPartyChat) {
@@ -518,7 +827,6 @@ class CompanionAI {
                 }
             }
 
-            // Detect when chat closes
             if (!isChatOpen && this._wasChatOpen) {
                 this._wasChatOpen = false;
                 this._lastChatClosedTime = time;
@@ -530,7 +838,8 @@ class CompanionAI {
                     if (closeBtn) closeBtn.click();
                     return;
                 }
-                // Trading Logic
+                
+                // Buying items chance respect partyBuildFocus
                 if (time - (this._lastTradeTime || 0) > 1500) {
                     this._lastTradeTime = time;
                     const itemsContainer = document.getElementById('shop-items-container');
@@ -543,12 +852,11 @@ class CompanionAI {
                             return costMatch && parseInt(costMatch[1]) <= window.saveData.gold;
                         });
 
-                        if (affordable.length > 0 && Math.random() < 0.6) {
-                            // Click the card to buy
+                        const buyChance = (partyBuildFocus / 100) * 0.8 + 0.1;
+                        if (affordable.length > 0 && Math.random() < buyChance) {
                             affordable[Math.floor(Math.random() * affordable.length)].click();
                             if (scene.showFloatingText) scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "Bought item!", 0x00ff00);
                         } else {
-                            // Close shop
                             const closeBtn = document.getElementById('btn-close-shop');
                             if (closeBtn) closeBtn.click();
                         }
@@ -563,20 +871,19 @@ class CompanionAI {
                 const inputField = document.getElementById('chat-input');
                 const submitBtn = document.getElementById('chat-submit');
 
-                // If the NPC is currently generating a response, wait!
                 if (inputField && inputField.disabled) {
                     return;
                 }
 
-                // Initialize message count for this conversation
                 const npcName = document.getElementById('chat-npc-name')?.innerText || 'NPC';
                 if (this._currentChatNpc !== npcName) {
                     this._currentChatNpc = npcName;
                     this._chatMessageCount = 0;
                 }
 
-                // If we've chatted enough, close the chat (use 10% chance for a brief natural pause)
-                if (this._chatMessageCount >= 3 && Math.random() < 0.1) {
+                // Chat message limit based on townFocus
+                const chatLimit = Math.max(2, Math.floor(townFocus / 20));
+                if (this._chatMessageCount >= chatLimit && Math.random() < 0.1) {
                     const activeNpc = scene.npcs.find(n => n.isChatOpen);
                     if (activeNpc) {
                         activeNpc.closeChat();
@@ -584,6 +891,35 @@ class CompanionAI {
                         this._chatMessageCount = 0;
                         this._wasChatOpen = false;
                         this._lastChatClosedTime = time;
+                        return;
+                    }
+                }
+
+                // Auto click Activity button inside dialogue (respect questFocus)
+                const activityBtn = document.getElementById('chat-activity');
+                if (activityBtn && activityBtn.style.display !== 'none' && !activityBtn.disabled) {
+                    const isBountyBoard = activityBtn.innerText.toLowerCase().includes('bounty');
+                    const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
+                    const activeQuestCount = player.quests ? player.quests.length : 0;
+                    const needsQuests = activeQuestCount < 3 && questFocus > 40;
+
+                    if (isBountyBoard && needsQuests) {
+                        // High quest focus + few quests = always click the bounty board
+                        activityBtn.click();
+                        return;
+                    } else if (isBountyBoard && Math.random() * 100 > questFocus) {
+                        // Low quest focus: ignore the bounty board, close the chat
+                        const activeNpc = scene.npcs.find(n => n.isChatOpen);
+                        if (activeNpc) {
+                            activeNpc.closeChat();
+                            this._currentChatNpc = null;
+                            this._chatMessageCount = 0;
+                            this._wasChatOpen = false;
+                            this._lastChatClosedTime = time;
+                            return;
+                        }
+                    } else if (Math.random() < 0.3) {
+                        activityBtn.click();
                         return;
                     }
                 }
@@ -600,7 +936,6 @@ class CompanionAI {
                     }
 
                     if (historyDiv && scene.geminiService) {
-                        // Extract recent chat context to reply
                         const chatLines = Array.from(historyDiv.querySelectorAll('div')).map(d => d.innerText);
                         const chatContext = chatLines.slice(-3).join('\n');
 
@@ -623,12 +958,29 @@ class CompanionAI {
             if (scene.npcs && !isChatOpen && !isShopOpen && !this._wantsToAdventure && time - (this._lastChatClosedTime || 0) > 8000) {
                 let closestNpc = null;
                 let minDist = Infinity;
-                scene.npcs.forEach(npc => {
-                    if (npc && npc.sprite && npc.sprite.active) {
-                        const d = Math.abs(npc.sprite.x - player.sprite.x);
-                        if (d < minDist) { minDist = d; closestNpc = npc; }
+
+                // Prioritize delivery target NPC if active delivery quest is here
+                const deliveryQuest = player.quests && player.quests.find(q => q.type === 'delivery' && q.deliveryTargetZone === currentZoneIndex);
+                if (deliveryQuest) {
+                    const targetNpc = scene.npcs.find(n => {
+                        const nameLower = n.name.toLowerCase();
+                        const targetLower = deliveryQuest.deliveryTargetNPC.toLowerCase();
+                        return nameLower.includes(targetLower) || targetLower.includes(nameLower);
+                    });
+                    if (targetNpc && targetNpc.sprite && targetNpc.sprite.active) {
+                        closestNpc = targetNpc;
+                        minDist = Math.abs(targetNpc.sprite.x - player.sprite.x);
                     }
-                });
+                }
+
+                if (!closestNpc) {
+                    scene.npcs.forEach(npc => {
+                        if (npc && npc.sprite && npc.sprite.active) {
+                            const d = Math.abs(npc.sprite.x - player.sprite.x);
+                            if (d < minDist) { minDist = d; closestNpc = npc; }
+                        }
+                    });
+                }
 
                 if (closestNpc && minDist < 200) {
                     if (minDist > 60) {
@@ -650,25 +1002,56 @@ class CompanionAI {
                     if (closeBtn) closeBtn.click();
                     return;
                 }
-                if (time - (this._lastDirTime || 0) > 1000) {
+                if (time - (this._lastDirTime || 0) > 1500) {
                     const locContainer = document.getElementById('directory-locations-container');
                     if (locContainer) {
                         const cards = Array.from(locContainer.children);
                         if (cards.length > 0) {
                             this._lastDirTime = time;
-                            cards[Math.floor(Math.random() * cards.length)].click();
+                            
+                            // Prefer Guild Hall if questFocus is high and we need quests
+                            let cardToClick = null;
+                            const coliseumGrind = window.autoplayConfig && window.autoplayConfig.coliseumGrind;
+                            const questFocusDir = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
+                            const activeQuestsDir = player.quests ? player.quests.length : 0;
+                            const needsQuestsDir = activeQuestsDir < 3 && questFocusDir > 40;
+
+                            if (needsQuestsDir && !coliseumGrind && Math.random() * 100 < questFocusDir) {
+                                const guildCard = cards.find(card => {
+                                    const headline = card.querySelector('.font-headline-sm');
+                                    return headline && headline.innerText.toLowerCase().includes('guild');
+                                });
+                                if (guildCard) {
+                                    cardToClick = guildCard;
+                                }
+                            }
+
+                            // Prefer Coliseum card click if townFocus is high or coliseum grind is on
+                            if (!cardToClick && (coliseumGrind || Math.random() < (townFocus / 100))) {
+                                const coliseumCard = cards.find(card => {
+                                    const headline = card.querySelector('.font-headline-sm');
+                                    return headline && headline.innerText.toLowerCase().includes('coliseum');
+                                });
+                                if (coliseumCard && (coliseumGrind || Math.random() < 0.6)) {
+                                    cardToClick = coliseumCard;
+                                }
+                            }
+                            if (!cardToClick) {
+                                cardToClick = cards[Math.floor(Math.random() * cards.length)];
+                            }
+                            cardToClick.click();
                         }
                     }
                 }
                 return;
             }
 
-            if (scene.angelStatue && !isDirOpen && scene.zoneType === 'Safe') {
-                // 0.1% chance every tick to want to travel if idle
-                if (!this._wantsToTravel && !this._wantsToAdventure && Math.random() < 0.001) {
+            if (scene.angelStatue && !isDirOpen && isActuallySafe) {
+                if (!this._wantsToTravel && !this._wantsToAdventure && !this._wantsGuildHall && Math.random() < 0.001) {
                     this._wantsToTravel = true;
                 }
-                if (this._wantsToTravel && !this._wantsToAdventure) {
+                // Walk to angel statue when wanting to travel OR wanting to visit the Guild Hall for quests
+                if ((this._wantsToTravel && !this._wantsToAdventure) || this._wantsGuildHall) {
                     const ax = scene.angelStatue.x;
                     const dist = Math.abs(ax - player.sprite.x);
                     if (dist > 60) {
@@ -682,13 +1065,14 @@ class CompanionAI {
             }
 
         } else {
-            // 3. HOSTILE ZONE BEHAVIORS (Party Support, Breakables, Hazards)
+            // 3. HOSTILE ZONE BEHAVIORS
             
-            // Party Support (Heal Allies)
+            // Party Support (Heal Allies) - respect partyPotionPct slider
+            const partyPotionThresh = (window.autoplayConfig ? window.autoplayConfig.partyPotionPct : 40) / 100;
             if (scene.partyMembers && player.inventory.potions > 0 && time - (this._lastSupportTime || 0) > 3000) {
                 let lowAlly = null;
                 scene.partyMembers.forEach(m => {
-                    if (m.hp > 0 && m.hp < m.maxHp * 0.4) lowAlly = m;
+                    if (m.hp > 0 && m.hp < m.maxHp * partyPotionThresh) lowAlly = m;
                 });
                 if (lowAlly) {
                     this._lastSupportTime = time;
@@ -704,7 +1088,6 @@ class CompanionAI {
                 scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "💦", 0x44aaff);
             }
         }
-
     }
 }
 

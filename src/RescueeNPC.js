@@ -28,15 +28,43 @@ class RescueeNPC {
         this.sprite.setScale(1.5);
         this.sprite.setDepth(1);
         this.sprite.setCollideWorldBounds(true);
-        // Physics body: 36w × 48h, offset centered dynamically
-        const frameW = (this.sprite.frame && this.sprite.frame.width) ? this.sprite.frame.width : 100;
+        
+        // Physics body: 36w × 48h, offset centered dynamically using measured foot data
+        const frameW = (this.sprite.frame && this.sprite.frame.width) ? this.sprite.frame.width : 80;
         const frameH = (this.sprite.frame && this.sprite.frame.height) ? this.sprite.frame.height : 64;
         const bodyW = 36;
         const bodyH = 48;
+        
+        let footY = frameH;
+        const fd = window.npcFootData && window.npcFootData[this.textureKey];
+        if (fd && fd[0] != null) {
+            footY = fd[0] + 1;
+        }
         const offsetX = (frameW - bodyW) / 2;
-        const offsetY = frameH - bodyH;
+        const offsetY = footY - bodyH;
         this.sprite.body.setSize(bodyW, bodyH);
         this.sprite.body.setOffset(offsetX, offsetY);
+        if (this.sprite.refreshBody) {
+            this.sprite.refreshBody();
+        }
+
+        // Hook setFrame to handle dynamic foot anchoring on frame changes immediately
+        const originalSetFrame = this.sprite.setFrame;
+        const self = this;
+        this.sprite.setFrame = function(frame, updateSize, updateArea) {
+            const oldFrame = this.frame;
+            const oldH = oldFrame ? oldFrame.height : 64;
+            const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
+            
+            const res = originalSetFrame.call(this, frame, updateSize, updateArea);
+            
+            const newFrame = this.frame;
+            if (newFrame && newFrame !== oldFrame) {
+                const newIdx = (typeof newFrame.name === 'number') ? newFrame.name : parseInt(newFrame.name, 10);
+                self._anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx);
+            }
+            return res;
+        };
 
         // Add collider with scene platforms
         if (this.scene.platforms) {
@@ -88,16 +116,38 @@ class RescueeNPC {
 
     /**
      * Registers idle and walk animations for this rescuee's unique texture.
-     * Idle: frames 0-5 (row 0), Walk: frames 8-15 (row 1).
+     * Checks window.npcAnimData for dynamically detected frame counts to avoid flashing/skipping.
      */
     _registerAnimations() {
         const idleKey = this.textureKey + '_idle';
         const walkKey = this.textureKey + '_walk';
 
+        let idleStart = 0;
+        let idleEnd = 4; // Col 0-4 (5 frames)
+        let walkStart = 10; // Row 1 Col 0 (assuming 10-column layout)
+        let walkEnd = 17; // Row 1 Col 7 (8 frames)
+
+        const animData = window.npcAnimData && window.npcAnimData[this.textureKey];
+        if (animData) {
+            const rowStarts = animData.rowStarts;
+            const rowNonEmptyCounts = animData.rowNonEmptyCounts;
+            
+            if (rowStarts && rowStarts[0] != null) {
+                idleStart = rowStarts[0];
+                const idleCount = Math.max(1, (rowNonEmptyCounts[0] || 5));
+                idleEnd = idleStart + idleCount - 1;
+            }
+            if (rowStarts && rowStarts[1] != null) {
+                walkStart = rowStarts[1];
+                const walkCount = Math.max(1, (rowNonEmptyCounts[1] || 8));
+                walkEnd = walkStart + walkCount - 1;
+            }
+        }
+
         if (!this.scene.anims.exists(idleKey)) {
             this.scene.anims.create({
                 key: idleKey,
-                frames: this.scene.anims.generateFrameNumbers(this.textureKey, { start: 0, end: 5 }),
+                frames: this.scene.anims.generateFrameNumbers(this.textureKey, { start: idleStart, end: idleEnd }),
                 frameRate: 6,
                 repeat: -1
             });
@@ -106,10 +156,48 @@ class RescueeNPC {
         if (!this.scene.anims.exists(walkKey)) {
             this.scene.anims.create({
                 key: walkKey,
-                frames: this.scene.anims.generateFrameNumbers(this.textureKey, { start: 8, end: 15 }),
+                frames: this.scene.anims.generateFrameNumbers(this.textureKey, { start: walkStart, end: walkEnd }),
                 frameRate: 10,
                 repeat: -1
             });
+        }
+    }
+
+    /**
+     * Adjusts the sprite's physics body offsets and Y position on frame changes
+     * to keep the feet aligned perfectly with the ground.
+     */
+    _anchorBodyOnFrameChange(oldH, oldIdx, newFrame, newIdx) {
+        const body = this.sprite.body;
+        if (!body) return;
+        
+        const scale = this.sprite.scaleY || 1.5;
+        const bodyW = body.width / (this.sprite.scaleX || 1);
+        const bodyH = body.height / (this.sprite.scaleY || 1);
+        const fw = newFrame.width;
+        const fh = newFrame.height;
+        
+        // Get old footY
+        let oldFootY = oldH;
+        const fd = window.npcFootData && window.npcFootData[this.textureKey];
+        if (fd) {
+            if (!isNaN(oldIdx) && fd[oldIdx] != null) oldFootY = fd[oldIdx] + 1;
+        }
+        const oldOffset = oldFootY - bodyH;
+        
+        // Get new footY
+        let newFootY = fh;
+        if (fd) {
+            if (!isNaN(newIdx) && fd[newIdx] != null) newFootY = fd[newIdx] + 1;
+        }
+        const newOffset = newFootY - bodyH;
+        
+        // Adjust sprite Y immediately to prevent body.position.y from jumping in preUpdate
+        this.sprite.y += scale * (0.5 * (fh - oldH) - (newOffset - oldOffset));
+        
+        // Update body offset only if it has changed to prevent visual artifacts
+        if (body.offset.x !== (fw / 2 - bodyW / 2) || body.offset.y !== newOffset) {
+            body.setOffset(fw / 2 - bodyW / 2, newOffset);
         }
     }
 

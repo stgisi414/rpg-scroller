@@ -26,6 +26,12 @@ class WorldManager {
         if (window.saveData) {
             window.saveData = JSON.parse(JSON.stringify(window.saveData));
         }
+
+        // Force pocket zones (777 and -666) to regenerate fresh on every visit
+        if ((zoneIndex === 777 || zoneIndex === -666) && window.saveData.zones) {
+            delete window.saveData.zones[zoneIndex];
+        }
+
         this.currentZoneIndex = zoneIndex;
 
         // Show loading screen
@@ -47,6 +53,11 @@ class WorldManager {
         // Invalidate zones that should be towns but were cached as wilderness in older saves
         const isTownIndex = Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0;
         if (zoneData && isTownIndex && zoneData.type !== 'Safe') {
+            zoneData = null;
+        }
+        // Inverse: invalidate zones that should be wilderness but were cached as Safe (Gemini hallucination)
+        if (zoneData && !isTownIndex && zoneIndex !== 0 && zoneData.type === 'Safe') {
+            console.warn(`Zone ${zoneIndex} was cached as Safe but should be Dangerous — regenerating.`);
             zoneData = null;
         }
 
@@ -119,10 +130,19 @@ class WorldManager {
         const absIdx = Math.abs(zoneIndex);
         let forceTown = zoneIndex === 0 || (absIdx > 0 && absIdx % 4 === 0);
 
-        // Biome Chunking: Every 4 zones (3 wilderness + 1 town) share a biome.
-        const biomes = ['Forest', 'Plains', 'Cave', 'Desert', 'Winter', 'Coastal', 'Dungeon', 'Deadwoods', 'Hell'];
-        let chunkIndex = absIdx === 0 ? 0 : Math.floor((absIdx - 1) / 4);
-        let selectedBiome = biomes[chunkIndex % biomes.length];
+        let selectedBiome;
+        if (zoneIndex === 777) {
+            selectedBiome = 'Heaven';
+            forceTown = true;
+        } else if (zoneIndex === -666) {
+            selectedBiome = 'Hell';
+            forceTown = false;
+        } else {
+            // Biome Chunking: Every 4 zones (3 wilderness + 1 town) share a biome.
+            const biomes = ['Forest', 'Plains', 'Cave', 'Desert', 'Winter', 'Coastal', 'Dungeon', 'Deadwoods', 'Hell'];
+            let chunkIndex = absIdx === 0 ? 0 : Math.floor((absIdx - 1) / 4);
+            selectedBiome = biomes[chunkIndex % biomes.length];
+        }
 
         const response = await this.geminiService.generateZoneData(zoneIndex, playerLevel, forceTown, playerClassId, selectedBiome);
         return response;
@@ -349,7 +369,7 @@ class WorldManager {
                 const ambientSlots = [1300, 1500, 1700];
                 for (let i = 0; i < ambientCount; i++) {
                     const npcData = window.CharacterComposer.generateRandomNPC(this.scene);
-                    const villagerName = window.CharacterComposer.generateRandomName();
+                    const villagerName = window.CharacterComposer.generateRandomName(npcData.weaponType);
                     zoneData.ambientNpcs.push({
                         name: villagerName,
                         x: ambientSlots[i],
@@ -622,6 +642,29 @@ class WorldManager {
                     while (layout.length < 15) {
                         layout.push({ asset: 'large_statue_hell', x: Math.floor(Math.random() * 1280), y: 696, scale: 0.5, depth: -4, tint: 0x553333 });
                     }
+                } else if (biome === 'Heaven') {
+                    // Celestial landscape: angel statues, gilded trees, and golden flora
+                    const bgCount = Math.floor(Math.random() * 6) + 4;
+                    const treeTypes = ['tree1', 'tree2', 'tree3', 'tree4', 'birch1', 'birch2', 'pine'];
+                    for (let i = 0; i < bgCount; i++) {
+                        let asset = treeTypes[Math.floor(Math.random() * treeTypes.length)];
+                        layout.push({ asset, x: -50 + Math.floor(Math.random() * 1380), y: 696, scale: 0.7 + Math.random() * 0.4, depth: -4, tint: 0xfffae6 });
+                    }
+                    // Scatter some angel statues
+                    const statueCount = Math.floor(Math.random() * 3) + 2;
+                    for (let i = 0; i < statueCount; i++) {
+                        layout.push({ asset: 'statue', x: 80 + Math.floor(Math.random() * 1120), y: 696, scale: 1.2 + Math.random() * 0.4, depth: -3, tint: 0xfff0b3 });
+                    }
+                    // Midground gilded trees
+                    const midCount = Math.floor(Math.random() * 4) + 3;
+                    for (let i = 0; i < midCount; i++) {
+                        let asset = treeTypes[Math.floor(Math.random() * treeTypes.length)];
+                        layout.push({ asset, x: -50 + Math.floor(Math.random() * 1380), y: 696, scale: 0.9 + Math.random() * 0.5, depth: -3, tint: 0xfff5cc });
+                    }
+                    // Pad to 15
+                    while (layout.length < 15) {
+                        layout.push({ asset: 'statue', x: Math.floor(Math.random() * 1280), y: 696, scale: 0.8, depth: -4, tint: 0xffeb99 });
+                    }
                 } else {
                     // Generic fallback — treat like Forest
                     const treeTypes = ['tree1', 'tree2', 'tree3', 'tree4', 'birch1', 'birch2', 'pine'];
@@ -675,6 +718,37 @@ class WorldManager {
                 }
             });
 
+            // SAFETY NET: If a Dangerous zone somehow has no enemies (bad Gemini output,
+            // old save with cleared enemies, negative zone edge case), generate fallback enemies.
+            if (zoneData.type !== 'Safe' && (!zoneData.enemies || zoneData.enemies.length === 0)) {
+                console.warn(`Zone ${this.currentZoneIndex} (${zoneData.name}) is Dangerous but has 0 enemies — generating fallback.`);
+                const biome = zoneData.biome || 'Forest';
+                const biomeEnemies = {
+                    'Forest': ['slime', 'goblin', 'mushroom', 'bat', 'spider', 'bandit', 'willowisp'],
+                    'Plains': ['slime', 'goblin', 'orc', 'bat', 'bandit', 'willowisp'],
+                    'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton', 'willowisp'],
+                    'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'willowisp'],
+                    'Coastal': ['slime', 'bat', 'plague_flies', 'bandit', 'willowisp'],
+                    'Winter': ['slime', 'orc', 'burning_skull_blue', 'frost_giant', 'willowisp'],
+                    'Dungeon': ['slime', 'bat', 'spider', 'old_demon', 'male_damned', 'skeleton', 'willowisp'],
+                    'Deadwoods': ['slime', 'bat', 'spider', 'twisted_damned', 'plague_flies', 'willowisp'],
+                    'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'willowisp', 'bloated_damned']
+                };
+                const validTypes = biomeEnemies[biome] || biomeEnemies['Forest'];
+                const playerLevel = (window.saveData && window.saveData.level) || 1;
+                const absIdx = Math.abs(this.currentZoneIndex || 0);
+                const count = Math.max(3, Math.min(6, 3 + Math.floor(absIdx / 5)));
+                zoneData.enemies = [];
+                for (let i = 0; i < count; i++) {
+                    zoneData.enemies.push({
+                        type: validTypes[Math.floor(Math.random() * validTypes.length)],
+                        x: 300 + Math.floor(Math.random() * 3200),
+                        hp: 80 + (playerLevel * 20) + (absIdx * 10) + Math.floor(Math.random() * 40),
+                        speed: 80 + (playerLevel * 10) + (absIdx * 5) + Math.floor(Math.random() * 30)
+                    });
+                }
+            }
+
             // 10% chance to spawn a Spider Boss if this is dangerous
             if (zoneData.type !== 'Safe' && !zoneData.enemies.find(e => e.type === 'spider') && Math.random() < 0.10) {
                 const playerLevel = (window.saveData && window.saveData.level) || 1;
@@ -712,6 +786,70 @@ class WorldManager {
                 }
             }
 
+            // Spawning guarantee check for new/special enemies in target biomes
+            if (zoneData.type === 'Dangerous' && zoneData.enemies) {
+                const targetBiome = zoneData.biome || 'Forest';
+                const currentEnemyTypes = zoneData.enemies.map(e => ((e.type || '').toLowerCase().replace(/\s+/g, '_')));
+                
+                // Determine what special/new enemies belong to this biome
+                const specialCandidates = [];
+                if (['Forest', 'Dungeon', 'Deadwoods'].includes(targetBiome)) {
+                    specialCandidates.push('wolfen', 'coyle');
+                }
+                if (['Dungeon', 'Deadwoods', 'Hell'].includes(targetBiome)) {
+                    specialCandidates.push('special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female');
+                }
+                if (['Plains', 'Forest', 'Desert', 'Winter'].includes(targetBiome)) {
+                    specialCandidates.push('special_enemy_orc_male', 'special_enemy_orc_female');
+                }
+                if (['Deadwoods', 'Dungeon', 'Forest'].includes(targetBiome)) {
+                    specialCandidates.push('special_enemy_zombie_male', 'special_enemy_zombie_female');
+                }
+                if (['Dungeon', 'Hell', 'Deadwoods', 'Cave'].includes(targetBiome)) {
+                    specialCandidates.push('special_enemy_ghost_male', 'special_enemy_ghost_female');
+                }
+
+                // If this biome has candidates, and none of them are currently in the enemy list,
+                // replace 1-2 random existing enemies (or append them) with candidates!
+                if (specialCandidates.length > 0) {
+                    const hasSpecial = currentEnemyTypes.some(t => specialCandidates.includes(t));
+                    if (!hasSpecial) {
+                        const countToSpawn = Math.floor(Math.random() * 2) + 1; // 1 or 2
+                        const playerLevel = (window.saveData && window.saveData.level) || 1;
+                        for (let i = 0; i < countToSpawn; i++) {
+                            const chosenType = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
+                            const spawnX = 300 + Math.random() * 3200;
+                            const hp = 100 + (playerLevel * 20) + Math.floor(Math.random() * 50);
+                            const speed = 80 + (playerLevel * 5) + Math.floor(Math.random() * 20);
+                            
+                            // If we have existing enemies, overwrite one; otherwise push
+                            if (zoneData.enemies.length > i) {
+                                zoneData.enemies[i].type = chosenType;
+                            } else {
+                                zoneData.enemies.push({
+                                    type: chosenType,
+                                    x: spawnX,
+                                    hp: hp,
+                                    speed: speed
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Guarantee some heavenly enemies/angels are present to interact with/provoke in Heaven town
+            if (zoneData.biome === 'Heaven') {
+                if (!zoneData.enemies || zoneData.enemies.length === 0) {
+                    zoneData.enemies = [
+                        { type: 'heavenly_valkyrie', x: 400, hp: 400, speed: 100 },
+                        { type: 'heavenly_seraph', x: 800, hp: 350, speed: 100 },
+                        { type: 'heavenly_archangel', x: 1200, hp: 450, speed: 100 },
+                        { type: 'heavenly_cherub', x: 1400, hp: 150, speed: 120 }
+                    ];
+                }
+            }
+
             // Spawn Enemies
             zoneData.enemies.forEach(eData => {
                 let type = (eData.type || 'slime').toLowerCase().replace(/\s+/g, '_');
@@ -720,10 +858,18 @@ class WorldManager {
                     'slime', 'goblin', 'bat', 'mushroom', 'orc', 'spider',
                     'plague_flies', 'burning_skull_blue', 'old_demon', 'male_damned',
                     'female_damned', 'twisted_damned', 'burning_damned',
-                    'burning_skull', 'imp', 'cheeky_devil', 'the_devil',
+                    'burning_skull', 'imp', 'cheeky_devil', 'the_devil', 'bloated_damned',
                     'lich_lord', 'skeleton', 'bandit', 'frost_giant',
                     'mummy', 'scarab_beetle',
-                    'zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3'
+                    'zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3',
+                    'wolfen', 'coyle',
+                    'special_enemy_demon_male', 'special_enemy_demon_female',
+                    'special_enemy_devil_male', 'special_enemy_devil_female',
+                    'special_enemy_orc_male', 'special_enemy_orc_female',
+                    'special_enemy_zombie_male', 'special_enemy_zombie_female',
+                    'special_enemy_ghost_male', 'special_enemy_ghost_female',
+                    'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub',
+                    'ogre', 'giant', 'troll', 'willowisp'
                 ];
                 if (!validTypes.includes(type)) {
                     console.warn(`AI generated invalid enemy type: ${type}. Falling back.`);
@@ -760,7 +906,22 @@ class WorldManager {
                     this.scene.spawnHeroAI('ranger_rival', spawnX + 160, 100, 'hostile', 'Rival Ranger');
                 }
 
-                // Trigger the cutscene
+                // Show an immediate fallback cutscene so the player always sees dialogue
+                const fallbackLines = [
+                    `You thought you could wander these lands unchallenged? Think again, fool!`,
+                    `I've been tracking you for miles. Your journey ends here!`,
+                    `Another hero? Ha! I'll add your bones to my collection.`,
+                    `You dare trespass in MY territory? Prepare to be destroyed!`,
+                    `Finally, a worthy opponent... or perhaps not. Let's find out!`
+                ];
+                const megabossFallback = `You've defeated my lieutenants, but that only proves you're worth killing myself. This is your end, hero — all five of us against you!`;
+                const immediateLine = isMegaboss ? megabossFallback : fallbackLines[Math.floor(Math.random() * fallbackLines.length)];
+
+                if (this.scene.playCutscene) {
+                    this.scene.playCutscene(`[Rival]: ${immediateLine}`, () => {});
+                }
+
+                // Also fire async Gemini request to potentially upgrade the cutscene with a better line
                 let prompt = `Generate a 2-sentence trash-talk dialogue from a rival adventurer (${rivalClass}) who just ambushed the player in ${zoneData.name}. They might have monsters with them. Be aggressive and dramatic.`;
                 if (isMegaboss) {
                     prompt = `Generate an epic 3-sentence boss monologue from the Rival Megaboss. The player has defeated all his lieutenants, and now he is attacking with his entire elite squad of 4 heroes! This is the ultimate showdown.`;
@@ -768,12 +929,13 @@ class WorldManager {
 
                 this.geminiService.getGameMasterResponse(this.scene.player, prompt, zoneData).then(res => {
                     if (!this.scene || this.scene.isSceneDestroyed) return;
-                    if (this.scene.playCutscene) {
-                        this.scene.playCutscene(`[Rival]: ${res.storyText}`, () => {});
+                    // If the cutscene is still active, don't interrupt. Otherwise show the AI-generated line.
+                    if (res && res.storyText && this.scene.playCutscene) {
+                        console.log('Rival cutscene AI line available:', res.storyText);
                     }
                 }).catch(e => {
-                    if (!this.scene || this.scene.isSceneDestroyed) return;
-                    console.error("GM cutscene error:", e);
+                    // Fallback cutscene already shown, so this is non-critical
+                    console.warn("GM rival cutscene async error (fallback already shown):", e.message || e);
                 });
             }
 

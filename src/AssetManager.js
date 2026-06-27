@@ -6,6 +6,28 @@ class AssetManager {
     }
 
     preload() {
+        // Prevent duplicate preloads from overwriting global texture frame references
+        const textures = this.scene.textures;
+        const load = this.scene.load;
+        
+        const originalImage = load.image;
+        load.image = function(key, ...args) {
+            if (textures.exists(key)) return this;
+            return originalImage.call(this, key, ...args);
+        };
+        
+        const originalSpritesheet = load.spritesheet;
+        load.spritesheet = function(key, ...args) {
+            if (textures.exists(key)) return this;
+            return originalSpritesheet.call(this, key, ...args);
+        };
+        
+        const originalAtlas = load.atlas;
+        load.atlas = function(key, ...args) {
+            if (textures.exists(key)) return this;
+            return originalAtlas.call(this, key, ...args);
+        };
+
         // Load Real Assets
         // Note: For sprite sheets, we will need to determine the exact frame dimensions soon. 
         // For now, we will load a few static images to replace our placeholders!
@@ -17,25 +39,25 @@ class AssetManager {
         this.scene.load.spritesheet('wizard', 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Black Wizard sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('samurai', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet black.png', { frameWidth: 96, frameHeight: 64 });
         this.scene.load.spritesheet('ranger', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png', { frameWidth: 64, frameHeight: 64 });
-        this.scene.load.spritesheet('elven_spellblade', 'src/assets/elven_spellblade.png?v=3', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_spellblade', 'src/assets/elven_spellblade.png?v=4', { frameWidth: 128, frameHeight: 128 });
 
         // Rival Hero Sprites (Red recolors)
         this.scene.load.spritesheet('knight_rival', 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png', { frameWidth: 91, frameHeight: 64 }); // Assuming 80x64
         this.scene.load.spritesheet('wizard_rival', 'src/assets/GandalfHardcore Wizard/GandalfHardcore Wizard/Red Wizard sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('samurai_rival', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png', { frameWidth: 96, frameHeight: 64 });
         this.scene.load.spritesheet('ranger_rival', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png', { frameWidth: 64, frameHeight: 64 });
-        this.scene.load.spritesheet('elven_spellblade_rival', 'src/assets/elven_spellblade.png?v=3', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_spellblade_rival', 'src/assets/elven_spellblade.png?v=4', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('megaboss_rival', 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png', { frameWidth: 91, frameHeight: 64 });
         
         // Damned Enemies
         const damnedPath = 'src/assets/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore The Damned Enemies and NPCs/';
         this.scene.load.spritesheet('plague_flies', damnedPath + 'Plague Flies.png', { frameWidth: 32, frameHeight: 64 });
         this.scene.load.spritesheet('old_demon', damnedPath + 'Old Demon.png', { frameWidth: 80, frameHeight: 64 });
-        this.scene.load.atlas('the_devil', 'src/assets/devil_boss.png', 'src/assets/devil_boss.json');
-        this.scene.load.image('lich_lord', 'src/assets/lich_lord.png');
-        this.scene.load.image('skeleton', 'src/assets/skeleton.png');
-        this.scene.load.spritesheet('bandit', 'src/assets/bandit.png', { frameWidth: 102, frameHeight: 128 });
-        this.scene.load.image('frost_giant', 'src/assets/frost_giant.png');
+        this.scene.load.spritesheet('the_devil', 'src/assets/devil_boss.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('lich_lord', 'src/assets/lich_lord.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('skeleton', 'src/assets/skeleton.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('bandit', 'src/assets/bandit.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('frost_giant', 'src/assets/frost_giant.png', { frameWidth: 128, frameHeight: 128 });
         const damned64 = ['Bloated Damned', 'Burning Damned', 'Female Damned', 'Imp', 'Male Damned', 'Cheeky Devil', 'Twisted Damned', 'Burning Skull blue', 'Burning Skull'];
         for (const name of damned64) {
             let key = name.toLowerCase().replace(/\s+/g, '_');
@@ -128,7 +150,6 @@ class AssetManager {
         this.scene.load.image('bg_dungeon', 'src/assets/gemini-dungeon-bg.jpg');
         this.scene.load.image('bg_plains', 'src/assets/plains_bg.jpg');
         this.scene.load.image('bg_forest', 'src/assets/forest_bg.jpg');
-        this.scene.load.image('bg_coastal', 'src/assets/Cozy Village World Builder Kit – Towns & Farms/bg_coastal.png');
         this.scene.load.image('bg_cottage', 'src/assets/bg_cottage.jpg');
         this.scene.load.image('bg_colliseum', 'src/assets/bg_colliseum.jpg');
         
@@ -161,8 +182,22 @@ class AssetManager {
         this.scene.load.image('bg_dark_forest_2', 'src/assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/GandalfHardcore Pixel Art Medieval Fantasy Assets/Dark Forest Background/Dark Forest Background Top.png');
 
         // Load Enemy Assets
-        this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 192, frameHeight: 192 });
+        this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('summon_angel', 'src/assets/GandalfHardcore Angel/GandalfHardcore Angel/GandalfHardcore Angel.png', { frameWidth: 96, frameHeight: 64 });
+        
+        // Heavenly Entities (PixelLab generated)
+        this.scene.load.spritesheet('heavenly_valkyrie', 'src/assets/heavenly_valkyrie.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('heavenly_seraph', 'src/assets/heavenly_seraph.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('heavenly_archangel', 'src/assets/heavenly_archangel.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('heavenly_cherub', 'src/assets/heavenly_cherub.png', { frameWidth: 124, frameHeight: 124 });
+        
+        // Regular Entities (PixelLab generated)
+        this.scene.load.spritesheet('ogre', 'src/assets/ogre.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('giant', 'src/assets/giant.png', { frameWidth: 120, frameHeight: 120 });
+        this.scene.load.spritesheet('troll', 'src/assets/troll.png', { frameWidth: 124, frameHeight: 124 });
+        this.scene.load.spritesheet('willowisp', 'src/assets/willowisp.png', { frameWidth: 32, frameHeight: 32 });
+        this.scene.load.spritesheet('dragon', 'src/assets/dragon.png', { frameWidth: 128, frameHeight: 128 });
+
         this.scene.load.spritesheet('king', 'src/assets/Male Pixel Art characters/Male Pixel Art characters/Male Pixel Art characters.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('slime', 'src/assets/GandalfHardcore Slime Enemy/GandalfHardcore Slime Enemy/Slime green.png', { frameWidth: 32, frameHeight: 32 });
         this.scene.load.spritesheet('goblin', 'src/assets/GandalfHardcore Goblin sheet/GandalfHardcore Goblin sheet/Goblin enemy green sheet.png', { frameWidth: 84, frameHeight: 64 });
@@ -176,10 +211,10 @@ class AssetManager {
         this.scene.load.spritesheet('scarab_beetle', 'src/assets/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Enemies/Scarab beetle.png', { frameWidth: 32, frameHeight: 32 });
 
         // Zombie Enemies (GandalfHardcore Zombies — 80x64 per frame, 8 cols x 8 rows, 4 color variants)
-        this.scene.load.spritesheet('zombie', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v4 sheet.png', { frameWidth: 80, frameHeight: 64 });
-        this.scene.load.spritesheet('zombie_v2', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v2 sheet.png', { frameWidth: 80, frameHeight: 64 });
-        this.scene.load.spritesheet('zombie_v3', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v3 sheet.png', { frameWidth: 80, frameHeight: 64 });
-        this.scene.load.spritesheet('zombie_v1', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v1 sheet.png', { frameWidth: 80, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v4 sheet.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie_v2', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v2 sheet.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie_v3', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v3 sheet.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('zombie_v1', 'src/assets/GandalfHardcore Zombies/GandalfHardcore Zombie v1 sheet.png', { frameWidth: 64, frameHeight: 64 });
 
         // NPC Assets
         this.scene.load.spritesheet('npc', 'src/assets/GandalfHardcore FREE NPC/GandalfHardcFREE NPC/GandalfHardcore Goddess NPC.png', { frameWidth: 64, frameHeight: 64 });
@@ -221,6 +256,23 @@ class AssetManager {
         this.scene.load.spritesheet('npc_female_boots', `${charBase}/Female Clothing/Boots.png`, rescueeFrameConfig);
 
         
+        // Special skins
+        const specialBase = 'src/assets/GandalfHardcore Special skin/GandalfHardcore Special skin';
+        this.scene.load.spritesheet('special_female_demon', `${specialBase}/Female Demon skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_male_demon', `${specialBase}/Male Demon skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_female_devil', `${specialBase}/Female Devil skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_male_devil', `${specialBase}/Male Devil skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_female_ghost', `${specialBase}/Female Ghost skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_male_ghost', `${specialBase}/Male Ghost skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_female_orc', `${specialBase}/Female Orc skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_male_orc', `${specialBase}/Male Orc skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_female_zombie', `${specialBase}/Female Zombie skin.png`, rescueeFrameConfig);
+        this.scene.load.spritesheet('special_male_zombie', `${specialBase}/Male Zombie skin.png`, rescueeFrameConfig);
+
+        // Wolfen & Coyle
+        this.scene.load.spritesheet('wolfen', 'src/assets/wolfen.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('coyle', 'src/assets/coyle.png', { frameWidth: 128, frameHeight: 128 });
+
         // Loot Chests
         this.scene.load.spritesheet('loot_chest', 'src/assets/GandalfHardcore Chests/GandalfHardcore Chests/chest sheet 1.png', { frameWidth: 64, frameHeight: 32 });
         this.scene.load.image('loot_sparkle', 'src/assets/GandalfHardcore Chests/GandalfHardcore Chests/Effect color common.png');
@@ -458,7 +510,6 @@ class AssetManager {
 
         // UI Assets
         this.scene.load.spritesheet('emojis', 'src/assets/GandalfHardcore Emojis and Icons/GandalfHardcore Emojis and Icons/GandalfHardcore Emoji.png', { frameWidth: 16, frameHeight: 16 });
-        this.scene.load.image('button-up', 'src/assets/ui/button-up.png');
         this.scene.load.image('ui-bar', 'src/assets/GandalfHardcore Pixel Art Game UI/GandalfHardcore Pixel Art Game UI/64x16 resource counter.png');
         this.scene.load.image('ui-button', 'src/assets/GandalfHardcore Pixel Art Game UI/GandalfHardcore Pixel Art Game UI/32x64 button.png');
         this.scene.load.image('ui-frame', 'src/assets/GandalfHardcore Pixel Art Game UI/GandalfHardcore Pixel Art Game UI/64x64 frame.png');
@@ -473,6 +524,11 @@ class AssetManager {
         this.scene.load.image('weather_snow', 'src/assets/Weather Sprites/Sprites/Sprites/snow.png');
         this.scene.load.spritesheet('weather_rain_collision', 'src/assets/Weather Sprites/Sprites/Sprites/ColisionRainAnim.png', { frameWidth: 16, frameHeight: 16 });
         this.scene.load.spritesheet('weather_blur_collision', 'src/assets/Weather Sprites/Sprites/Sprites/ColisionBlurAnim.png', { frameWidth: 16, frameHeight: 16 });
+
+        // Restore original loader methods
+        load.image = originalImage;
+        load.spritesheet = originalSpritesheet;
+        load.atlas = originalAtlas;
     }
 
     create() {

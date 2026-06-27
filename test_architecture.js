@@ -154,6 +154,9 @@ async function run() {
             throw new Error(`Character sheet shows incorrect name: ${activeStats.name}`);
         }
         
+        const activeBeforeCSClose = await page.evaluate(() => document.activeElement ? document.activeElement.tagName + '#' + document.activeElement.id : 'null');
+        console.log("DEBUG active element before ESC press:", activeBeforeCSClose);
+
         if (i % 2 === 0) {
             console.log("Closing character sheet via ESC key...");
             await page.keyboard.press('Escape');
@@ -174,6 +177,19 @@ async function run() {
 
         // 2. Test Spacebar mapping and isUpDown
         console.log("Testing Spacebar key mapping...");
+        await page.evaluate(() => {
+            if (window._gameScene) {
+                // Force close any open chats/shops to unblock input
+                window._gameScene.npcs.forEach(n => {
+                    if (n.closeChat) n.closeChat();
+                    if (n.closeShop) n.closeShop();
+                });
+                if (window._gameScene.inputManager) {
+                    window._gameScene.inputManager.enableForInput();
+                }
+            }
+        });
+        await page.click('canvas');
         await page.keyboard.down('Space');
         const spaceIsDownTrue = await page.evaluate(() => {
             if (window._gameScene && window._gameScene.player) {

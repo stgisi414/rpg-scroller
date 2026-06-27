@@ -62,6 +62,16 @@ class HUDManager {
             });
             this.scene.hudElements.nameLevel.appendChild(btnAP);
         }
+
+        if (this.scene.hudElements.nameLevel && !document.getElementById('btn-auto-play-config')) {
+            const btnAPConfig = document.createElement('button');
+            btnAPConfig.id = 'btn-auto-play-config';
+            btnAPConfig.innerText = '⚙️';
+            btnAPConfig.title = 'Configure AI Auto-Play';
+            btnAPConfig.style.cssText = 'margin-left:4px;background:rgba(80,80,80,0.9);border:1px solid #777;color:#fff;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:14px;pointer-events:auto;';
+            btnAPConfig.addEventListener('click', () => this.toggleAutoplayConfig());
+            this.scene.hudElements.nameLevel.appendChild(btnAPConfig);
+        }
         
         // Show/hide MP and SP bars based on class
         const classId = window.saveData ? window.saveData.classId : 'knight';
@@ -187,12 +197,14 @@ class HUDManager {
             modal.style.display = 'none';
             const hud = document.getElementById('game-hud');
             if (hud) hud.style.display = 'flex';
+            if (document.activeElement) document.activeElement.blur();
         });
         modal.addEventListener('click', (e) => { 
             if (e.target === modal) {
                 modal.style.display = 'none';
                 const hud = document.getElementById('game-hud');
                 if (hud) hud.style.display = 'flex';
+                if (document.activeElement) document.activeElement.blur();
             }
         });
         this.scene._csEscListener = (e) => {
@@ -200,6 +212,7 @@ class HUDManager {
                 modal.style.display = 'none';
                 const hud = document.getElementById('game-hud');
                 if (hud) hud.style.display = 'flex';
+                if (document.activeElement) document.activeElement.blur();
             }
         };
         window.addEventListener('keydown', this.scene._csEscListener);
@@ -216,6 +229,158 @@ class HUDManager {
         } else {
             modal.style.display = 'none';
             if (hud) hud.style.display = 'flex';
+            if (document.activeElement) document.activeElement.blur();
+        }
+    }
+
+    toggleAutoplayConfig() {
+        const panel = document.getElementById('ui-autoplay-config');
+        if (!panel) return;
+        
+        const isOpen = panel.classList.contains('open');
+        if (isOpen) {
+            panel.classList.remove('open');
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'flex';
+            setTimeout(() => panel.classList.add('open'), 10);
+            this._syncAutoplayUI();
+            this._setupAutoplayListeners();
+        }
+    }
+
+    _syncAutoplayUI() {
+        const config = window.autoplayConfig || {};
+        const preset = config.preset || 'custom';
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            if (btn.dataset.preset === preset) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        const zoneInput = document.getElementById('ap-target-zone');
+        if (zoneInput) zoneInput.value = config.targetZone !== undefined ? config.targetZone : 0;
+
+        const sliders = [
+            { id: 'ap-town-focus', valId: 'val-ap-town-focus', prop: 'townFocus', suffix: '%' },
+            { id: 'ap-quest-focus', valId: 'val-ap-quest-focus', prop: 'questFocus', suffix: '%' },
+            { id: 'ap-party-build', valId: 'val-ap-party-build', prop: 'partyBuildFocus', suffix: '%' },
+            { id: 'ap-self-potion', valId: 'val-ap-self-potion', prop: 'selfPotionPct', suffix: '%' },
+            { id: 'ap-party-potion', valId: 'val-ap-party-potion', prop: 'partyPotionPct', suffix: '%' },
+            { id: 'ap-spell-rate', valId: 'val-ap-spell-rate', prop: 'spellRate', suffix: '%' },
+            { id: 'ap-dash-freq', valId: 'val-ap-dash-freq', prop: 'dashFreq', suffix: '%' },
+            { id: 'ap-block-rate', valId: 'val-ap-block-rate', prop: 'blockRate', suffix: '%' }
+        ];
+
+        sliders.forEach(s => {
+            const input = document.getElementById(s.id);
+            const display = document.getElementById(s.valId);
+            const val = config[s.prop] !== undefined ? config[s.prop] : 50;
+            if (input) input.value = val;
+            if (display) display.innerText = val + s.suffix;
+        });
+
+        const pTextarea = document.getElementById('ap-hero-personality');
+        if (pTextarea) pTextarea.value = config.heroPersonality || '';
+
+        const coliseumGrindCheckbox = document.getElementById('ap-coliseum-grind');
+        if (coliseumGrindCheckbox) coliseumGrindCheckbox.checked = config.coliseumGrind || false;
+    }
+
+    _setupAutoplayListeners() {
+        if (this._autoplayListenersBound) return;
+        this._autoplayListenersBound = true;
+
+        const config = window.autoplayConfig;
+        const closeBtn = document.getElementById('btn-close-ap-config');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.toggleAutoplayConfig();
+        }
+
+        const presetValues = {
+            aggressive: { selfPotionPct: 25, partyPotionPct: 20, spellRate: 90, dashFreq: 60, blockRate: 10, townFocus: 20, partyBuildFocus: 40, questFocus: 50 },
+            speedrunner: { selfPotionPct: 30, partyPotionPct: 20, spellRate: 30, dashFreq: 95, blockRate: 15, townFocus: 0, partyBuildFocus: 20, questFocus: 0 },
+            potion_saver: { selfPotionPct: 14, partyPotionPct: 14, spellRate: 40, dashFreq: 20, blockRate: 80, townFocus: 40, partyBuildFocus: 30, questFocus: 60 },
+            loot_goblin: { selfPotionPct: 40, partyPotionPct: 40, spellRate: 50, dashFreq: 40, blockRate: 30, townFocus: 80, partyBuildFocus: 90, questFocus: 90 },
+            pacifist: { selfPotionPct: 50, partyPotionPct: 70, spellRate: 20, dashFreq: 40, blockRate: 90, townFocus: 60, partyBuildFocus: 70, questFocus: 80 }
+        };
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.onclick = () => {
+                const presetName = btn.dataset.preset;
+                config.preset = presetName;
+                if (presetName !== 'custom') {
+                    const vals = presetValues[presetName];
+                    Object.keys(vals).forEach(k => {
+                        config[k] = vals[k];
+                    });
+                }
+                this._syncAutoplayUI();
+            };
+        });
+
+        const zoneInput = document.getElementById('ap-target-zone');
+        if (zoneInput) {
+            zoneInput.oninput = () => {
+                config.targetZone = parseInt(zoneInput.value) || 0;
+            };
+            zoneInput.onfocus = () => {
+                if (this.scene.inputManager) this.scene.inputManager.disableForInput();
+            };
+            zoneInput.onblur = () => {
+                if (this.scene.inputManager) this.scene.inputManager.enableForInput();
+            };
+        }
+
+        const coliseumGrindCheckbox = document.getElementById('ap-coliseum-grind');
+        if (coliseumGrindCheckbox) {
+            coliseumGrindCheckbox.onchange = () => {
+                config.coliseumGrind = coliseumGrindCheckbox.checked;
+            };
+        }
+
+        const sliderMappings = [
+            { id: 'ap-town-focus', valId: 'val-ap-town-focus', prop: 'townFocus', suffix: '%' },
+            { id: 'ap-quest-focus', valId: 'val-ap-quest-focus', prop: 'questFocus', suffix: '%' },
+            { id: 'ap-party-build', valId: 'val-ap-party-build', prop: 'partyBuildFocus', suffix: '%' },
+            { id: 'ap-self-potion', valId: 'val-ap-self-potion', prop: 'selfPotionPct', suffix: '%' },
+            { id: 'ap-party-potion', valId: 'val-ap-party-potion', prop: 'partyPotionPct', suffix: '%' },
+            { id: 'ap-spell-rate', valId: 'val-ap-spell-rate', prop: 'spellRate', suffix: '%' },
+            { id: 'ap-dash-freq', valId: 'val-ap-dash-freq', prop: 'dashFreq', suffix: '%' },
+            { id: 'ap-block-rate', valId: 'val-ap-block-rate', prop: 'blockRate', suffix: '%' }
+        ];
+
+        sliderMappings.forEach(s => {
+            const input = document.getElementById(s.id);
+            const display = document.getElementById(s.valId);
+            if (input) {
+                input.oninput = () => {
+                    const val = parseInt(input.value) || 0;
+                    config[s.prop] = val;
+                    config.preset = 'custom';
+                    if (display) display.innerText = val + s.suffix;
+                    
+                    document.querySelectorAll('.preset-btn').forEach(btn => {
+                        if (btn.dataset.preset === 'custom') btn.classList.add('active');
+                        else btn.classList.remove('active');
+                    });
+                };
+            }
+        });
+
+        const pTextarea = document.getElementById('ap-hero-personality');
+        if (pTextarea) {
+            pTextarea.oninput = () => {
+                config.heroPersonality = pTextarea.value;
+            };
+            pTextarea.onfocus = () => {
+                if (this.scene.inputManager) this.scene.inputManager.disableForInput();
+            };
+            pTextarea.onblur = () => {
+                if (this.scene.inputManager) this.scene.inputManager.enableForInput();
+            };
         }
     }
 

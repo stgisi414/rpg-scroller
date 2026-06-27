@@ -23,288 +23,14 @@ class GameScene extends Phaser.Scene {
         this.events.on('destroy', this.cleanupScene, this);
         this.assetManager.create();
 
+        // Slice custom static enemy/boss textures
+        EnemyAnimationLoader.sliceCustomTextures(this);
+
         // Only register animations once — they're global in Phaser and persist across scene restarts.
         // Without this guard, every zone transition produces 100+ 'key already exists' warnings.
         if (!this.anims.exists('slime-idle')) {
-        // Slime Animations (sheet is 256x96, frames 32x32 = 8 per row, 3 rows)
-        // Row 0 (frames 0-7): Idle/Bounce (usually 4 frames)
-        // Row 1 (frames 8-15): Hit/Jump (usually 4 frames)
-        // Slime: 32x32, 8 cols. Row 0 move/idle. Row 1 hit. Row 2 die.
-        this.anims.create({ key: 'slime-idle', frames: this.anims.generateFrameNumbers('slime', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-        this.anims.create({ key: 'slime-move', frames: this.anims.generateFrameNumbers('slime', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'slime-hit',  frames: this.anims.generateFrameNumbers('slime', { start: 8, end: 11 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'slime-die',  frames: this.anims.generateFrameNumbers('slime', { start: 16, end: 20 }), frameRate: 8, repeat: 0 });
-
-        // Goblin: 84x64, 6 cols.
-        this.anims.create({ key: 'goblin-idle', frames: this.anims.generateFrameNumbers('goblin', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'goblin-move', frames: this.anims.generateFrameNumbers('goblin', { start: 6, end: 9 }), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'goblin-hit',  frames: this.anims.generateFrameNumbers('goblin', { start: 18, end: 19 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'goblin-die',  frames: this.anims.generateFrameNumbers('goblin', { start: 24, end: 27 }), frameRate: 8, repeat: 0 });
-        this.anims.create({ key: 'goblin-attack', frames: this.anims.generateFrameNumbers('goblin', { start: 12, end: 17 }), frameRate: 10, repeat: 0 });
-
-        // Bat: 64x64, 6 cols.
-        this.anims.create({ key: 'bat-idle', frames: this.anims.generateFrameNumbers('bat', { start: 0, end: 3 }), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'bat-move', frames: this.anims.generateFrameNumbers('bat', { start: 0, end: 3 }), frameRate: 15, repeat: -1 });
-        this.anims.create({ key: 'bat-hit',  frames: this.anims.generateFrameNumbers('bat', { start: 6, end: 7 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'bat-die',  frames: this.anims.generateFrameNumbers('bat', { start: 12, end: 15 }), frameRate: 8, repeat: 0 });
-
-        // Mushroom: 64x64, 6 cols.
-        this.anims.create({ key: 'mushroom-idle', frames: this.anims.generateFrameNumbers('mushroom', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-        this.anims.create({ key: 'mushroom-move', frames: this.anims.generateFrameNumbers('mushroom', { start: 6, end: 9 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'mushroom-hit',  frames: this.anims.generateFrameNumbers('mushroom', { start: 12, end: 13 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'mushroom-die',  frames: this.anims.generateFrameNumbers('mushroom', { start: 18, end: 21 }), frameRate: 8, repeat: 0 });
-
-        // Orc: 64x64, 8 cols.
-        this.anims.create({ key: 'orc-idle', frames: this.anims.generateFrameNumbers('orc', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-        this.anims.create({ key: 'orc-move', frames: this.anims.generateFrameNumbers('orc', { start: 8, end: 11 }), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'orc-hit',  frames: this.anims.generateFrameNumbers('orc', { start: 24, end: 25 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'orc-die',  frames: this.anims.generateFrameNumbers('orc', { start: 24, end: 27 }), frameRate: 8, repeat: 0 });
-        this.anims.create({ key: 'orc-attack', frames: this.anims.generateFrameNumbers('orc', { start: 16, end: 19 }), frameRate: 10, repeat: 0 });
-
-        // Spider Boss: 192x96, 8 cols.
-        this.anims.create({ key: 'spider-idle', frames: this.anims.generateFrameNumbers('spider', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'spider-move', frames: this.anims.generateFrameNumbers('spider', { start: 8, end: 15 }), frameRate: 15, repeat: -1 });
-        this.anims.create({ key: 'spider-attack', frames: this.anims.generateFrameNumbers('spider', { start: 16, end: 29 }), frameRate: 15, repeat: 0 });
-        this.anims.create({ key: 'spider-hit',  frames: this.anims.generateFrameNumbers('spider', { start: 32, end: 37 }), frameRate: 15, repeat: 0 });
-        this.anims.create({ key: 'spider-die',  frames: this.anims.generateFrameNumbers('spider', { start: 40, end: 44 }), frameRate: 10, repeat: 0 });
-
-        const getFrames = (key, s, e) => {
-            // s and e are linear indices assuming the sprite's actual column count
-            const colData = window.sliceColData ? window.sliceColData[key] : null;
-            const numCols = colData ? colData.length : 10;
-            // Convert old 10-col indices to row/col, then back to new indices
-            let f = [];
-            for (let i = s; i <= e; i++) {
-                const row = Math.floor(i / 10);
-                const col = i % 10;
-                if (col < numCols) {
-                    const newIndex = row * numCols + col;
-                    f.push({ key: key, frame: `${key}_${newIndex}` });
-                }
-            }
-            return f;
-        };
-
-
-
-        // Temporarily store the original textures so the debug panel can access them
-        this.registry.set('debug_tex_lich', this.textures.get('lich_lord').getSourceImage());
-        this.registry.set('debug_tex_skeleton', this.textures.get('skeleton').getSourceImage());
-        if (this.textures.exists('the_devil')) {
-            this.registry.set('debug_tex_devil', this.textures.get('the_devil').getSourceImage());
+            EnemyAnimationLoader.registerAll(this);
         }
-        if (this.textures.exists('frost_giant')) {
-            this.registry.set('debug_tex_frost_giant', this.textures.get('frost_giant').getSourceImage());
-        }
-        if (this.textures.exists('house_inside_tiles')) {
-            this.registry.set('debug_tex_house_tiles', this.textures.get('house_inside_tiles').getSourceImage());
-        }
-        if (this.textures.exists('training_dummy')) {
-            this.registry.set('debug_tex_training_dummy', this.textures.get('training_dummy').getSourceImage());
-        }
-        if (this.textures.exists('summon_angel')) {
-            this.registry.set('debug_tex_summon_angel', this.textures.get('summon_angel').getSourceImage());
-        }
-
-        // Load custom slice data from localStorage if available, otherwise use defaults
-        const defaultSliceData = {
-            lich_lord: [ { y: 0, h: 85 }, { y: 85, h: 85 }, { y: 170, h: 85 }, { y: 255, h: 85 }, { y: 340, h: 85 }, { y: 425, h: 87 } ],
-            skeleton: [ { y: 0, h: 128 }, { y: 128, h: 128 }, { y: 256, h: 128 }, { y: 384, h: 128 } ],
-            frost_giant: [ { y: 0, h: 128 }, { y: 128, h: 128 }, { y: 256, h: 128 }, { y: 384, h: 128 } ]
-        };
-        try {
-            const savedData = localStorage.getItem('sprite_slice_data');
-            window.sliceData = savedData ? JSON.parse(savedData) : defaultSliceData;
-            // Force reset skeleton if it has wrong row count or old 85px row heights
-            if (window.sliceData.skeleton && (
-                window.sliceData.skeleton.length !== 4 ||
-                window.sliceData.skeleton[0].h < 100  // Old 85px rows — need 128px
-            )) {
-                window.sliceData.skeleton = defaultSliceData.skeleton;
-            }
-            // Ensure defaults exist
-            if (!window.sliceData.lich_lord) window.sliceData.lich_lord = defaultSliceData.lich_lord;
-            if (!window.sliceData.skeleton) window.sliceData.skeleton = defaultSliceData.skeleton;
-            if (!window.sliceData.frost_giant) window.sliceData.frost_giant = defaultSliceData.frost_giant;
-        } catch (e) {
-            window.sliceData = defaultSliceData;
-        }
-
-        // Load saved column slice data
-        if (!window.sliceColData) {
-            try {
-                const saved = localStorage.getItem('sprite_slice_coldata');
-                window.sliceColData = saved ? JSON.parse(saved) : {};
-            } catch(e) { window.sliceColData = {}; }
-        }
-
-        // Re-slice textures that have user-defined slice data
-        ['lich_lord', 'skeleton', 'the_devil', 'frost_giant'].forEach(key => {
-            const tex = this.textures.get(key);
-            const rows = window.sliceData[key];
-            if (!tex || !rows) return;
-
-            const rowCount = rows.length;
-            let defaultColW = 102.4;
-            if (key === 'the_devil') defaultColW = 102;
-            else if (key === 'lich_lord') defaultColW = 128;
-
-            const colData = window.sliceColData[key];
-            let numCols = colData ? colData.length : 10;
-            if (!colData && key === 'lich_lord') numCols = 8;
-            const frameHMax = key === 'the_devil' ? 92 : 128;
-
-            // Remove old frames if they exist (to allow re-slicing)
-            for (let r = 0; r < rowCount; r++) {
-                for (let c = 0; c < numCols; c++) {
-                    const index = (r * numCols + c);
-                    const fName1 = index.toString();
-                    const fName2 = `${key}_${index}`;
-                    if (tex.has(fName1)) tex.remove(fName1);
-                    if (tex.has(fName2)) tex.remove(fName2);
-                }
-            }
-            
-            for (let r = 0; r < rowCount; r++) {
-                for (let c = 0; c < numCols; c++) {
-                    const cutX = colData ? colData[c].x : Math.floor(c * defaultColW);
-                    const cutW = colData ? colData[c].w : Math.floor(defaultColW);
-                    const index = r * numCols + c;
-                    const fName = `${key}_${index}`;
-                    const frame = tex.add(fName, 0, cutX, rows[r].y, cutW, rows[r].h);
-                    if (frame) frame.setTrim(cutW, frameHMax, 0, frameHMax - rows[r].h, cutW, rows[r].h);
-                    // Also add numeric frame so Phaser's default sprite creation works
-                    const numFrame = tex.add(index.toString(), 0, cutX, rows[r].y, cutW, rows[r].h);
-                    if (numFrame) numFrame.setTrim(cutW, frameHMax, 0, frameHMax - rows[r].h, cutW, rows[r].h);
-                }
-            }
-        });
-
-        this.createDebugPanel();
-
-        // The Devil animations (created after slicing so frames are correct)
-        this.anims.create({ key: 'the_devil-idle', frames: getFrames('the_devil', 0, 4), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'the_devil-move', frames: getFrames('the_devil', 10, 17), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'the_devil-attack', frames: getFrames('the_devil', 50, 58), frameRate: 15, repeat: 0 });
-        this.anims.create({ key: 'the_devil-attack2', frames: getFrames('the_devil', 60, 65), frameRate: 12, repeat: 0 });
-        this.anims.create({ key: 'the_devil-hit', frames: getFrames('the_devil', 40, 42), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'the_devil-die', frames: getFrames('the_devil', 43, 49), frameRate: 8, repeat: 0 });
-
-        // Lich Lord animations
-        this.anims.create({ key: 'lich_lord-idle', frames: getFrames('lich_lord', 0, 7), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'lich_lord-move', frames: getFrames('lich_lord', 8, 15), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'lich_lord-shoot', frames: getFrames('lich_lord', 16, 23), frameRate: 12, repeat: 0 });
-        this.anims.create({ key: 'lich_lord-attack', frames: getFrames('lich_lord', 24, 31), frameRate: 12, repeat: 0 }); // AOE
-        this.anims.create({ key: 'lich_lord-summon', frames: getFrames('lich_lord', 32, 39), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'lich_lord-hit', frames: getFrames('lich_lord', 40, 41), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'lich_lord-die', frames: getFrames('lich_lord', 40, 47), frameRate: 8, repeat: 0 });
-
-        // Projectile animations
-        this.anims.create({ key: 'projectile_blue_anim', frames: this.anims.generateFrameNumbers('projectile_blue', { start: 0, end: 5 }), frameRate: 15, repeat: -1 });
-        
-        // Skeleton animations (1024x512 sheet, 4 rows of 128px, 10 cols of ~102px)
-        // Row 0: Idle (5 frames), Row 1: Walk (10 frames), Row 2: Run (8 frames)
-        // Row 3: Attack/Hit/Die (10 frames — sword swings + slash effects + hit)
-        this.anims.create({ key: 'skeleton-idle', frames: getFrames('skeleton', 0, 4), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'skeleton-move', frames: getFrames('skeleton', 10, 17), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'skeleton-attack', frames: getFrames('skeleton', 30, 35), frameRate: 15, repeat: 0 });
-        this.anims.create({ key: 'skeleton-hit', frames: getFrames('skeleton', 36, 37), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'skeleton-die', frames: getFrames('skeleton', 36, 39), frameRate: 8, repeat: 0 });
-
-        // Bandit animations
-        this.anims.create({ key: 'bandit-idle', frames: this.anims.generateFrameNumbers('bandit', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'bandit-move', frames: this.anims.generateFrameNumbers('bandit', { start: 10, end: 17 }), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'bandit-attack', frames: this.anims.generateFrameNumbers('bandit', { start: 30, end: 39 }), frameRate: 15, repeat: 0 });
-
-        // Frost Giant animations
-        this.anims.create({ key: 'frost_giant-idle', frames: getFrames('frost_giant', 0, 4), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'frost_giant-move', frames: getFrames('frost_giant', 10, 17), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'frost_giant-attack', frames: getFrames('frost_giant', 30, 39), frameRate: 15, repeat: 0 });
-
-        // Mummy animations (9 cols)
-        this.anims.create({ key: 'mummy-idle', frames: this.anims.generateFrameNumbers('mummy', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-        this.anims.create({ key: 'mummy-move', frames: this.anims.generateFrameNumbers('mummy', { start: 9, end: 14 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'mummy-attack', frames: this.anims.generateFrameNumbers('mummy', { start: 18, end: 23 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'mummy-hit', frames: this.anims.generateFrameNumbers('mummy', { start: 27, end: 28 }), frameRate: 8, repeat: 0 });
-        this.anims.create({ key: 'mummy-die', frames: this.anims.generateFrameNumbers('mummy', { start: 27, end: 32 }), frameRate: 8, repeat: 0 });
-
-        // Scarab Beetle animations (5 cols)
-        this.anims.create({ key: 'scarab_beetle-idle', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
-        this.anims.create({ key: 'scarab_beetle-move', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 5, end: 8 }), frameRate: 12, repeat: -1 });
-        this.anims.create({ key: 'scarab_beetle-attack', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 10, end: 13 }), frameRate: 12, repeat: 0 });
-        this.anims.create({ key: 'scarab_beetle-hit', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 15, end: 16 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'scarab_beetle-die', frames: this.anims.generateFrameNumbers('scarab_beetle', { start: 15, end: 19 }), frameRate: 10, repeat: 0 });
-
-        // Zombie Animations (80x64, 8 cols x 8 rows, 4 color variants)
-        // Row 0: Walk, Row 1: Regular Attack, Row 2: Bite Attack,
-        // Row 3: Quick Attack + Hit (auto-counter), Row 4: First Defeat,
-        // Row 5: Transform to Crawler, Row 6: Crawl Bite, Row 7: Final Death
-        const zombieVariants = ['zombie', 'zombie_v2', 'zombie_v3', 'zombie_v1'];
-        for (const zType of zombieVariants) {
-            if (!this.textures.exists(zType)) continue;
-            // Row 0: Walk (frames 0-7) — also used as idle
-            this.anims.create({ key: zType + '-idle', frames: this.anims.generateFrameNumbers(zType, { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-            this.anims.create({ key: zType + '-move', frames: this.anims.generateFrameNumbers(zType, { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
-            // Row 1: Regular Attack (frames 8-15)
-            this.anims.create({ key: zType + '-attack', frames: this.anims.generateFrameNumbers(zType, { start: 8, end: 15 }), frameRate: 12, repeat: 0 });
-            // Row 2: Bite Attack (frames 16-23)
-            this.anims.create({ key: zType + '-attack2', frames: this.anims.generateFrameNumbers(zType, { start: 16, end: 23 }), frameRate: 12, repeat: 0 });
-            // Row 3: Quick Attack / Hit reaction — auto-counter (frames 24-31)
-            this.anims.create({ key: zType + '-hit', frames: this.anims.generateFrameNumbers(zType, { start: 24, end: 31 }), frameRate: 14, repeat: 0 });
-            // Row 4: First Defeat — standing to laying (frames 32-39)
-            this.anims.create({ key: zType + '-die', frames: this.anims.generateFrameNumbers(zType, { start: 32, end: 39 }), frameRate: 8, repeat: 0 });
-            // Row 5: Transform — laying to crawling (frames 40-47)
-            this.anims.create({ key: zType + '-transform', frames: this.anims.generateFrameNumbers(zType, { start: 40, end: 47 }), frameRate: 8, repeat: 0 });
-            // Row 6: Crawl Bite (frames 48-55)
-            this.anims.create({ key: zType + '-crawl-attack', frames: this.anims.generateFrameNumbers(zType, { start: 48, end: 55 }), frameRate: 10, repeat: 0 });
-            // Row 7: Final Death (frames 56-63)
-            this.anims.create({ key: zType + '-final-die', frames: this.anims.generateFrameNumbers(zType, { start: 56, end: 63 }), frameRate: 8, repeat: 0 });
-            // Crawl idle — just use the last frame of transform as a static pose
-            this.anims.create({ key: zType + '-crawl-idle', frames: this.anims.generateFrameNumbers(zType, { start: 47, end: 47 }), frameRate: 1, repeat: -1 });
-            // Crawl move — use transform row reversed as crawling motion
-            this.anims.create({ key: zType + '-crawl-move', frames: this.anims.generateFrameNumbers(zType, { start: 44, end: 47 }), frameRate: 8, repeat: -1 });
-        }
-
-        // Build generic demon/damned animations from standard format
-        const damnedStandard = ['old_demon', 'male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'burning_skull', 'burning_skull_blue', 'imp', 'cheeky_devil', 'bloated_damned'];
-        for (const type of damnedStandard) {
-            if (this.textures.exists(type)) {
-                const tex = this.textures.get(type).getSourceImage();
-                // Estimate cols based on assumed frame sizes. The Devil is 112x112, others mostly 64x64 except Old Demon 80x64
-                let fw = 64;
-                if (type === 'old_demon') fw = 80;
-                let cols = Math.floor(tex.width / fw);
-                let rows = Math.floor(tex.height / fw);
-                if (type === 'old_demon' || type === 'plague_flies') rows = Math.floor(tex.height / 64);
-                
-                // If only 1 row, use first frames for everything
-                if (rows === 1) {
-                    this.anims.create({ key: type + '-idle', frames: this.anims.generateFrameNumbers(type, { start: 0, end: Math.min(3, cols-1) }), frameRate: 6, repeat: -1 });
-                    this.anims.create({ key: type + '-move', frames: this.anims.generateFrameNumbers(type, { start: 0, end: Math.min(3, cols-1) }), frameRate: 10, repeat: -1 });
-                    this.anims.create({ key: type + '-hit',  frames: this.anims.generateFrameNumbers(type, { start: Math.min(4, cols-1), end: Math.min(4, cols-1) }), frameRate: 10, repeat: 0 });
-                    this.anims.create({ key: type + '-die',  frames: this.anims.generateFrameNumbers(type, { start: Math.min(5, cols-1), end: cols-1 }), frameRate: 8, repeat: 0 });
-                } else {
-                    const clamp = (val) => Math.min(val, (cols * rows) - 1);
-                    this.anims.create({ key: type + '-idle', frames: this.anims.generateFrameNumbers(type, { start: 0, end: clamp(3) }), frameRate: 6, repeat: -1 });
-                    this.anims.create({ key: type + '-move', frames: this.anims.generateFrameNumbers(type, { start: clamp(cols), end: clamp(cols + 3) }), frameRate: 10, repeat: -1 });
-                    this.anims.create({ key: type + '-hit',  frames: this.anims.generateFrameNumbers(type, { start: clamp(cols*2), end: clamp(cols*2 + 1) }), frameRate: 10, repeat: 0 });
-                    if (rows > 3) {
-                        this.anims.create({ key: type + '-die',  frames: this.anims.generateFrameNumbers(type, { start: clamp(cols*3), end: clamp(cols*3 + 3) }), frameRate: 8, repeat: 0 });
-                    } else {
-                        // If no die row, reuse hit row
-                        this.anims.create({ key: type + '-die',  frames: this.anims.generateFrameNumbers(type, { start: clamp(cols*2 + 2), end: clamp(cols*2 + 3) }), frameRate: 8, repeat: 0 });
-                    }
-                }
-            }
-        }
-        if (this.textures.exists('plague_flies')) {
-            this.anims.create({ key: 'plague_flies-idle', frames: this.anims.generateFrameNumbers('plague_flies', { start: 0, end: 2 }), frameRate: 10, repeat: -1 });
-            this.anims.create({ key: 'plague_flies-move', frames: this.anims.generateFrameNumbers('plague_flies', { start: 0, end: 2 }), frameRate: 15, repeat: -1 });
-            this.anims.create({ key: 'plague_flies-hit',  frames: this.anims.generateFrameNumbers('plague_flies', { start: 3, end: 3 }), frameRate: 10, repeat: 0 });
-            this.anims.create({ key: 'plague_flies-die',  frames: this.anims.generateFrameNumbers('plague_flies', { start: 4, end: 4 }), frameRate: 8, repeat: 0 });
-        }
-
-        } // End of animation registration guard
 
         // Loot Chest Animation (13 frames: 0 to 12)
         if (this.textures.exists('loot_chest') && !this.anims.exists('loot_chest_open')) {
@@ -324,15 +50,16 @@ class GameScene extends Phaser.Scene {
         this.physics.add.overlap(this.heroGroup, this.enemyProjectiles, (heroSprite, projectile) => {
             if (projectile.active) {
                 const knockbackDir = projectile.x > heroSprite.x ? -1 : 1;
+                const dmg = projectile.damage != null ? projectile.damage : 15;
                 if (heroSprite === this.player.sprite) {
-                    this.player.takeDamage(15, knockbackDir);
+                    this.player.takeDamage(dmg, knockbackDir);
                     if (projectile.texture.key === 'burning_skull' && this.player.applyStatusEffect) {
                         this.player.applyStatusEffect('burn', 3000, 10);
                     }
                 } else {
                     const member = this.partyMembers.find(m => m.sprite === heroSprite);
                     if (member && typeof member.takeDamage === 'function') {
-                        member.takeDamage(15, knockbackDir);
+                        member.takeDamage(dmg, knockbackDir);
                         if (projectile.texture.key === 'burning_skull' && member.applyStatusEffect) {
                             member.applyStatusEffect('burn', 3000, 10);
                         }
@@ -453,8 +180,11 @@ class GameScene extends Phaser.Scene {
         // Set camera bounds (Width 3840, height 4000 to allow falling into deep pits)
         this.cameras.main.setBounds(0, -2000, 3840, 4000);
         
-        // Start following player
-        this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+        // Snap camera Y to player initially
+        this.cameras.main.scrollY = Phaser.Math.Clamp(this.player.sprite.y - this.cameras.main.height * 0.72, 50, 350);
+        
+        // Start following player (lerpY is 0.0 to handle follow-down manually in update)
+        this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.0);
         
         // Restore saved party members
          if (window.saveData && window.saveData.party && window.saveData.party.length > 0) {
@@ -515,27 +245,110 @@ class GameScene extends Phaser.Scene {
 
         // Character Sheet Toggle (C)
         this.input.keyboard.on('keydown-C', (event) => {
-            // Do not toggle if the user is typing in a chat input or other text field
-            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+            // Do not toggle if the user is typing in any text field
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+            // Do not toggle if the party builder is open
+            if (document.getElementById('ui-party-builder')?.style.display === 'flex') return;
             this.toggleCharacterSheet();
         });
         
-        // Spawn Party Member Cheat (P)
+        // Spawn Party Member via Party Builder UI (P)
         this.input.keyboard.on('keydown-P', (event) => {
-            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             if (!this.partyMembers) this.partyMembers = [];
-            if (this.partyMembers.length >= 6) return;
-            
-            // Random class
-            const classes = ['knight', 'wizard', 'samurai', 'ranger'];
-            const randomClass = classes[Math.floor(Math.random() * classes.length)];
-            
-            this.spawnHeroAI(randomClass, this.player.sprite.x + 30, this.player.sprite.y - 10, 'party');
+            if (this.partyMembers.length >= 6) {
+                this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 40, 'Party Full! (Max 6)', 0xff4444);
+                return;
+            }
+            this._openPartyBuilder();
         });
 
         this._lastDebugUpdate = 0;
     }
     
+    _openPartyBuilder() {
+        const modal = document.getElementById('ui-party-builder');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        
+        // Pause player input
+        if (this.inputManager) this.inputManager.disableForInput();
+        
+        let selectedClass = 'knight';
+        let selectedGender = 'any'; // Default: random
+        
+        // ESC closes the party builder
+        const escHandler = (e) => { if (e.key === 'Escape') close(); };
+        window.addEventListener('keydown', escHandler);
+        // Pre-fill name with a random generated name if CharacterComposer is available
+        const nameInput = document.getElementById('party-builder-name');
+        if (nameInput && window.CharacterComposer) {
+            nameInput.value = window.CharacterComposer.generateRandomName(selectedClass);
+        }
+        
+        // Handle class card selection
+        const cards = document.querySelectorAll('.pb-class-card');
+        const selectCard = (cls) => {
+            selectedClass = cls;
+            cards.forEach(c => {
+                const isSelected = c.dataset.class === cls;
+                c.style.borderColor = isSelected ? '#b8860b' : '#444';
+                c.style.background = isSelected ? 'rgba(184,134,11,0.15)' : 'transparent';
+            });
+            if (nameInput && window.CharacterComposer) {
+                nameInput.value = window.CharacterComposer.generateRandomName(cls);
+            }
+        };
+        selectCard('knight'); // Default selection
+        cards.forEach(c => c.onclick = () => selectCard(c.dataset.class));
+
+        // Handle gender button selection
+        const genderBtns = document.querySelectorAll('.pb-gender-btn');
+        const selectGender = (g) => {
+            selectedGender = g;
+            genderBtns.forEach(btn => {
+                const isSelected = btn.dataset.gender === g;
+                btn.style.borderColor = isSelected ? '#b8860b' : '#444';
+                btn.style.background = isSelected ? 'rgba(184,134,11,0.15)' : 'transparent';
+                btn.style.color = isSelected ? '#b8860b' : '#aaa';
+            });
+        };
+        selectGender('any'); // Default: any
+        genderBtns.forEach(btn => btn.onclick = () => selectGender(btn.dataset.gender));
+        
+        const close = () => {
+            modal.style.display = 'none';
+            if (this.inputManager) this.inputManager.enableForInput();
+            window.removeEventListener('keydown', escHandler);
+        };
+        
+        document.getElementById('party-builder-cancel').onclick = close;
+        
+        document.getElementById('party-builder-confirm').onclick = () => {
+            const name = (nameInput && nameInput.value.trim()) || 'Unknown';
+            const personaInput = document.getElementById('party-builder-persona');
+            const persona = (personaInput && personaInput.value.trim()) || 'A loyal companion ready to fight.';
+            
+            const px = this.player.sprite.x + 40;
+            const py = this.player.sprite.y - 10;
+            
+            if (selectedClass === 'custom') {
+                // Generate a random custom modular NPC, passing the chosen gender
+                const gender = selectedGender === 'any' ? null : selectedGender;
+                if (window.CharacterComposer) {
+                    const npcData = window.CharacterComposer.generateRandomNPC(this, gender);
+                    this.spawnHeroAI(npcData.spriteKey, px, py, 'party', name, persona, 0, npcData.weaponType);
+                } else {
+                    this.spawnHeroAI('knight', px, py, 'party', name, persona);
+                }
+            } else {
+                this.spawnHeroAI(selectedClass, px, py, 'party', name, persona);
+            }
+            close();
+        };
+    }
+
+
     _autoSave() {
         if (!this.player || !this.player.saveGame) return;
         this.player.saveGame();
@@ -623,8 +436,55 @@ class GameScene extends Phaser.Scene {
         }
         
         const currentZone = (window.saveData && window.saveData.currentZone !== undefined) ? window.saveData.currentZone : 0;
-        const nextZoneIndex = currentZone + direction;
+        let nextZoneIndex = currentZone + direction;
         const spawnSide = direction === 1 ? 'left' : 'right'; // If moving right, spawn left.
+
+        // Check for Wrath Teleportation if in a wilderness zone (not safe and not already in pocket dimension)
+        const isCurrentlySafe = this.zoneType === 'Safe';
+        const isPocketDimension = currentZone === 777 || currentZone === -666;
+        
+        let spawnedWrath = false;
+        let wrathDimension = null;
+
+        if (window.saveData) {
+            if (typeof window.saveData.wrathCooldown === 'undefined') {
+                window.saveData.wrathCooldown = 0;
+            }
+            if (window.saveData.wrathCooldown > 0) {
+                window.saveData.wrathCooldown--;
+            }
+        }
+
+        if (!isCurrentlySafe && !isPocketDimension && window.saveData && window.saveData.alignment !== undefined && window.saveData.wrathCooldown <= 0) {
+            const align = window.saveData.alignment;
+            const rand = Math.random() * 100;
+            // Scale chance: at 20 alignment, there is an 8% chance; at 100 alignment, a 25% chance.
+            const chance = Math.min(25, Math.abs(align) * 0.4);
+            
+            if (align >= 20 && rand < chance) {
+                wrathDimension = 'Heaven';
+                window.saveData.preWrathZone = nextZoneIndex; // Store original progression target
+                nextZoneIndex = 777;
+                spawnedWrath = true;
+                window.saveData.wrathCooldown = 5; // 5 normal zones cooldown
+            } else if (align <= -20 && rand < chance) {
+                wrathDimension = 'Hell';
+                window.saveData.preWrathZone = nextZoneIndex; // Store original progression target
+                nextZoneIndex = -666;
+                spawnedWrath = true;
+                window.saveData.wrathCooldown = 5; // 5 normal zones cooldown
+            }
+        } else if (isPocketDimension && window.saveData && typeof window.saveData.preWrathZone === 'number') {
+            // Exiting a pocket dimension always returns to the pre-wrath progression zone
+            nextZoneIndex = window.saveData.preWrathZone;
+            delete window.saveData.preWrathZone;
+            
+            this.time.delayedCall(1200, () => {
+                if (this.player && this.player.sprite && this.player.sprite.active) {
+                    this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, "Returned to the mortal realm...", 0xffffff);
+                }
+            });
+        }
         
         // Save active zone state (enemies) before transition
         if (this.worldManager) {
@@ -651,16 +511,26 @@ class GameScene extends Phaser.Scene {
         // Cancel any active cutscenes so they don't bleed into the next zone
         this.cancelCutscene();
 
-        // Fade out
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        // Safety timeout: if camerafadeoutcomplete never fires, force-complete after 5s
-        this._transitionSafetyTimer = this.time.delayedCall(5000, () => {
-            if (this.isTransitioning) {
-                console.warn('Zone transition safety timeout triggered — forcing completion.');
-                this.isTransitioning = false;
-                this.cameras.main.fadeIn(500, 0, 0, 0);
-            }
-        });
+        // Fade out and Safety Timer trigger
+        const performFade = () => {
+            if (this.isSceneDestroyed) return;
+            this.cameras.main.fadeOut(500, 0, 0, 0);
+            this._transitionSafetyTimer = this.time.delayedCall(5000, () => {
+                if (this.isTransitioning) {
+                    console.warn('Zone transition safety timeout triggered — forcing completion.');
+                    this.isTransitioning = false;
+                    this.cameras.main.fadeIn(500, 0, 0, 0);
+                }
+            });
+        };
+
+        if (spawnedWrath) {
+            this.triggerWrathVisuals(wrathDimension);
+            this.time.delayedCall(2500, performFade);
+        } else {
+            performFade();
+        }
+
         this.cameras.main.once('camerafadeoutcomplete', () => {
             // Cancel safety timer since fade completed normally
             if (this._transitionSafetyTimer) this._transitionSafetyTimer.destroy();
@@ -709,6 +579,8 @@ class GameScene extends Phaser.Scene {
             // Reload
             this.worldManager.loadZone(nextZoneIndex, spawnSide).then(() => {
                 if (this.isSceneDestroyed) return;
+                // Snap camera Y on zone load
+                this.cameras.main.scrollY = Phaser.Math.Clamp(this.player.sprite.y - this.cameras.main.height * 0.72, 50, 350);
                 this.isTransitioning = false;
                 this.cameras.main.fadeIn(500, 0, 0, 0);
             }).catch(err => {
@@ -721,16 +593,109 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    triggerWrathVisuals(dimension) {
+        // Camera shake
+        this.cameras.main.shake(1200, 0.025);
+
+        // Flash screen
+        if (dimension === 'Heaven') {
+            this.cameras.main.flash(1000, 255, 245, 210); // Golden white flash
+        } else {
+            this.cameras.main.flash(1000, 220, 10, 10); // Blood red flash
+        }
+
+        // Add a giant dramatic banner text at the center of the screen
+        const bannerText = dimension === 'Heaven' ? 'THE WRATH OF THE HEAVENS!' : 'THE WRATH OF HELL!';
+        const bannerColor = dimension === 'Heaven' ? '#ffeb88' : '#ff4444';
+        
+        const text = this.add.text(640, 260, bannerText, {
+            fontFamily: '"Space Grotesk", sans-serif',
+            fontSize: '46px',
+            fill: bannerColor,
+            stroke: '#000000',
+            strokeThickness: 8,
+            fontStyle: 'bold',
+            align: 'center'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setScale(0);
+
+        const subTextStr = dimension === 'Heaven' 
+            ? 'Your saintly deeds pull you into the celestial realm...' 
+            : 'Your demonic sins drag you into the fiery depths...';
+            
+        const subText = this.add.text(640, 320, subTextStr, {
+            fontFamily: '"Space Grotesk", sans-serif',
+            fontSize: '20px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 5,
+            fontStyle: 'bold',
+            align: 'center'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setAlpha(0);
+
+        // Scale up banner
+        this.tweens.add({
+            targets: text,
+            scale: 1.0,
+            duration: 500,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                if (this.isSceneDestroyed) return;
+                // Fade in subtext
+                this.tweens.add({
+                    targets: subText,
+                    alpha: 1,
+                    duration: 300
+                });
+
+                // Hold for 1.8 seconds, then fade both out and destroy
+                this.time.delayedCall(1800, () => {
+                    if (this.isSceneDestroyed) return;
+                    this.tweens.add({
+                        targets: [text, subText],
+                        alpha: 0,
+                        duration: 500,
+                        onComplete: () => {
+                            text.destroy();
+                            subText.destroy();
+                        }
+                    });
+                });
+            }
+        });
+    }
+
     setBiomeVisuals(biome, zoneType = 'Hostile') {
+        this.zoneBiome = biome;
+        
         // Build floor and background layers
         this.levelGenerator.setBiomeVisuals(biome, zoneType);
+
+        // Hide GM AI weather overlay when loading visuals for a new zone
+        if (this._weatherOverlay) {
+            this._weatherOverlay.setVisible(false);
+        }
 
         // Set basic sky color
         let bgColor = '#87CEEB'; // default sky
         if (biome === 'Desert') bgColor = '#f4a460';
         if (biome === 'Winter') bgColor = '#a9a9a9';
+        if (biome === 'Heaven') bgColor = '#fff9e6'; // pearlescent golden sky
         if (biome === 'Cave' || biome === 'Dungeon' || biome === 'Deadwoods' || biome === 'Hell') bgColor = '#1a1a1a';
         this.cameras.main.setBackgroundColor(bgColor);
+
+        // Hide clouds in underground / dark biomes — no sky visible underground
+        const cloudlessBiomes = ['Dungeon', 'Cave', 'Hell'];
+        const showClouds = !cloudlessBiomes.includes(biome);
+        if (this.clouds && this.clouds.length > 0) {
+            this.clouds.forEach(cloud => {
+                cloud.setVisible(showClouds);
+                if (biome === 'Heaven') {
+                    cloud.setTint(0xfff8d0); // Light warm golden tint
+                } else {
+                    cloud.clearTint();
+                }
+            });
+        }
 
         // Determine weather intelligently based on biome
         if (this.weatherManager) {
@@ -779,14 +744,14 @@ class GameScene extends Phaser.Scene {
             }
         });
         
-        if (this.player && this.player.sprite && this.player.sprite.y > 1400) {
-            this.player.hp = 0; // The abyss claims them!
+        if (this.player && this.player.sprite && this.player.sprite.y > 1400 && this.player.hp > 0) {
+            this.player.takeDamage(this.player.hp);
         }
         
         // Dynamically adjust camera bounds so it doesn't show underground unless falling
         if (this.player && this.player.sprite && this.player.sprite.active) {
             const widthTiles = this.worldManager && this.worldManager.currentZoneData && this.worldManager.currentZoneData.type === 'Safe' ? 40 : 84;
-            const targetHeight = (this.player.sprite.y < 700) ? 2720 : 4000;
+            const targetHeight = 3200;
             
             if (typeof this.currentCameraHeight === 'undefined') {
                 this.currentCameraHeight = targetHeight;
@@ -796,6 +761,28 @@ class GameScene extends Phaser.Scene {
             }
             
             this.cameras.main.setBounds(0, -2000, widthTiles * 46, this.currentCameraHeight);
+
+            // Manual camera vertical follow: only follow player down when in the air, but follow both ways when grounded.
+            if (!this.isIndoors) {
+                const playerSprite = this.player.sprite;
+                const cam = this.cameras.main;
+                const targetScrollY = playerSprite.y - cam.height * 0.72;
+                const onGround = playerSprite.body.touching.down || playerSprite.body.blocked.down;
+                
+                if (onGround) {
+                    const lerpY = 0.1 * (delta / 16.666);
+                    cam.scrollY = cam.scrollY + (targetScrollY - cam.scrollY) * Math.min(1, lerpY);
+                } else {
+                    // Only follow down (scrollY can only increase/descend)
+                    if (targetScrollY > cam.scrollY) {
+                        const lerpY = 0.1 * (delta / 16.666);
+                        cam.scrollY = cam.scrollY + (targetScrollY - cam.scrollY) * Math.min(1, lerpY);
+                    }
+                }
+
+                // Tight vertical camera limits to prevent showing empty sky or empty void below platforms
+                cam.scrollY = Phaser.Math.Clamp(cam.scrollY, 50, 350);
+            }
         }
 
         // --- GM AI LOGIC ---
@@ -1176,6 +1163,81 @@ class GameScene extends Phaser.Scene {
 
     grantRewards(xpEarned, goldEarned) {
         this.progressionManager.grantRewards(xpEarned, goldEarned);
+    }
+
+    clearHellZone() {
+        if (!this.player) return;
+
+        // Calculate shift needed to return player alignment to 0 (Neutral)
+        const currentAlignment = this.player.alignment || 0;
+        const alignmentShift = -currentAlignment;
+        this.player.updateAlignment(alignmentShift);
+
+        // Play golden white flash (dramatic purge effect)
+        this.cameras.main.flash(1500, 255, 255, 255);
+
+        // Display a giant dramatic camera-fixed title and subtitle
+        const title = this.add.text(640, 260, "HELL PURGED!", {
+            fontFamily: '"Space Grotesk", sans-serif',
+            fontSize: '52px',
+            fill: '#ffaa00',
+            stroke: '#000000',
+            strokeThickness: 8,
+            fontStyle: 'bold',
+            align: 'center'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setScale(0);
+
+        const subtitle = this.add.text(640, 330, "Your soul is cleansed. Alignment reversed to Neutral.", {
+            fontFamily: '"Space Grotesk", sans-serif',
+            fontSize: '22px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 5,
+            fontStyle: 'bold',
+            align: 'center'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setAlpha(0);
+
+        // Scale up banner
+        this.tweens.add({
+            targets: title,
+            scale: 1.0,
+            duration: 600,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                if (this.isSceneDestroyed) return;
+                // Fade in subtitle
+                this.tweens.add({
+                    targets: subtitle,
+                    alpha: 1,
+                    duration: 400
+                });
+
+                // Hold for 3 seconds, then fade both out and destroy
+                this.time.delayedCall(3000, () => {
+                    if (this.isSceneDestroyed) return;
+                    this.tweens.add({
+                        targets: [title, subtitle],
+                        alpha: 0,
+                        duration: 800,
+                        onComplete: () => {
+                            title.destroy();
+                            subtitle.destroy();
+                        }
+                    });
+                });
+            }
+        });
+
+        // Grant epic rewards: 1000 XP, 500 Gold
+        this.grantRewards(1000, 500);
+
+        // Show reward floating text
+        if (this.showFloatingText && this.player.sprite && this.player.sprite.active) {
+            this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 80, "Hell Cleared Bonus!", 0xffaa00);
+        }
+
+        // Save progress immediately
+        this._autoSave();
     }
 
     cleanupScene() {

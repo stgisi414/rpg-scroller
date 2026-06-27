@@ -140,7 +140,10 @@ const classesData = {
         dashRow: 5,
         animFrames: {
             jump: { start: 40, end: 43 },
-            fall: { start: 50, end: 53 }
+            fall: { start: 50, end: 53 },
+            hit: { start: 160, end: 164 },
+            die: { start: 150, end: 157 },
+            duck: { frames: [100] } // Row 10 col 0 — sword raised guard stance
         },
         comboStartFrame: 120, comboEndFrame: 129, // Row 13 for GandalfHardcore Warrior
         slotPortraitX: -17, slotPortraitY: -18,
@@ -184,6 +187,11 @@ const classesData = {
         attackRow: 2, // Shooting the blast
         jumpRow: 3,
         fallRow: 3, // No separate fall frame
+        animFrames: {
+            hit: { start: 54, end: 54 },
+            die: { start: 60, end: 64 },
+            duck: { frames: [14] } // Casting frame — staff raised as magic block pose
+        },
         comboStartFrame: 24, // Row 4 (4 * 6)
         comboEndFrame: 41,   // End of Row 6 ((6 * 6) + 5)
         previewScale: 0.6,
@@ -232,7 +240,7 @@ const classesData = {
             walk: { start: 22, end: 29 },
             hit: { start: 33, end: 36 },
             die: { start: 44, end: 50 },
-            duck: { frames: [0] },
+            duck: { frames: [15] }, // Bow fully drawn — block/ready stance
             jump: { frames: [0] },
             fall: { frames: [0] }
         },
@@ -245,14 +253,15 @@ const classesData = {
         name: 'Spellblade',
         tagline: 'Arcane Blade, Swift as Wind',
         desc: 'A mystical elven warrior who blends physical swordplay with powerful arcane spells. High physical and magical damage.',
-        image: 'src/assets/elven_spellblade.png?v=3',
+        image: 'src/assets/elven_spellblade.png?v=5',
         isSheet: true,
         frameWidth: 128, frameHeight: 128,
-        sheetCols: 50,
+        sheetCols: 55,
         spriteScale: 1.15,
         previewScale: 1.6,
         createPreviewScale: 1.6,
         previewOffsetY: -19,
+        attackDuration: 560,
         animFrames: {
             idle: { start: 0, end: 8 },
             walk: { start: 9, end: 17 },
@@ -260,7 +269,7 @@ const classesData = {
             combo: { start: 27, end: 35 },
             hit: { start: 36, end: 40 },
             die: { start: 41, end: 49 },
-            duck: { frames: [0] },
+            duck: { start: 53, end: 53 },
             jump: { frames: [0] },
             fall: { frames: [0] }
         },
@@ -281,7 +290,7 @@ classesData.samurai_rival.image = 'src/assets/GandalfHardcore Samurai/GandalfHar
 classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival', stats: { vit: 25, str: 15, dex: 25, int: 15 }, animFrames: JSON.parse(JSON.stringify(classesData.ranger.animFrames || {})) };
 classesData.ranger_rival.image = 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png';
 classesData.elven_spellblade_rival = { ...classesData.elven_spellblade, id: 'elven_spellblade_rival', stats: { vit: 24, str: 22, dex: 18, int: 26 }, animFrames: JSON.parse(JSON.stringify(classesData.elven_spellblade.animFrames || {})) };
-classesData.elven_spellblade_rival.image = 'src/assets/elven_spellblade.png?v=3';
+classesData.elven_spellblade_rival.image = 'src/assets/elven_spellblade.png?v=5';
 classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 }, animFrames: JSON.parse(JSON.stringify(classesData.heavy_knight.animFrames || {})) };
 classesData.megaboss_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
 
@@ -417,6 +426,10 @@ function startGame(saveData) {
         height: 720,
         parent: 'game-container',
         pixelArt: true,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH
+        },
         physics: {
             default: 'arcade',
             arcade: {
@@ -624,7 +637,467 @@ document.addEventListener('DOMContentLoaded', () => {
             selectClass(e.currentTarget.dataset.class);
         });
     });
+
+    // Fighter Suite Button clicked from main menu
+    const btnFighterSuite = document.getElementById('btn-fighter-suite');
+    if (btnFighterSuite) {
+        btnFighterSuite.addEventListener('click', () => {
+            document.getElementById('ui-title').style.display = 'none';
+            if (titleGame) {
+                titleGame.destroy(true);
+                titleGame = null;
+            }
+            document.getElementById('ui-fighter-suite').style.display = 'flex';
+            startFighterSuite();
+        });
+    }
 });
+
+function startFighterSuite() {
+    if (window.fighterGame) {
+        window.fighterGame.destroy(true);
+        window.fighterGame = null;
+    }
+
+    const config = {
+        type: Phaser.AUTO,
+        width: 1280,
+        height: 720,
+        parent: 'game-container',
+        pixelArt: true,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 1200 },
+                debug: false
+            }
+        },
+        scene: []
+    };
+
+    window.fighterGame = new Phaser.Game(config);
+    window.fighterGame.scene.add('FighterScene', FighterScene);
+
+    window.fighterState = {
+        p1Mode: 'human',
+        p1Class: 'knight',
+        p2Class: 'dragon',
+        p1Level: 1,
+        p2Level: 1,
+        p1Weapon: null,
+        p2Weapon: null,
+        p1Artifact: null,
+        p2Artifact: null,
+        p1Alignment: 0,
+        p2Alignment: 0
+    };
+
+    window.refreshFighterScene = () => {
+        if (!window.fighterGame) return;
+        const scene = window.fighterGame.scene.keys['FighterScene'];
+        if (scene) {
+            scene.scene.restart(window.fighterState);
+        } else {
+            window.fighterGame.scene.start('FighterScene', window.fighterState);
+        }
+    };
+
+    window.fighterGame.events.once('ready', () => {
+        window.refreshFighterScene();
+    });
+
+    setupFighterHTMLHandlers();
+}
+
+function setupFighterHTMLHandlers() {
+    // Weapon data for Fighter Suite loadout
+    const FIGHTER_WEAPONS = {
+        knight: [
+            { key: 'weapon-bronze-sword', name: 'Bronze Sword', damageBonus: 2 },
+            { key: 'weapon-iron-sword', name: 'Iron Broadsword', damageBonus: 5 },
+            { key: 'weapon-gold-sword', name: 'Golden Longsword', damageBonus: 8 },
+            { key: 'weapon-diamond-sword', name: 'Obsidian Blade', damageBonus: 15 },
+            { key: 'weapon-iron-axe', name: 'Heavy Battleaxe', damageBonus: 6 },
+            { key: 'weapon-crimson-axe', name: 'Crimson War Axe', damageBonus: 20 },
+            { key: 'weapon-runic-greataxe', name: 'Runic Greataxe', damageBonus: 28 },
+            { key: 'weapon-dragon-cleaver', name: 'Dragon Cleaver', damageBonus: 35 },
+            { key: 'weapon-worldbreaker', name: 'Worldbreaker', damageBonus: 45 }
+        ],
+        wizard: [
+            { key: 'weapon-stick', name: 'Oak Wand', damageBonus: 2 },
+            { key: 'weapon-staff', name: 'Adept Staff', damageBonus: 5 },
+            { key: 'weapon-crystal-staff', name: 'Crystal Staff', damageBonus: 10 },
+            { key: 'weapon-arcane-scepter', name: 'Arcane Scepter', damageBonus: 16 },
+            { key: 'weapon-infernal-staff', name: 'Infernal Staff', damageBonus: 24 },
+            { key: 'weapon-void-staff', name: 'Staff of the Void', damageBonus: 32 }
+        ],
+        samurai: [
+            { key: 'weapon-iron-dagger', name: 'Iron Dagger', damageBonus: 3 },
+            { key: 'weapon-poison-shiv', name: 'Poisoned Shiv', damageBonus: 8 },
+            { key: 'weapon-shadow-fang', name: 'Shadow Fang', damageBonus: 14 },
+            { key: 'weapon-serpent-blade', name: 'Serpent Blade', damageBonus: 20 },
+            { key: 'weapon-voidsteel-tanto', name: 'Voidsteel Tanto', damageBonus: 28 },
+            { key: 'weapon-dragonslayer-katana', name: 'Dragonslayer Katana', damageBonus: 36 }
+        ],
+        ranger: [
+            { key: 'weapon-shortbow', name: 'Shortbow', damageBonus: 4 },
+            { key: 'weapon-elven-longbow', name: 'Elven Longbow', damageBonus: 10 },
+            { key: 'weapon-storm-tomahawk', name: 'Storm Tomahawk', damageBonus: 17 },
+            { key: 'weapon-void-throwing-axe', name: 'Void Throwing Axe', damageBonus: 24 },
+            { key: 'weapon-phoenix-shuriken', name: 'Phoenix Shuriken', damageBonus: 32 }
+        ],
+        elven_spellblade: [
+            { key: 'weapon-bronze-sword', name: 'Bronze Sword', damageBonus: 2 },
+            { key: 'weapon-iron-sword', name: 'Iron Broadsword', damageBonus: 5 },
+            { key: 'weapon-crystal-staff', name: 'Crystal Staff', damageBonus: 10 },
+            { key: 'weapon-arcane-scepter', name: 'Arcane Scepter', damageBonus: 16 },
+            { key: 'weapon-infernal-staff', name: 'Infernal Staff', damageBonus: 24 }
+        ]
+    };
+    FIGHTER_WEAPONS.knight_rival = FIGHTER_WEAPONS.knight;
+
+    const FIGHTER_ARTIFACTS = window.ARTIFACTS_DATA ? Object.values(window.ARTIFACTS_DATA) : [
+        { key: 'artifact-strength', name: 'Ring of Strength' },
+        { key: 'artifact-vitality', name: 'Amulet of Vitality' },
+        { key: 'artifact-swiftness', name: 'Boots of Swiftness' },
+        { key: 'artifact-magic', name: 'Crystal of Magic' },
+        { key: 'artifact-vampire', name: 'Vampiric Fang' },
+        { key: 'artifact-shield', name: 'Shielding Charm' },
+        { key: 'artifact-antidote', name: 'Antidote Vial' },
+        { key: 'artifact-frostward', name: 'Frost Ward' },
+        { key: 'artifact-fireopal', name: 'Fire Opal' },
+        { key: 'artifact-holy', name: 'Holy Symbol' },
+        { key: 'artifact-demonic', name: 'Demonic Sigil' },
+        { key: 'artifact-scales', name: 'Scales of Balance' },
+        { key: 'artifact-teleporter', name: 'Town Portal Stone' },
+        { key: 'artifact-commander', name: "Commander's Horn" },
+        { key: 'artifact-autopot', name: 'Elixir of Last Resort' },
+        { key: 'artifact-wooden-buckler', name: 'Wooden Buckler' },
+        { key: 'artifact-iron-shield', name: 'Iron Kite Shield' },
+        { key: 'artifact-crystal-aegis', name: 'Crystal Aegis' }
+    ];
+
+    const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
+
+    function populateWeaponDropdown(selectId, classId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        select.innerHTML = '<option value="">Default Weapon</option>';
+        const weapons = FIGHTER_WEAPONS[classId] || [];
+        weapons.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w.key;
+            opt.textContent = `${w.name} (+${w.damageBonus})`;
+            select.appendChild(opt);
+        });
+    }
+
+    function populateArtifactDropdown(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        select.innerHTML = '<option value="">No Artifact</option>';
+        FIGHTER_ARTIFACTS.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.key;
+            opt.textContent = a.name + (a.desc ? ` — ${a.desc}` : '');
+            select.appendChild(opt);
+        });
+    }
+
+    function updateLoadoutVisibility(prefix, classId) {
+        const weaponRow = document.getElementById(`${prefix}-weapon-row`);
+        const artifactRow = document.getElementById(`${prefix}-artifact-row`);
+        const alignmentRow = document.getElementById(`${prefix}-alignment-row`);
+        const isHero = heroClasses.includes(classId) || (classId && classId.startsWith('custom_npc'));
+        if (weaponRow) weaponRow.style.display = isHero ? 'flex' : 'none';
+        if (artifactRow) artifactRow.style.display = isHero ? 'flex' : 'none';
+        if (alignmentRow) alignmentRow.style.display = isHero ? 'flex' : 'none';
+    }
+
+    // Initialize loadout dropdowns
+    populateWeaponDropdown('p1-weapon-select', 'knight');
+    populateWeaponDropdown('p2-weapon-select', 'dragon');
+    populateArtifactDropdown('p1-artifact-select');
+    populateArtifactDropdown('p2-artifact-select');
+    updateLoadoutVisibility('p1', 'knight');
+    updateLoadoutVisibility('p2', 'dragon');
+
+    // Level slider handlers
+    const p1LevelSlider = document.getElementById('p1-level-slider');
+    const p1LevelDisplay = document.getElementById('p1-level-display');
+    const p2LevelSlider = document.getElementById('p2-level-slider');
+    const p2LevelDisplay = document.getElementById('p2-level-display');
+
+    if (p1LevelSlider) {
+        p1LevelSlider.oninput = () => {
+            const val = parseInt(p1LevelSlider.value);
+            p1LevelDisplay.textContent = val;
+            window.fighterState.p1Level = val;
+        };
+        p1LevelSlider.onchange = () => window.refreshFighterScene();
+    }
+    if (p2LevelSlider) {
+        p2LevelSlider.oninput = () => {
+            const val = parseInt(p2LevelSlider.value);
+            p2LevelDisplay.textContent = val;
+            window.fighterState.p2Level = val;
+        };
+        p2LevelSlider.onchange = () => window.refreshFighterScene();
+    }
+
+    // Alignment input handlers
+    const p1AlignmentInput = document.getElementById('p1-alignment-input');
+    const p2AlignmentInput = document.getElementById('p2-alignment-input');
+
+    if (p1AlignmentInput) {
+        p1AlignmentInput.oninput = () => {
+            const val = parseInt(p1AlignmentInput.value) || 0;
+            window.fighterState.p1Alignment = val;
+        };
+        p1AlignmentInput.onchange = () => window.refreshFighterScene();
+    }
+    if (p2AlignmentInput) {
+        p2AlignmentInput.oninput = () => {
+            const val = parseInt(p2AlignmentInput.value) || 0;
+            window.fighterState.p2Alignment = val;
+        };
+        p2AlignmentInput.onchange = () => window.refreshFighterScene();
+    }
+
+    // Weapon select handlers
+    const p1WeaponSelect = document.getElementById('p1-weapon-select');
+    const p2WeaponSelect = document.getElementById('p2-weapon-select');
+    if (p1WeaponSelect) {
+        p1WeaponSelect.onchange = () => {
+            const key = p1WeaponSelect.value;
+            if (!key) { window.fighterState.p1Weapon = null; }
+            else {
+                const allWeapons = Object.values(FIGHTER_WEAPONS).flat();
+                window.fighterState.p1Weapon = allWeapons.find(w => w.key === key) || null;
+            }
+            window.refreshFighterScene();
+        };
+    }
+    if (p2WeaponSelect) {
+        p2WeaponSelect.onchange = () => {
+            const key = p2WeaponSelect.value;
+            if (!key) { window.fighterState.p2Weapon = null; }
+            else {
+                const allWeapons = Object.values(FIGHTER_WEAPONS).flat();
+                window.fighterState.p2Weapon = allWeapons.find(w => w.key === key) || null;
+            }
+            window.refreshFighterScene();
+        };
+    }
+
+    // Artifact select handlers
+    const p1ArtifactSelect = document.getElementById('p1-artifact-select');
+    const p2ArtifactSelect = document.getElementById('p2-artifact-select');
+    if (p1ArtifactSelect) {
+        p1ArtifactSelect.onchange = () => {
+            window.fighterState.p1Artifact = p1ArtifactSelect.value || null;
+            window.refreshFighterScene();
+        };
+    }
+    if (p2ArtifactSelect) {
+        p2ArtifactSelect.onchange = () => {
+            window.fighterState.p2Artifact = p2ArtifactSelect.value || null;
+            window.refreshFighterScene();
+        };
+    }
+
+    const btnHuman = document.getElementById('btn-p1-human');
+    const btnAI = document.getElementById('btn-p1-ai');
+    const p1Enemies = document.getElementById('p1-enemies-container');
+
+    const setP1Mode = (mode) => {
+        window.fighterState.p1Mode = mode;
+        if (mode === 'human') {
+            btnHuman.classList.add('active');
+            btnAI.classList.remove('active');
+            p1Enemies.classList.add('hidden');
+            const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
+            const isCustom = window.fighterState.p1Class && window.fighterState.p1Class.startsWith('custom_npc');
+            if (!heroClasses.includes(window.fighterState.p1Class) && !isCustom) {
+                window.fighterState.p1Class = 'knight';
+                updateP1SelectionUI();
+            }
+        } else {
+            btnAI.classList.add('active');
+            btnHuman.classList.remove('active');
+            p1Enemies.classList.remove('hidden');
+        }
+        window.refreshFighterScene();
+    };
+
+    btnHuman.onclick = () => setP1Mode('human');
+    btnAI.onclick = () => setP1Mode('ai');
+
+    const p1HeroItems = document.querySelectorAll('#p1-heroes-grid .fighter-grid-item');
+    p1HeroItems.forEach(item => {
+        item.onclick = () => {
+            p1HeroItems.forEach(x => x.classList.remove('selected'));
+            const p1EnemyItems = document.querySelectorAll('#p1-enemies-container .fighter-grid-item');
+            p1EnemyItems.forEach(x => x.classList.remove('selected'));
+
+            item.classList.add('selected');
+            window.fighterState.p1Class = item.dataset.class;
+            populateWeaponDropdown('p1-weapon-select', item.dataset.class);
+            updateLoadoutVisibility('p1', item.dataset.class);
+            window.fighterState.p1Weapon = null;
+            window.refreshFighterScene();
+        };
+    });
+
+    const p1EnemyItems = document.querySelectorAll('#p1-enemies-container .fighter-grid-item');
+    p1EnemyItems.forEach(item => {
+        item.onclick = () => {
+            p1HeroItems.forEach(x => x.classList.remove('selected'));
+            p1EnemyItems.forEach(x => x.classList.remove('selected'));
+
+            item.classList.add('selected');
+            window.fighterState.p1Class = item.dataset.class;
+            
+            const isHero = heroClasses.includes(item.dataset.class) || (item.dataset.class && item.dataset.class.startsWith('custom_npc'));
+            if (isHero) {
+                populateWeaponDropdown('p1-weapon-select', item.dataset.class);
+            }
+            
+            updateLoadoutVisibility('p1', item.dataset.class);
+            window.fighterState.p1Weapon = null;
+            window.fighterState.p1Artifact = null;
+            window.refreshFighterScene();
+        };
+    });
+
+    const updateP1SelectionUI = () => {
+        p1HeroItems.forEach(x => {
+            const isMatch = x.dataset.class === window.fighterState.p1Class ||
+                (x.dataset.class === 'custom_npc_male' && window.fighterState.p1Class && window.fighterState.p1Class.startsWith('custom_npc_male_')) ||
+                (x.dataset.class === 'custom_npc_female' && window.fighterState.p1Class && window.fighterState.p1Class.startsWith('custom_npc_female_'));
+            if (isMatch) x.classList.add('selected');
+            else x.classList.remove('selected');
+        });
+        p1EnemyItems.forEach(x => {
+            if (x.dataset.class === window.fighterState.p1Class) x.classList.add('selected');
+            else x.classList.remove('selected');
+        });
+    };
+
+    const p2HeroItems = document.querySelectorAll('#p2-heroes-grid .fighter-grid-item');
+    const p2EnemyItems = document.querySelectorAll('#p2-enemies-grid .fighter-grid-item');
+
+    p2HeroItems.forEach(item => {
+        item.onclick = () => {
+            p2HeroItems.forEach(x => x.classList.remove('selected'));
+            p2EnemyItems.forEach(x => x.classList.remove('selected'));
+
+            item.classList.add('selected');
+            window.fighterState.p2Class = item.dataset.class;
+            populateWeaponDropdown('p2-weapon-select', item.dataset.class);
+            updateLoadoutVisibility('p2', item.dataset.class);
+            window.fighterState.p2Weapon = null;
+            window.refreshFighterScene();
+        };
+    });
+
+    p2EnemyItems.forEach(item => {
+        item.onclick = () => {
+            p2HeroItems.forEach(x => x.classList.remove('selected'));
+            p2EnemyItems.forEach(x => x.classList.remove('selected'));
+
+            item.classList.add('selected');
+            window.fighterState.p2Class = item.dataset.class;
+            
+            const isHero = heroClasses.includes(item.dataset.class) || (item.dataset.class && item.dataset.class.startsWith('custom_npc'));
+            if (isHero) {
+                populateWeaponDropdown('p2-weapon-select', item.dataset.class);
+            }
+            
+            updateLoadoutVisibility('p2', item.dataset.class);
+            window.fighterState.p2Weapon = null;
+            window.fighterState.p2Artifact = null;
+            window.refreshFighterScene();
+        };
+    });
+
+    const uiSuite = document.getElementById('ui-fighter-suite');
+    const btnHideMenu = document.getElementById('btn-hide-menu');
+    const btnShowMenu = document.getElementById('btn-show-menu');
+
+    if (btnHideMenu) {
+        btnHideMenu.onclick = () => {
+            if (uiSuite) uiSuite.classList.add('menu-hidden');
+            // Resume the fight when hiding the menu
+            if (window.fighterGame) {
+                const scene = window.fighterGame.scene.keys['FighterScene'];
+                if (scene && scene.scene.isPaused()) {
+                    scene.scene.resume();
+                }
+            }
+        };
+    }
+    if (btnShowMenu) {
+        btnShowMenu.onclick = () => {
+            if (uiSuite) uiSuite.classList.remove('menu-hidden');
+            // Pause the fight when showing the menu
+            if (window.fighterGame) {
+                const scene = window.fighterGame.scene.keys['FighterScene'];
+                if (scene && !scene.scene.isPaused()) {
+                    scene.scene.pause();
+                }
+            }
+        };
+    }
+
+    const btnStart = document.getElementById('btn-start-fight');
+    btnStart.onclick = () => {
+        if (!window.fighterGame) return;
+        const scene = window.fighterGame.scene.keys['FighterScene'];
+        if (!scene) return;
+
+        if (scene.matchActive) {
+            scene.enterSandboxMode();
+            btnStart.textContent = "START FIGHT";
+            btnStart.classList.remove('from-blue-600', 'to-cyan-500');
+            btnStart.classList.add('from-red-600', 'to-orange-500');
+            if (uiSuite) uiSuite.classList.remove('match-fighting');
+        } else {
+            scene.startMatch();
+            btnStart.textContent = "STOP FIGHT";
+            btnStart.classList.remove('from-red-600', 'to-orange-500');
+            btnStart.classList.add('from-blue-600', 'to-cyan-500');
+            if (uiSuite) {
+                uiSuite.classList.add('match-fighting');
+                uiSuite.classList.remove('menu-hidden');
+            }
+        }
+    };
+
+    const btnExit = document.getElementById('btn-exit-suite');
+    btnExit.onclick = () => {
+        if (window.fighterGame) {
+            window.fighterGame.destroy(true);
+            window.fighterGame = null;
+            window.game = null;
+        }
+
+        if (uiSuite) {
+            uiSuite.style.display = 'none';
+            uiSuite.classList.remove('match-fighting', 'menu-hidden');
+        }
+        btnStart.textContent = "START FIGHT";
+        btnStart.classList.remove('from-blue-600', 'to-cyan-500');
+        btnStart.classList.add('from-red-600', 'to-orange-500');
+
+        document.getElementById('ui-title').style.display = 'flex';
+        initTitleScreen();
+    };
+}
 
 // Save System Utils
 function getSaves() {
@@ -640,3 +1113,20 @@ function getSaves() {
 function saveSaves(saves) {
     localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
 }
+
+// Initial Autoplay Config Defaults
+window.autoplayConfig = {
+    preset: 'custom',
+    targetZone: 0,
+    coliseumGrind: false,
+    townFocus: 50,
+    partyBuildFocus: 50,
+    questFocus: 70,
+    selfPotionPct: 40,
+    partyPotionPct: 40,
+    spellRate: 50,
+    dashFreq: 30,
+    blockRate: 20,
+    heroPersonality: ''
+};
+

@@ -317,7 +317,7 @@ class IndoorManager {
                     const npcData = window.CharacterComposer.generateRandomNPC(scene);
                     const rndKey = npcData.spriteKey;
                     const rndWeaponType = npcData.weaponType;
-                    const rndName = window.CharacterComposer.generateRandomName();
+                    const rndName = window.CharacterComposer.generateRandomName(rndWeaponType);
                     const rndPersona = "A random townsperson.";
                     
                     const randX = 300 + Math.random() * 500;
@@ -450,7 +450,8 @@ class IndoorManager {
             scene.isTransitioning = false;
             
             // Resume camera follow
-            scene.cameras.main.startFollow(scene.player.sprite, true, 0.1, 0.1);
+            scene.cameras.main.scrollY = Phaser.Math.Clamp(scene.player.sprite.y - scene.cameras.main.height * 0.72, 50, 350);
+            scene.cameras.main.startFollow(scene.player.sprite, true, 0.1, 0.0);
             
             scene.cameras.main.fadeIn(500, 0, 0, 0);
         });

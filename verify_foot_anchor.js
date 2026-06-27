@@ -18,6 +18,7 @@ async function run() {
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--use-gl=swiftshader']
     });
     const page = await browser.newPage();
+    await page.setCacheEnabled(false);
     await page.setViewport({ width: 1280, height: 720 });
     await page.evaluateOnNewDocument(() => {
         window.prompt = () => '';
@@ -26,6 +27,7 @@ async function run() {
         try { localStorage.clear(); } catch (e) {}
     });
     page.on('pageerror', e => console.log('[pageerror]', e.message));
+    page.on('console', msg => console.log('[PAGE]', msg.text()));
 
     await page.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle2' });
     await page.waitForFunction(() => typeof window.startGame === 'function', { timeout: 20000 });
@@ -76,7 +78,7 @@ async function run() {
             const footWorld = sp.y + (sp.scaleY || 1.5) * (footY - f.height / 2);
             return {
                 name: n.npcName,
-                anim: sp.anims && sp.anims.currentAnim ? sp.anims.currentAnim.key.replace(/^custom_npc_\d+/, '') : null,
+                anim: sp.anims && sp.anims.currentAnim ? sp.anims.currentAnim.key.substring(sp.anims.currentAnim.key.lastIndexOf('_')) : null,
                 frameIdx: idx,
                 frameH: f.height,
                 spriteY: Math.round(sp.y),

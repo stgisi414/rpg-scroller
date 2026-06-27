@@ -26,17 +26,21 @@ class ArenaManager {
         let bossTypes = ['orc', 'bandit', 'skeleton', 'mummy'];
         let epicBosses = ['spider', 'frost_giant', 'lich_lord', 'the_devil'];
 
-        let numEnemies = Math.min(3 + Math.floor(this.currentWave / 2), 15); // Scale up to 15 enemies
-        let hpMultiplier = 1 + (this.currentWave * 0.2); // +20% HP per wave
-        let dmgMultiplier = 1 + (this.currentWave * 0.1); // +10% Dmg per wave
+        let numEnemies = Math.min(3 + Math.floor(this.currentWave / 2), 25); // Scale up to 25 enemies
+        let hpMultiplier = Math.pow(1.15, this.currentWave - 1);
+        let dmgMultiplier = Math.pow(1.08, this.currentWave - 1);
 
         let spawnList = [];
 
         // Every 5 waves is a boss wave
         if (this.currentWave % 5 === 0) {
-            let bossIdx = Math.min(Math.floor(this.currentWave / 5) - 1, epicBosses.length - 1);
-            spawnList.push({ type: epicBosses[bossIdx], isBoss: true });
-            numEnemies = Math.max(1, numEnemies - 5); // Fewer adds on boss waves
+            const numBosses = Math.min(1 + Math.floor((this.currentWave - 5) / 5), 4);
+            for (let b = 0; b < numBosses; b++) {
+                // Cycle through epic bosses
+                const bossIdx = (Math.floor(this.currentWave / 5) - 1 + b) % epicBosses.length;
+                spawnList.push({ type: epicBosses[bossIdx], isBoss: true });
+            }
+            numEnemies = Math.max(1, numEnemies - (3 * numBosses)); // Fewer adds on boss waves
         }
 
         for (let i = 0; i < numEnemies; i++) {
@@ -66,6 +70,7 @@ class ArenaManager {
         // Scale stats
         enemy.maxHp = Math.floor(enemy.maxHp * hpMult);
         enemy.hp = enemy.maxHp;
+        enemy.damageMultiplier = dmgMult;
         
         // Let's attach a flag so we know it's an arena enemy
         enemy.isArenaEnemy = true;

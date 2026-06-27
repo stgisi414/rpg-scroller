@@ -10,14 +10,20 @@ class RescueeNPCFactory {
             'Aldric', 'Theron', 'Cedric', 'Rowan', 'Gareth',
             'Eldon', 'Bram', 'Osric', 'Leif', 'Darian',
             'Caelum', 'Torvin', 'Halden', 'Wren', 'Corbin',
-            'Silas', 'Idris', 'Fenwick', 'Godric', 'Emeric'
+            'Silas', 'Idris', 'Fenwick', 'Godric', 'Emeric',
+            'Baldwin', 'Cuthbert', 'Duncan', 'Finnian', 'Garrick',
+            'Hector', 'Ivor', 'Jasper', 'Kendrick', 'Lyle',
+            'Mervin', 'Nevil', 'Orson', 'Pippin', 'Quentin'
         ];
 
         this.femaleNames = [
-            'Lyra', 'Mira', 'Elara', 'Seraphina', 'Isolde',
+            'Lyra', 'Mira', 'Elspeth', 'Seraphina', 'Isolde',
             'Rowena', 'Brynn', 'Astrid', 'Elowen', 'Calista',
             'Thea', 'Fiora', 'Sage', 'Linnea', 'Daphne',
-            'Willa', 'Rhiannon', 'Ondine', 'Cerys', 'Aisling'
+            'Willa', 'Rhiannon', 'Ondine', 'Cerys', 'Aisling',
+            'Althea', 'Beatrix', 'Clara', 'Eira', 'Gwen',
+            'Hazel', 'Iris', "Maeve", 'Nesta', 'Olwen',
+            'Sylvia', 'Talia', 'Una', 'Violet', 'Zola'
         ];
 
         // Asset key definitions
@@ -133,7 +139,7 @@ class RescueeNPCFactory {
         const canvas = document.createElement('canvas');
         canvas.width = sheetWidth;
         canvas.height = 448; // 7 rows * 64px height
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         // Draw each layer in order (skin first, hair last)
         for (const layerKey of layers) {
@@ -153,10 +159,11 @@ class RescueeNPCFactory {
 
         const texture = this.scene.textures.addCanvas(textureKey, canvas);
 
-        // Asset pack canonical layout: 100x64 per frame, 8 cols x 7 rows.
+        // Asset pack canonical layout: 80x64 per frame, 10 cols x 7 rows.
         const defaultRows = [];
         for (let r = 0; r < 7; r++) {
-            defaultRows.push({ y: r * 64, h: 64 });
+            const h = (r === 3) ? 60 : 64;
+            defaultRows.push({ y: r * 64, h: h });
         }
 
         const baseSkinKey = layers[0];
@@ -170,20 +177,68 @@ class RescueeNPCFactory {
 
         const numRows = rowData ? rowData.length : 7;
 
+        // Find foot Y line per frame
+        const footData = [];
+        const findFootY = (fx, fy, fw, fh) => {
+            const cx = Math.max(0, Math.round(fx));
+            const cy = Math.max(0, Math.round(fy));
+            const cw = Math.min(canvas.width - cx, Math.round(fw));
+            const ch = Math.min(canvas.height - cy, Math.round(fh));
+            if (cw <= 0 || ch <= 0) return Math.round(fh) - 1;
+            const data = ctx.getImageData(cx, cy, cw, ch).data;
+            for (let yy = ch - 1; yy >= 0; yy--) {
+                for (let xx = 0; xx < cw; xx++) {
+                    if (data[(yy * cw + xx) * 4 + 3] > 16) return yy;
+                }
+            }
+            return ch - 1; // fully transparent -> assume feet at frame bottom
+        };
+
+        const rowStarts = [];
+        const rowNonEmptyCounts = []; // actual non-empty frame count per row
         let frameIndex = 0;
         for (let r = 0; r < numRows; r++) {
+            rowStarts.push(frameIndex);
             const overrideKey = lookupSkin + '_r' + r;
             const rowCols = (window.sliceColData && window.sliceColData[overrideKey]) || colData;
-            const rowNumCols = rowCols ? rowCols.length : 8;
+            const rowNumCols = rowCols ? rowCols.length : 10;
+            let nonEmpty = 0;
             for (let c = 0; c < rowNumCols; c++) {
-                const x = rowCols ? rowCols[c].x : c * 100;
-                const w = rowCols ? rowCols[c].w : 100;
+                const x = rowCols ? rowCols[c].x : c * 80;
+                const w = rowCols ? rowCols[c].w : 80;
                 const y = rowData[r].y;
                 const h = rowData[r].h;
                 texture.add(frameIndex, 0, x, y, w, h);
+                
+                footData[frameIndex] = findFootY(x, y, w, h);
+
+                // Scan if this frame has any visible pixels
+                const cx = Math.max(0, Math.round(x));
+                const cy = Math.max(0, Math.round(y));
+                const cw = Math.min(canvas.width - cx, Math.round(w));
+                const ch = Math.min(canvas.height - cy, Math.round(h));
+                let hasPixels = false;
+                if (cw > 0 && ch > 0) {
+                    const pxData = ctx.getImageData(cx, cy, cw, ch).data;
+                    for (let i = 3; i < pxData.length; i += 4) {
+                        if (pxData[i] > 16) { hasPixels = true; break; }
+                    }
+                }
+                if (hasPixels) nonEmpty = c + 1;
+
                 frameIndex++;
             }
+            rowNonEmptyCounts.push(nonEmpty);
         }
+
+        if (!window.npcFootData) window.npcFootData = {};
+        window.npcFootData[textureKey] = footData;
+
+        if (!window.npcAnimData) window.npcAnimData = {};
+        window.npcAnimData[textureKey] = {
+            rowStarts,
+            rowNonEmptyCounts
+        };
     }
 
     /**

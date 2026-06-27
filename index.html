@@ -180,6 +180,134 @@
             border-color: theme('colors.primary');
             box-shadow: inset 0 0 10px rgba(255,180,168,0.2), 0 0 10px rgba(255,180,168,0.3);
         }
+
+        /* Autoplay Manager Settings Overlay */
+        #ui-autoplay-config {
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 380px;
+            z-index: 10000;
+            background: rgba(14, 14, 18, 0.72);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-left: 2px solid rgba(45, 219, 222, 0.4);
+            color: #e4e2e1;
+            padding: 24px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+            display: none;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+            font-family: 'Space Grotesk', sans-serif;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(100%);
+            pointer-events: auto;
+        }
+        #ui-autoplay-config.open {
+            display: flex;
+            transform: translateX(0);
+        }
+        .ai-pulse-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #2ddbde;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            box-shadow: 0 0 10px #2ddbde, 0 0 20px rgba(45,219,222,0.6);
+            animation: pulseAI 1.5s infinite ease-in-out;
+        }
+        @keyframes pulseAI {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.3); opacity: 1; }
+        }
+        .preset-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            padding: 8px 12px;
+            color: #bbb;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .preset-btn:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            color: #fff;
+        }
+        .preset-btn.active {
+            border-color: #2ddbde !important;
+            color: #2ddbde !important;
+            box-shadow: 0 0 12px rgba(45, 219, 222, 0.4);
+            background: rgba(45, 219, 222, 0.12);
+        }
+        .config-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.12);
+            outline: none;
+            transition: background 0.3s;
+            margin: 8px 0;
+        }
+        .config-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #2ddbde;
+            box-shadow: 0 0 8px #2ddbde;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .config-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.35);
+        }
+        .zone-input {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(45, 219, 222, 0.3);
+            border-radius: 4px;
+            color: #fff;
+            padding: 6px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            width: 75px;
+            text-align: center;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .zone-input:focus {
+            border-color: #2ddbde;
+            box-shadow: 0 0 10px rgba(45, 219, 222, 0.5);
+        }
+        .ap-textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            color: #fff;
+            padding: 8px 10px;
+            font-family: inherit;
+            font-size: 12px;
+            outline: none;
+            resize: none;
+            transition: all 0.2s ease;
+        }
+        .ap-textarea:focus {
+            border-color: #2ddbde;
+            box-shadow: 0 0 8px rgba(45, 219, 222, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -244,6 +372,9 @@
                 </button>
                 <button id="btn-continue" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
                     Continue
+                </button>
+                <button id="btn-fighter-suite" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                    1v1 Fighter Suite
                 </button>
                 <button class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
                     Settings
@@ -677,29 +808,31 @@
     <script src="src/player/InventoryManager.js"></script>
     <script src="src/player/ShopManager.js"></script>
     <script src="src/player/CombatController.js"></script>
-    <script src="src/player/CompanionAI.js"></script>
+    <script src="src/player/CompanionAI.js?v=20260625d"></script>
     <script src="src/player/QuestAlignmentManager.js"></script>
     <script src="src/player/ChatManager.js"></script>
-    <script src="src/GeminiService.js"></script>
+    <script src="src/GeminiService.js?v=20260625d"></script>
     <script src="src/scene_modules/ModularAssetLists.js"></script>
-    <script src="src/PlayerController.js"></script>
-    <script src="src/EnemyController.js"></script>
-    <script src="src/RescueeNPCFactory.js"></script>
+    <script src="src/PlayerController.js?v=20260625e"></script>
+    <script src="src/EnemyController.js?v=20260625d"></script>
+    <script src="src/RescueeNPCFactory.js?v=20260625"></script>
     <script src="src/RescueeNPC.js"></script>
     <script src="src/NPCController.js"></script>
-    <script src="src/WorldManager.js"></script>
+    <script src="src/WorldManager.js?v=20260625"></script>
     <script src="src/scenes/TitleScene.js"></script>
-    <script src="src/scene_modules/HUDManager.js"></script>
+    <script src="src/scene_modules/HUDManager.js?v=20260625d"></script>
     <script src="src/scene_modules/SpriteDebugger.js"></script>
     <script src="src/scene_modules/CutsceneController.js"></script>
-    <script src="src/scene_modules/LevelGenerator.js"></script>
-    <script src="src/scene_modules/IndoorManager.js"></script>
+    <script src="src/scene_modules/LevelGenerator.js?v=20260625h"></script>
+    <script src="src/scene_modules/IndoorManager.js?v=20260625e"></script>
     <script src="src/scene_modules/ArenaManager.js"></script>
     <script src="src/scene_modules/WeatherManager.js"></script>
     <script src="src/scene_modules/ProgressionManager.js"></script>
-    <script src="src/scene_modules/CharacterComposer.js"></script>
-    <script src="src/scenes/GameScene.js?v=EMPTY9"></script>
-    <script src="src/main.js"></script>
+    <script src="src/scene_modules/CharacterComposer.js?v=20260625"></script>
+    <script src="src/scenes/EnemyAnimationLoader.js"></script>
+    <script src="src/scenes/FighterScene.js"></script>
+    <script src="src/scenes/GameScene.js?v=20260625e"></script>
+    <script src="src/main.js?v=20260625d"></script>
     <script>
     setInterval(function() {
         var sd = window.saveData;
@@ -739,5 +872,649 @@
         }
     }, 1000);
     </script>
+<!-- Party Builder Modal -->
+<div id="ui-party-builder" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; font-family:'Courier Prime', monospace;">
+  <div style="background:#0d0d0f; border:2px solid #b8860b; border-radius:8px; padding:32px; width:520px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:0 0 40px rgba(184,134,11,0.3);">
+    <h2 style="color:#b8860b; text-align:center; margin:0 0 24px; font-size:20px; letter-spacing:3px; text-transform:uppercase;">⚔ Recruit Companion</h2>
+    
+    <!-- Name -->
+    <div style="margin-bottom:18px;">
+      <label style="color:#aaa; font-size:12px; letter-spacing:2px; text-transform:uppercase; display:block; margin-bottom:6px;">Companion Name</label>
+      <input id="party-builder-name" type="text" placeholder="Enter name..." maxlength="32"
+        style="width:100%; box-sizing:border-box; background:#1a1a1f; border:1px solid #444; border-radius:4px; color:#fff; padding:10px 12px; font-family:inherit; font-size:14px; outline:none;"/>
+    </div>
+
+    <!-- Gender Toggle -->
+    <div style="margin-bottom:18px;">
+      <label style="color:#aaa; font-size:12px; letter-spacing:2px; text-transform:uppercase; display:block; margin-bottom:8px;">Gender <span style="color:#555; font-size:10px; letter-spacing:1px;">(affects Random appearance)</span></label>
+      <div style="display:flex; gap:8px;">
+        <button class="pb-gender-btn" data-gender="male"
+          style="flex:1; padding:9px 0; background:transparent; border:2px solid #444; border-radius:4px; color:#aaa; font-family:inherit; font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all 0.2s;">
+          ♂ Male
+        </button>
+        <button class="pb-gender-btn" data-gender="any"
+          style="flex:1; padding:9px 0; background:rgba(184,134,11,0.15); border:2px solid #b8860b; border-radius:4px; color:#b8860b; font-family:inherit; font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all 0.2s;">
+          ⚥ Any
+        </button>
+        <button class="pb-gender-btn" data-gender="female"
+          style="flex:1; padding:9px 0; background:transparent; border:2px solid #444; border-radius:4px; color:#aaa; font-family:inherit; font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all 0.2s;">
+          ♀ Female
+        </button>
+      </div>
+    </div>
+
+    <!-- Class Selector -->
+    <div style="margin-bottom:18px;">
+      <label style="color:#aaa; font-size:12px; letter-spacing:2px; text-transform:uppercase; display:block; margin-bottom:10px;">Class</label>
+      <div id="party-builder-classes" style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+        <div class="pb-class-card" data-class="knight" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">🛡️</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">KNIGHT</div>
+        </div>
+        <div class="pb-class-card" data-class="wizard" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">🔮</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">WIZARD</div>
+        </div>
+        <div class="pb-class-card" data-class="samurai" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">⚔️</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">SAMURAI</div>
+        </div>
+        <div class="pb-class-card" data-class="ranger" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">🏹</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">RANGER</div>
+        </div>
+        <div class="pb-class-card" data-class="elven_spellblade" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">✨</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">SPELLBLADE</div>
+        </div>
+        <div class="pb-class-card" data-class="custom" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">🎲</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">RANDOM</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Persona -->
+    <div style="margin-bottom:24px;">
+      <label style="color:#aaa; font-size:12px; letter-spacing:2px; text-transform:uppercase; display:block; margin-bottom:6px;">Personality</label>
+      <textarea id="party-builder-persona" rows="2" placeholder="e.g. Brave and sarcastic, hates undead, loyal to a fault..."
+        style="width:100%; box-sizing:border-box; background:#1a1a1f; border:1px solid #444; border-radius:4px; color:#fff; padding:10px 12px; font-family:inherit; font-size:13px; outline:none; resize:none;"></textarea>
+    </div>
+    
+    <!-- Buttons -->
+    <div style="display:flex; gap:12px;">
+      <button id="party-builder-cancel" style="flex:1; padding:12px; background:transparent; border:1px solid #555; border-radius:4px; color:#888; font-family:inherit; font-size:13px; letter-spacing:2px; text-transform:uppercase; cursor:pointer;">Cancel</button>
+      <button id="party-builder-confirm" style="flex:2; padding:12px; background:#b8860b; border:none; border-radius:4px; color:#000; font-family:inherit; font-size:13px; letter-spacing:2px; text-transform:uppercase; font-weight:bold; cursor:pointer;">Recruit</button>
+    </div>
+  </div>
+</div>
+
+<!-- 1v1 Fighter Suite Overlay -->
+<div id="ui-fighter-suite" style="display: none;" class="absolute inset-0 z-50 flex flex-col items-center justify-between p-6 bg-black/85 backdrop-blur-md font-mono select-none" onwheel="event.stopPropagation()">
+    <!-- styles block -->
+    <style>
+        .fighter-pane {
+            background: rgba(13, 13, 16, 0.65);
+            border: 1px solid rgba(45, 219, 222, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(45, 219, 222, 0.3) rgba(0, 0, 0, 0.2);
+        }
+        .fighter-pane::-webkit-scrollbar {
+            width: 6px;
+            display: block !important;
+        }
+        .fighter-pane::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        .fighter-pane::-webkit-scrollbar-thumb {
+            background: rgba(45, 219, 222, 0.3);
+            border-radius: 4px;
+            border: 1px solid rgba(45, 219, 222, 0.1);
+        }
+        .fighter-pane::-webkit-scrollbar-thumb:hover {
+            background: rgba(45, 219, 222, 0.6);
+        }
+        .fighter-grid-item {
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(26, 26, 32, 0.6);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .fighter-grid-item:hover {
+            border-color: #2ddbde;
+            background: rgba(45, 219, 222, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(45, 219, 222, 0.3);
+        }
+        .fighter-grid-item.selected {
+            border-color: #b8860b;
+            background: rgba(184, 134, 11, 0.15);
+            box-shadow: 0 0 20px rgba(184, 134, 11, 0.4);
+        }
+        .fighter-grid-item.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+        .toggle-btn {
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: #aaa;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            border-color: #2ddbde;
+            color: #2ddbde;
+            background: rgba(45, 219, 222, 0.1);
+            text-shadow: 0 0 8px rgba(45, 219, 222, 0.5);
+        }
+        .fighter-scroll-grid {
+            max-height: none;
+            overflow-y: visible !important;
+        }
+        #ui-fighter-suite.menu-hidden {
+            background: transparent !important;
+            backdrop-filter: none !important;
+            pointer-events: none !important;
+        }
+        #ui-fighter-suite.menu-hidden > *:not(#btn-show-menu) {
+            display: none !important;
+        }
+        #ui-fighter-suite.menu-hidden #btn-show-menu {
+            display: block !important;
+            pointer-events: auto !important;
+        }
+        #ui-fighter-suite.match-fighting {
+            background: transparent !important;
+            backdrop-filter: none !important;
+            pointer-events: none !important;
+        }
+        #ui-fighter-suite.match-fighting #fighter-setup-pane,
+        #ui-fighter-suite.match-fighting #fighter-footer {
+            display: none !important;
+        }
+    </style>
+
+    <!-- Top Match Header (Visible in Sandbox and Match) -->
+    <div id="fighter-header" class="w-full flex items-center justify-between max-w-6xl">
+        <!-- P1 Header -->
+        <div class="w-[320px] flex flex-col gap-1">
+            <div class="flex justify-between items-end">
+                <span id="p1-name" class="text-white font-bold uppercase tracking-wider text-[16px]">Player 1</span>
+                <span id="p1-hp-text" class="text-[11px] text-gray-400">100 / 100</span>
+            </div>
+            <!-- HP Bar -->
+            <div class="w-full h-4 bg-red-950/60 rounded border border-red-500/30 overflow-hidden">
+                <div id="p1-hp-fill" class="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-100" style="width: 100%;"></div>
+            </div>
+            <!-- MP Bar -->
+            <div class="flex justify-between items-end mt-0.5">
+                <span id="p1-mp-text" class="text-[10px] text-blue-300">50 / 50</span>
+            </div>
+            <div class="w-full h-2 bg-blue-950/60 rounded border border-blue-500/30 overflow-hidden">
+                <div id="p1-mp-fill" class="h-full bg-blue-500 transition-all duration-100" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Center Match Control / Info -->
+        <div class="flex flex-col items-center gap-1">
+            <div id="fighter-timer" class="text-[44px] font-bold text-white tracking-widest glow-text leading-none">99</div>
+            <div id="fighter-status" class="text-[18px] font-bold uppercase tracking-widest min-h-[30px]"></div>
+        </div>
+
+        <!-- P2 Header -->
+        <div class="w-[320px] flex flex-col gap-1 items-end">
+            <div class="w-full flex justify-between items-end">
+                <span id="p2-hp-text" class="text-[11px] text-gray-400">100 / 100</span>
+                <span id="p2-name" class="text-white font-bold uppercase tracking-wider text-[16px]">Player 2</span>
+            </div>
+            <!-- HP Bar -->
+            <div class="w-full h-4 bg-red-950/60 rounded border border-red-500/30 overflow-hidden flex justify-end">
+                <div id="p2-hp-fill" class="h-full bg-gradient-to-l from-red-600 to-orange-500 transition-all duration-100" style="width: 100%;"></div>
+            </div>
+            <!-- MP Bar (Visible for Hero classes only) -->
+            <div id="p2-mp-row" class="w-full flex flex-col items-end">
+                <div class="w-full flex justify-between items-end mt-0.5">
+                    <span id="p2-mp-text" class="text-[10px] text-blue-300">50 / 50</span>
+                </div>
+                <div class="w-full h-2 bg-blue-950/60 rounded border border-blue-500/30 overflow-hidden flex justify-end">
+                    <div id="p2-mp-fill" class="h-full bg-blue-500 transition-all duration-100" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Character Selection & Practice Control Pane -->
+    <div id="fighter-setup-pane" class="w-full max-w-6xl grid grid-cols-3 gap-6 my-auto">
+        <!-- P1 Panel -->
+        <div class="fighter-pane flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                <span class="text-tertiary font-bold tracking-wider uppercase text-[15px]">Combatant 1</span>
+                <!-- Controller Selector -->
+                <div class="flex gap-2">
+                    <button id="btn-p1-human" class="toggle-btn active text-[10px]">Human</button>
+                    <button id="btn-p1-ai" class="toggle-btn text-[10px]">AI</button>
+                </div>
+            </div>
+            <!-- Grid selection -->
+            <div class="flex flex-col gap-2">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest">Select Character</span>
+                <!-- Heroes Grid -->
+                <div id="p1-heroes-grid" class="grid grid-cols-3 gap-2">
+                    <div class="fighter-grid-item selected" data-class="knight">
+                        <div class="text-[20px]">🛡️</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Knight</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="wizard">
+                        <div class="text-[20px]">🔮</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Wizard</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="samurai">
+                        <div class="text-[20px]">⚔️</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Samurai</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="ranger">
+                        <div class="text-[20px]">🏹</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Ranger</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="elven_spellblade">
+                        <div class="text-[20px]">✨</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Spellblade</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="custom_npc_male">
+                        <div class="text-[20px]">👨👥</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Custom (M)</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="custom_npc_female">
+                        <div class="text-[20px]">👩👥</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Custom (F)</div>
+                    </div>
+                </div>
+
+                <!-- P1 Loadout Controls -->
+                <div id="p1-loadout" class="flex flex-col gap-2 mt-2 border-t border-white/10 pt-2">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest">Loadout</span>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">LVL</label>
+                        <input type="range" id="p1-level-slider" min="1" max="50" value="1" class="flex-1 h-1 accent-tertiary cursor-pointer">
+                        <span id="p1-level-display" class="text-[12px] text-tertiary font-bold w-6 text-right">1</span>
+                    </div>
+                    <div id="p1-weapon-row" class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">WPN</label>
+                        <select id="p1-weapon-select" class="flex-1 bg-surface-container-low text-white text-[10px] border border-outline-variant rounded px-1 py-0.5 cursor-pointer">
+                            <option value="">Default Weapon</option>
+                        </select>
+                    </div>
+                    <div id="p1-artifact-row" class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">ART</label>
+                        <select id="p1-artifact-select" class="flex-1 bg-surface-container-low text-white text-[10px] border border-outline-variant rounded px-1 py-0.5 cursor-pointer">
+                            <option value="">No Artifact</option>
+                        </select>
+                    </div>
+                    <div id="p1-alignment-row" class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">ALIGN</label>
+                        <input type="number" id="p1-alignment-input" min="-100" max="100" value="0" class="flex-1 bg-surface-container-low text-white text-[10px] border border-outline-variant rounded px-1 py-0.5">
+                    </div>
+                </div>
+
+                <!-- Enemies/Bosses Grid (Only clickable if P1 is AI) -->
+                <div id="p1-enemies-container" class="hidden flex flex-col gap-2 mt-2">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Select Enemy / Boss</span>
+                    <div class="grid grid-cols-4 gap-1.5 fighter-scroll-grid pr-1">
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dragon"><div class="text-[16px]">🐲</div><div class="text-[8px] text-white">Dragon</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="knight_rival"><div class="text-[16px]">🛡️🔴</div><div class="text-[8px] text-white">Rival Knight</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="the_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Devil</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="lich_lord"><div class="text-[16px]">💀</div><div class="text-[8px] text-white">Lich</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="frost_giant"><div class="text-[16px]">❄️</div><div class="text-[8px] text-white">Frost Giant</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="wolfen"><div class="text-[16px]">🐺</div><div class="text-[8px] text-white">Wolfen</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="coyle"><div class="text-[16px]">🐕</div><div class="text-[8px] text-white">Coyle</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="goblin"><div class="text-[16px]">👺</div><div class="text-[8px] text-white">Goblin</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="slime"><div class="text-[16px]">🟢</div><div class="text-[8px] text-white">Slime</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="bat"><div class="text-[16px]">🦇</div><div class="text-[8px] text-white">Bat</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="plague_flies"><div class="text-[16px]">🪰⚡</div><div class="text-[8px] text-white">Plague Flies</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mushroom"><div class="text-[16px]">🍄</div><div class="text-[8px] text-white">Mushroom</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="orc"><div class="text-[16px]">🐗</div><div class="text-[8px] text-white">Orc</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="spider"><div class="text-[16px]">🕷️</div><div class="text-[8px] text-white">Spider</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="skeleton"><div class="text-[16px]">☠️</div><div class="text-[8px] text-white">Skeleton</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="bandit"><div class="text-[16px]">👤</div><div class="text-[8px] text-white">Bandit</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mummy"><div class="text-[16px]">🧟</div><div class="text-[8px] text-white">Mummy</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="scarab_beetle"><div class="text-[16px]">🪲</div><div class="text-[8px] text-white">Scarab</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="zombie"><div class="text-[16px]">🧟‍♂️</div><div class="text-[8px] text-white">Zombie V1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="zombie_v2"><div class="text-[16px]">🧟‍♀️</div><div class="text-[8px] text-white">Zombie V2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="zombie_v3"><div class="text-[16px]">🧟</div><div class="text-[8px] text-white">Zombie V3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="imp"><div class="text-[16px]">👿</div><div class="text-[8px] text-white">Imp</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_valkyrie"><div class="text-[16px]">👼</div><div class="text-[8px] text-white">Valkyrie</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_seraph"><div class="text-[16px]">✨</div><div class="text-[8px] text-white">Seraph</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_archangel"><div class="text-[16px]">🛡️</div><div class="text-[8px] text-white">Archangel</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_cherub"><div class="text-[16px]">👶</div><div class="text-[8px] text-white">Cherub</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="ogre"><div class="text-[16px]">👹</div><div class="text-[8px] text-white">Ogre</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="giant"><div class="text-[16px]">🌋</div><div class="text-[8px] text-white">Giant</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="troll"><div class="text-[16px]">🧌</div><div class="text-[8px] text-white">Troll</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="willowisp"><div class="text-[16px]">💡</div><div class="text-[8px] text-white">Wisp</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="old_demon"><div class="text-[16px]">👹</div><div class="text-[8px] text-white">Old Demon</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="male_damned"><div class="text-[16px]">💀</div><div class="text-[8px] text-white">Male Damned</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="female_damned"><div class="text-[16px]">💀</div><div class="text-[8px] text-white">Fem Damned</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="twisted_damned"><div class="text-[16px]">👾</div><div class="text-[8px] text-white">Twisted</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_damned"><div class="text-[16px]">🔥</div><div class="text-[8px] text-white">Burning</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_skull"><div class="text-[16px]">💀🔥</div><div class="text-[8px] text-white">Skull</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_skull_blue"><div class="text-[16px]">💀💙</div><div class="text-[8px] text-white">Blue Skull</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="cheeky_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Cheeky</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="bloated_damned"><div class="text-[16px]">🤢</div><div class="text-[8px] text-white">Bloated</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Controls Panel (Animation Tester / Global Match triggers) -->
+        <div class="flex flex-col gap-4 justify-between h-full">
+            <!-- Sandbox Animation Tester -->
+            <div class="fighter-pane flex flex-col gap-3">
+                <span class="text-tertiary font-bold tracking-wider uppercase text-[12px] border-b border-white/10 pb-1 text-center">Live Animation Tester</span>
+                <!-- Target Selector -->
+                <div class="flex justify-center gap-4 text-[11px] text-gray-300">
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="tester-target" id="radio-target-p1" checked class="accent-primary"> Target P1
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="tester-target" id="radio-target-p2" class="accent-primary"> Target P2
+                    </label>
+                </div>
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button id="btn-test-idle" class="px-2 py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Idle</button>
+                    <button id="btn-test-walk" class="px-2 py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Walk</button>
+                    <button id="btn-test-attack" class="px-2 py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Attack</button>
+                    <button id="btn-test-magic" class="px-2 py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Magic</button>
+                    <button id="btn-test-hit" class="px-2 py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Hit</button>
+                    <button id="btn-test-die" class="px-2 py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Die</button>
+                </div>
+                <button id="btn-test-fly" class="w-full py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[11px] font-bold uppercase transition-colors">Fly Animation</button>
+            </div>
+
+            <!-- Global Action Triggers -->
+            <div class="flex flex-col gap-3">
+                <button id="btn-start-fight" class="w-full py-3.5 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 border border-orange-500/50 text-white font-bold tracking-[0.2em] uppercase rounded-lg cursor-pointer transition-all duration-200 text-[16px] shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)]">
+                    START FIGHT
+                </button>
+                <button id="btn-hide-menu" class="w-full py-2 bg-transparent hover:bg-white/10 border border-white/20 text-gray-300 font-bold uppercase rounded cursor-pointer transition-colors text-[13px]">
+                    HIDE MENU (TAB)
+                </button>
+                <button id="btn-exit-suite" class="w-full py-2 bg-transparent hover:bg-white/10 border border-white/20 text-gray-300 font-bold uppercase rounded cursor-pointer transition-colors text-[13px]">
+                    EXIT SUITE
+                </button>
+            </div>
+        </div>
+
+        <!-- P2 Panel -->
+        <div class="fighter-pane flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                <span class="text-tertiary font-bold tracking-wider uppercase text-[15px]">Combatant 2</span>
+                <span class="text-[10px] text-gray-500 uppercase font-bold">LOCKED TO AI</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <!-- Select P2 Hero -->
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest">Select Hero</span>
+                <div id="p2-heroes-grid" class="grid grid-cols-3 gap-2">
+                    <div class="fighter-grid-item" data-class="knight">
+                        <div class="text-[20px]">🛡️</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Knight</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="wizard">
+                        <div class="text-[20px]">🔮</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Wizard</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="samurai">
+                        <div class="text-[20px]">⚔️</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Samurai</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="ranger">
+                        <div class="text-[20px]">🏹</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Ranger</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="elven_spellblade">
+                        <div class="text-[20px]">✨</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Spellblade</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="custom_npc_male">
+                        <div class="text-[20px]">👨👥</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Custom (M)</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="custom_npc_female">
+                        <div class="text-[20px]">👩👥</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Custom (F)</div>
+                    </div>
+                </div>
+
+                <!-- P2 Loadout Controls -->
+                <div id="p2-loadout" class="flex flex-col gap-2 mt-2 border-t border-white/10 pt-2">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest">Loadout</span>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">LVL</label>
+                        <input type="range" id="p2-level-slider" min="1" max="50" value="1" class="flex-1 h-1 accent-tertiary cursor-pointer">
+                        <span id="p2-level-display" class="text-[12px] text-tertiary font-bold w-6 text-right">1</span>
+                    </div>
+                    <div id="p2-weapon-row" class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">WPN</label>
+                        <select id="p2-weapon-select" class="flex-1 bg-surface-container-low text-white text-[10px] border border-outline-variant rounded px-1 py-0.5 cursor-pointer">
+                            <option value="">Default Weapon</option>
+                        </select>
+                    </div>
+                    <div id="p2-artifact-row" class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">ART</label>
+                        <select id="p2-artifact-select" class="flex-1 bg-surface-container-low text-white text-[10px] border border-outline-variant rounded px-1 py-0.5 cursor-pointer">
+                            <option value="">No Artifact</option>
+                        </select>
+                    </div>
+                    <div id="p2-alignment-row" class="flex items-center gap-2">
+                        <label class="text-[10px] text-gray-400 w-10">ALIGN</label>
+                        <input type="number" id="p2-alignment-input" min="-100" max="100" value="0" class="flex-1 bg-surface-container-low text-white text-[10px] border border-outline-variant rounded px-1 py-0.5">
+                    </div>
+                </div>
+
+                <!-- Select P2 Enemy -->
+                <div class="flex flex-col gap-2 mt-2">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Select Enemy / Boss</span>
+                    <div id="p2-enemies-grid" class="grid grid-cols-4 gap-1.5 fighter-scroll-grid pr-1">
+                        <div class="fighter-grid-item py-1.5 px-0.5 selected" data-class="dragon"><div class="text-[16px]">🐲</div><div class="text-[8px] text-white">Dragon</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="knight_rival"><div class="text-[16px]">🛡️🔴</div><div class="text-[8px] text-white">Rival Knight</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="the_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Devil</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="lich_lord"><div class="text-[16px]">💀</div><div class="text-[8px] text-white">Lich</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="frost_giant"><div class="text-[16px]">❄️</div><div class="text-[8px] text-white">Frost Giant</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="wolfen"><div class="text-[16px]">🐺</div><div class="text-[8px] text-white">Wolfen</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="coyle"><div class="text-[16px]">🐕</div><div class="text-[8px] text-white">Coyle</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="goblin"><div class="text-[16px]">👺</div><div class="text-[8px] text-white">Goblin</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="slime"><div class="text-[16px]">🟢</div><div class="text-[8px] text-white">Slime</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="bat"><div class="text-[16px]">🦇</div><div class="text-[8px] text-white">Bat</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="plague_flies"><div class="text-[16px]">🪰⚡</div><div class="text-[8px] text-white">Plague Flies</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mushroom"><div class="text-[16px]">🍄</div><div class="text-[8px] text-white">Mushroom</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="orc"><div class="text-[16px]">🐗</div><div class="text-[8px] text-white">Orc</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="spider"><div class="text-[16px]">🕷️</div><div class="text-[8px] text-white">Spider</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="skeleton"><div class="text-[16px]">☠️</div><div class="text-[8px] text-white">Skeleton</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="bandit"><div class="text-[16px]">👤</div><div class="text-[8px] text-white">Bandit</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mummy"><div class="text-[16px]">🧟</div><div class="text-[8px] text-white">Mummy</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="scarab_beetle"><div class="text-[16px]">🪲</div><div class="text-[8px] text-white">Scarab</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="zombie"><div class="text-[16px]">🧟‍♂️</div><div class="text-[8px] text-white">Zombie V1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="zombie_v2"><div class="text-[16px]">🧟‍♀️</div><div class="text-[8px] text-white">Zombie V2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="zombie_v3"><div class="text-[16px]">🧟</div><div class="text-[8px] text-white">Zombie V3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="imp"><div class="text-[16px]">👿</div><div class="text-[8px] text-white">Imp</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_valkyrie"><div class="text-[16px]">👼</div><div class="text-[8px] text-white">Valkyrie</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_seraph"><div class="text-[16px]">✨</div><div class="text-[8px] text-white">Seraph</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_archangel"><div class="text-[16px]">🛡️</div><div class="text-[8px] text-white">Archangel</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="heavenly_cherub"><div class="text-[16px]">👶</div><div class="text-[8px] text-white">Cherub</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="ogre"><div class="text-[16px]">👹</div><div class="text-[8px] text-white">Ogre</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="giant"><div class="text-[16px]">🌋</div><div class="text-[8px] text-white">Giant</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="troll"><div class="text-[16px]">🧌</div><div class="text-[8px] text-white">Troll</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="willowisp"><div class="text-[16px]">💡</div><div class="text-[8px] text-white">Wisp</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="old_demon"><div class="text-[16px]">👹</div><div class="text-[8px] text-white">Old Demon</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="male_damned"><div class="text-[16px]">💀</div><div class="text-[8px] text-white">Male Damned</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="female_damned"><div class="text-[16px]">💀</div><div class="text-[8px] text-white">Fem Damned</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="twisted_damned"><div class="text-[16px]">👾</div><div class="text-[8px] text-white">Twisted</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_damned"><div class="text-[16px]">🔥</div><div class="text-[8px] text-white">Burning</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_skull"><div class="text-[16px]">💀🔥</div><div class="text-[8px] text-white">Skull</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_skull_blue"><div class="text-[16px]">💀💙</div><div class="text-[8px] text-white">Blue Skull</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="cheeky_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Cheeky</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="bloated_damned"><div class="text-[16px]">🤢</div><div class="text-[8px] text-white">Bloated</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fight Keyboard Controls Layout Overview (Bottom Bar) -->
+    <div id="fighter-footer" class="w-full flex items-center justify-between max-w-6xl border-t border-white/10 pt-4 text-gray-500 text-[10px] uppercase tracking-wider">
+        <span>Controls: A/D (Move/Dash) | W/Space (Jump) | S (Duck) | . (Attack) | , (Super) | / (Mega) | M (Summon)</span>
+        <span class="text-tertiary">1v1 Fighter Suite Sandbox & Combat Testbed v1.0</span>
+    </div>
+
+    <!-- Floating Show Menu Button (visible when menu-hidden class is active) -->
+    <button id="btn-show-menu" class="hidden fixed top-6 right-6 py-2 px-4 bg-black/80 hover:bg-black border border-[#2ddbde]/40 text-[#2ddbde] font-bold uppercase rounded-lg cursor-pointer transition-all duration-200 text-[13px] shadow-[0_0_15px_rgba(45,219,222,0.3)] z-50">
+        SHOW MENU (TAB)
+    </button>
+</div>
+
+<!-- Autoplay Manager sliding overlay -->
+<div id="ui-autoplay-config" style="display: none;" class="pointer-events-auto">
+    <div class="flex justify-between items-center border-b border-outline-variant/30 pb-3 mb-2">
+        <div class="flex items-center">
+            <span class="ai-pulse-dot"></span>
+            <h3 class="font-headline-sm text-[16px] font-bold text-tertiary uppercase tracking-wider">AI Autoplay Manager</h3>
+        </div>
+        <button id="btn-close-ap-config" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps text-[11px] font-bold cursor-pointer bg-transparent border-none">Close</button>
+    </div>
+    
+    <!-- Presets -->
+    <div class="mb-2">
+        <div class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold mb-2">Gameplay Presets</div>
+        <div class="grid grid-cols-2 gap-1.5">
+            <button class="preset-btn" data-preset="aggressive">Aggressive</button>
+            <button class="preset-btn" data-preset="speedrunner">Speedrunner</button>
+            <button class="preset-btn" data-preset="potion_saver">Potion Saver</button>
+            <button class="preset-btn" data-preset="loot_goblin">Loot Goblin</button>
+            <button class="preset-btn" data-preset="pacifist">Pacifist</button>
+            <button class="preset-btn" data-preset="custom">Custom</button>
+        </div>
+    </div>
+
+    <!-- Target Zone Input (supports negative values) -->
+    <div class="flex items-center justify-between border-t border-b border-outline-variant/20 py-2.5">
+        <div class="flex flex-col">
+            <span class="text-[12px] font-bold text-on-surface uppercase">Target Zone Compass</span>
+            <span class="text-[9px] text-on-surface-variant">AI navigates to this zone index</span>
+        </div>
+        <input type="number" id="ap-target-zone" class="zone-input" value="0">
+    </div>
+
+    <!-- Coliseum Grind Mode Toggle -->
+    <div class="flex items-center justify-between border-b border-outline-variant/20 py-2.5">
+        <div class="flex flex-col">
+            <span class="text-[12px] font-bold text-on-surface uppercase">Coliseum Grind Mode</span>
+            <span class="text-[9px] text-on-surface-variant">AI continuously fights arena waves</span>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="ap-coliseum-grind" class="sr-only peer">
+            <div class="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:bg-tertiary transition-colors duration-200 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+        </label>
+    </div>
+
+    <!-- Sliders -->
+    <div class="flex flex-col gap-3.5">
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Town Focus vs Progression</span>
+                <span id="val-ap-town-focus">50%</span>
+            </div>
+            <input type="range" id="ap-town-focus" class="config-slider" min="0" max="100" value="50">
+            <div class="flex justify-between text-[9px] text-on-surface-variant">
+                <span>Progression (Quest/Kills)</span>
+                <span>Town Roleplay (Indoor/Coliseum/Party)</span>
+            </div>
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Quest Focus (Complete vs Ignore)</span>
+                <span id="val-ap-quest-focus">70%</span>
+            </div>
+            <input type="range" id="ap-quest-focus" class="config-slider" min="0" max="100" value="70">
+            <div class="flex justify-between text-[9px] text-on-surface-variant">
+                <span>Ignore/Abandon Quests</span>
+                <span>Prioritize & Escort Quests</span>
+            </div>
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Party & Gear Focus</span>
+                <span id="val-ap-party-build">50%</span>
+            </div>
+            <input type="range" id="ap-party-build" class="config-slider" min="0" max="100" value="50">
+            <div class="flex justify-between text-[9px] text-on-surface-variant">
+                <span>Save Gold</span>
+                <span>Recruit Party & Buy Gear</span>
+            </div>
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Self Potion Health %</span>
+                <span id="val-ap-self-potion">40%</span>
+            </div>
+            <input type="range" id="ap-self-potion" class="config-slider" min="5" max="95" value="40">
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Party Potion Health %</span>
+                <span id="val-ap-party-potion">40%</span>
+            </div>
+            <input type="range" id="ap-party-potion" class="config-slider" min="5" max="95" value="40">
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Spell Casting Rate</span>
+                <span id="val-ap-spell-rate">50%</span>
+            </div>
+            <input type="range" id="ap-spell-rate" class="config-slider" min="0" max="100" value="50">
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Dash Frequency</span>
+                <span id="val-ap-dash-freq">30%</span>
+            </div>
+            <input type="range" id="ap-dash-freq" class="config-slider" min="0" max="100" value="30">
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-bold uppercase mb-1">
+                <span>Block Rate</span>
+                <span id="val-ap-block-rate">20%</span>
+            </div>
+            <input type="range" id="ap-block-rate" class="config-slider" min="0" max="100" value="20">
+        </div>
+
+        <!-- Custom Personality Textarea -->
+        <div class="border-t border-outline-variant/20 pt-3">
+            <label class="text-[11px] font-bold text-on-surface uppercase block mb-1">Hero Personality / Disposition</label>
+            <textarea id="ap-hero-personality" rows="3" class="ap-textarea" placeholder="e.g. A cynical, sarcastic warrior who complains about prices but is secretly soft-hearted..."></textarea>
+        </div>
+    </div>
+</div>
 </body>
 </html>
