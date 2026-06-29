@@ -749,35 +749,59 @@ input:where([type='file']):focus {
   outline: 1px auto -webkit-focus-ring-color;
 }
 
+.\!container {
+  width: 100% !important;
+}
+
 .container {
   width: 100%;
 }
 
 @media (min-width: 640px) {
+  .\!container {
+    max-width: 640px !important;
+  }
+
   .container {
     max-width: 640px;
   }
 }
 
 @media (min-width: 768px) {
+  .\!container {
+    max-width: 768px !important;
+  }
+
   .container {
     max-width: 768px;
   }
 }
 
 @media (min-width: 1024px) {
+  .\!container {
+    max-width: 1024px !important;
+  }
+
   .container {
     max-width: 1024px;
   }
 }
 
 @media (min-width: 1280px) {
+  .\!container {
+    max-width: 1280px !important;
+  }
+
   .container {
     max-width: 1280px;
   }
 }
 
 @media (min-width: 1536px) {
+  .\!container {
+    max-width: 1536px !important;
+  }
+
   .container {
     max-width: 1536px;
   }
@@ -1032,6 +1056,10 @@ input:where([type='file']):focus {
   z-index: 100;
 }
 
+.col-span-full {
+  grid-column: 1 / -1;
+}
+
 .m-\[2px\] {
   margin: 2px;
 }
@@ -1269,6 +1297,10 @@ input:where([type='file']):focus {
   height: 100vh;
 }
 
+.max-h-\[40vh\] {
+  max-height: 40vh;
+}
+
 .max-h-\[60vh\] {
   max-height: 60vh;
 }
@@ -1418,6 +1450,10 @@ input:where([type='file']):focus {
   width: 100vw;
 }
 
+.min-w-\[70px\] {
+  min-width: 70px;
+}
+
 .max-w-2xl {
   max-width: 42rem;
 }
@@ -1442,6 +1478,10 @@ input:where([type='file']):focus {
   max-width: 80rem;
 }
 
+.max-w-\[200px\] {
+  max-width: 200px;
+}
+
 .max-w-md {
   max-width: 28rem;
 }
@@ -1463,6 +1503,10 @@ input:where([type='file']):focus {
 }
 
 .flex-grow {
+  flex-grow: 1;
+}
+
+.grow {
   flex-grow: 1;
 }
 
@@ -1527,6 +1571,10 @@ input:where([type='file']):focus {
 
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
 }
 
 .cursor-pointer {
@@ -1601,6 +1649,10 @@ input:where([type='file']):focus {
 
 .justify-between {
   justify-content: space-between;
+}
+
+.gap-0\.5 {
+  gap: 0.125rem;
 }
 
 .gap-1 {
@@ -1781,6 +1833,10 @@ input:where([type='file']):focus {
   border-color: rgb(255 180 171 / var(--tw-border-opacity, 1));
 }
 
+.border-error\/50 {
+  border-color: rgb(255 180 171 / 0.5);
+}
+
 .border-orange-500\/50 {
   border-color: rgb(249 115 22 / 0.5);
 }
@@ -1801,6 +1857,10 @@ input:where([type='file']):focus {
 
 .border-outline-variant\/30 {
   border-color: rgb(90 64 60 / 0.3);
+}
+
+.border-outline-variant\/40 {
+  border-color: rgb(90 64 60 / 0.4);
 }
 
 .border-outline-variant\/50 {
@@ -1830,6 +1890,10 @@ input:where([type='file']):focus {
   border-color: rgb(198 147 2 / var(--tw-border-opacity, 1));
 }
 
+.border-secondary\/30 {
+  border-color: rgb(246 190 59 / 0.3);
+}
+
 .border-secondary\/50 {
   border-color: rgb(246 190 59 / 0.5);
 }
@@ -1844,6 +1908,14 @@ input:where([type='file']):focus {
   border-color: rgb(45 219 222 / var(--tw-border-opacity, 1));
 }
 
+.border-tertiary\/30 {
+  border-color: rgb(45 219 222 / 0.3);
+}
+
+.border-tertiary\/40 {
+  border-color: rgb(45 219 222 / 0.4);
+}
+
 .border-transparent {
   border-color: transparent;
 }
@@ -1854,6 +1926,11 @@ input:where([type='file']):focus {
 
 .border-white\/20 {
   border-color: rgb(255 255 255 / 0.2);
+}
+
+.bg-\[\#4fc3f7\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(79 195 247 / var(--tw-bg-opacity, 1));
 }
 
 .bg-background {
@@ -2010,6 +2087,10 @@ input:where([type='file']):focus {
   background-color: rgb(53 53 53 / var(--tw-bg-opacity, 1));
 }
 
+.bg-surface-container-highest\/40 {
+  background-color: rgb(53 53 53 / 0.4);
+}
+
 .bg-surface-container-highest\/50 {
   background-color: rgb(53 53 53 / 0.5);
 }
@@ -2081,6 +2162,14 @@ input:where([type='file']):focus {
 .bg-tertiary-fixed {
   --tw-bg-opacity: 1;
   background-color: rgb(90 248 251 / var(--tw-bg-opacity, 1));
+}
+
+.bg-tertiary\/10 {
+  background-color: rgb(45 219 222 / 0.1);
+}
+
+.bg-tertiary\/20 {
+  background-color: rgb(45 219 222 / 0.2);
 }
 
 .bg-transparent {
@@ -2303,6 +2392,11 @@ input:where([type='file']):focus {
 .px-1 {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
+}
+
+.px-1\.5 {
+  padding-left: 0.375rem;
+  padding-right: 0.375rem;
 }
 
 .px-2 {
@@ -2625,6 +2719,10 @@ input:where([type='file']):focus {
   text-transform: uppercase;
 }
 
+.lowercase {
+  text-transform: lowercase;
+}
+
 .italic {
   font-style: italic;
 }
@@ -2666,6 +2764,11 @@ input:where([type='file']):focus {
   color: rgb(45 219 222 / var(--tw-text-opacity, 1));
 }
 
+.text-\[\#4fc3f7\] {
+  --tw-text-opacity: 1;
+  color: rgb(79 195 247 / var(--tw-text-opacity, 1));
+}
+
 .text-amber-200 {
   --tw-text-opacity: 1;
   color: rgb(253 230 138 / var(--tw-text-opacity, 1));
@@ -2701,9 +2804,19 @@ input:where([type='file']):focus {
   color: rgb(228 226 225 / var(--tw-text-opacity, 1));
 }
 
+.text-on-primary {
+  --tw-text-opacity: 1;
+  color: rgb(105 0 0 / var(--tw-text-opacity, 1));
+}
+
 .text-on-primary-container {
   --tw-text-opacity: 1;
   color: rgb(255 144 127 / var(--tw-text-opacity, 1));
+}
+
+.text-on-secondary {
+  --tw-text-opacity: 1;
+  color: rgb(64 45 0 / var(--tw-text-opacity, 1));
 }
 
 .text-on-secondary-container {
@@ -3091,6 +3204,12 @@ input:where([type='file']):focus {
   outline-style: solid;
 }
 
+.ring {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+
 .blur {
   --tw-blur: blur(8px);
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
@@ -3337,9 +3456,19 @@ input:where([type='file']):focus {
   border-color: rgb(227 190 184 / var(--tw-border-opacity, 1));
 }
 
+.hover\:border-orange-500:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(249 115 22 / var(--tw-border-opacity, 1));
+}
+
 .hover\:border-primary:hover {
   --tw-border-opacity: 1;
   border-color: rgb(255 180 168 / var(--tw-border-opacity, 1));
+}
+
+.hover\:border-purple-500:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(168 85 247 / var(--tw-border-opacity, 1));
 }
 
 .hover\:border-secondary:hover {
@@ -3350,6 +3479,11 @@ input:where([type='file']):focus {
 .hover\:border-tertiary:hover {
   --tw-border-opacity: 1;
   border-color: rgb(45 219 222 / var(--tw-border-opacity, 1));
+}
+
+.hover\:border-yellow-300:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(253 224 71 / var(--tw-border-opacity, 1));
 }
 
 .hover\:bg-black:hover {
@@ -3385,6 +3519,10 @@ input:where([type='file']):focus {
   background-color: rgb(27 28 28 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-tertiary\/20:hover {
+  background-color: rgb(45 219 222 / 0.2);
+}
+
 .hover\:bg-white\/10:hover {
   background-color: rgb(255 255 255 / 0.1);
 }
@@ -3411,6 +3549,11 @@ input:where([type='file']):focus {
 .hover\:text-on-surface:hover {
   --tw-text-opacity: 1;
   color: rgb(228 226 225 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-primary:hover {
+  --tw-text-opacity: 1;
+  color: rgb(255 180 168 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-secondary:hover {
@@ -3541,6 +3684,11 @@ input:where([type='file']):focus {
   color: rgb(228 226 225 / var(--tw-text-opacity, 1));
 }
 
+.group:hover .group-hover\:text-orange-500 {
+  --tw-text-opacity: 1;
+  color: rgb(249 115 22 / var(--tw-text-opacity, 1));
+}
+
 .group:hover .group-hover\:text-primary {
   --tw-text-opacity: 1;
   color: rgb(255 180 168 / var(--tw-text-opacity, 1));
@@ -3549,6 +3697,11 @@ input:where([type='file']):focus {
 .group:hover .group-hover\:text-primary-fixed {
   --tw-text-opacity: 1;
   color: rgb(255 218 212 / var(--tw-text-opacity, 1));
+}
+
+.group:hover .group-hover\:text-purple-500 {
+  --tw-text-opacity: 1;
+  color: rgb(168 85 247 / var(--tw-text-opacity, 1));
 }
 
 .group:hover .group-hover\:text-secondary {
@@ -3563,6 +3716,11 @@ input:where([type='file']):focus {
 
 .group:hover .group-hover\:text-tertiary\/70 {
   color: rgb(45 219 222 / 0.7);
+}
+
+.group:hover .group-hover\:text-yellow-300 {
+  --tw-text-opacity: 1;
+  color: rgb(253 224 71 / var(--tw-text-opacity, 1));
 }
 
 .group:hover .group-hover\:opacity-100 {
@@ -3607,6 +3765,10 @@ input:where([type='file']):focus {
 
   .md\:w-\[450px\] {
     width: 450px;
+  }
+
+  .md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .md\:grid-cols-3 {

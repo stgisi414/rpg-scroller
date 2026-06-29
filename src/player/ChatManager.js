@@ -180,6 +180,15 @@ class ChatManager {
             player.camaraderie = (player.camaraderie || 0) + 1;
             this.addMessageToUI("System", `<span style="color:#f6be3b">Camaraderie increased! (+1)</span>`);
             
+            // Add Roleplay XP reward if granted (Phase 13)
+            if (response && response.rpXpReward && response.rpXpReward > 0) {
+                const xpAmt = Math.min(50, Math.max(0, parseInt(response.rpXpReward, 10)));
+                if (!isNaN(xpAmt) && xpAmt > 0) {
+                    player.scene.grantRewards(xpAmt, 0);
+                    this.addMessageToUI("System", `<span style="color:#00ffff; font-weight:bold;">Roleplay XP Gained! (+${xpAmt} XP)</span>`);
+                }
+            }
+            
             // Update character sheet if open
             if (player.scene.updateCharacterSheet) {
                 player.scene.updateCharacterSheet();

@@ -1,5 +1,5 @@
 class CharacterComposer {
-    static generateRandomNPC(scene, gender = null) {
+    static generateRandomNPC(scene, gender = null, options = {}) {
         // 1. Pick gender — caller can pass 'male', 'female', or null (random)
         const isMale = gender === 'male' ? true : gender === 'female' ? false : Math.random() < 0.5;
         const genderSuffix = isMale ? '_m' : '_f';
@@ -47,8 +47,17 @@ class CharacterComposer {
         // 6. Ears
         let ears = '';
         const validEars = getAssets(ma.ears);
-        if (validEars.length > 0 && Math.random() < 0.4) {
-            ears = validEars[Math.floor(Math.random() * validEars.length)];
+        if (options.isElven) {
+            const elvenEars = validEars.filter(e => e.includes('elven'));
+            if (elvenEars.length > 0) {
+                ears = elvenEars[Math.floor(Math.random() * elvenEars.length)];
+            } else if (validEars.length > 0) {
+                ears = validEars[Math.floor(Math.random() * validEars.length)];
+            }
+        } else {
+            if (validEars.length > 0 && Math.random() < 0.4) {
+                ears = validEars[Math.floor(Math.random() * validEars.length)];
+            }
         }
 
         // 7. Hair
@@ -549,7 +558,10 @@ class CharacterComposer {
         return { spriteKey: uniqueKey, weaponType: weaponType };
     }
 
-    static generateSpecialEnemy(scene, type, gender) {
+    static generateSpecialEnemy(scene, type, gender, forceKey = null) {
+        if (forceKey && scene.textures.exists(forceKey)) {
+            return { spriteKey: forceKey, weaponType: 'sword' };
+        }
         const isMale = gender === 'male';
         const genderSuffix = isMale ? '_m' : '_f';
         const oppSuffix = isMale ? '_f' : '_m';
@@ -618,7 +630,7 @@ class CharacterComposer {
         }
 
         // Unique Key for this enemy instance
-        const uniqueKey = `special_enemy_${type}_${gender}_${Math.floor(Math.random() * 9999999)}`;
+        const uniqueKey = forceKey || `special_enemy_${type}_${gender}_${Math.floor(Math.random() * 9999999)}`;
 
         const canvas = document.createElement('canvas');
         canvas.width = 800;
@@ -813,6 +825,26 @@ class CharacterComposer {
             "Saffron", "Talia", "Una", "Violet", "Wren", "Xenia", "Yvaine", "Zola",
             "Cedric", "Darian", "Emeric", "Halden", "Idris", "Leif", "Osric", "Silas"
         ];
+        const dwarfNames = [
+            "Thorin", "Gimli", "Balin", "Dvalin", "Gloin", "Bofur", "Bifur", "Bombur", "Dain",
+            "Thrain", "Thror", "Bruenor", "Durnar", "Kili", "Fili", "Oin", "Korgan", "Yeslick",
+            "Barim", "Brokk", "Sindri", "Eitri", "Gurnison", "Gotrek", "Durin", "Moradin",
+            "Fargrim", "Hlin", "Torgga", "Audhild", "Dagnal", "Gunnloda", "Bardryn", "Helja"
+        ];
+        const dwarfLastNames = [
+            "Ironfist", "Stonebreaker", "Coppervein", "Shieldbiter", "Goldfinder", "Deepdelver",
+            "Thunderhammer", "Anvilbreaker", "Orebearer", "Axebreaker", "Gildedbeard", "Runecarver"
+        ];
+        const elvenNames = [
+            "Elowen", "Legolas", "Elara", "Galadriel", "Celeborn", "Haldir", "Thranduil",
+            "Aredhel", "Elladan", "Elrohir", "Glorfindel", "Cirdan", "Arwen", "Elrond",
+            "Sylara", "Faelar", "Aerendyl", "Miriél", "Lúthien", "Beren", "Finrod", "Turgon"
+        ];
+        const elvenLastNames = [
+            "Greenleaf", "Windrunner", "Starwhisper", "Sunshadow", "Forestwalker", "Silverspear",
+            "Dawnweaver", "Spellweaver", "Oakheart", "Gladekeeper", "Starlight", "Riverflow"
+        ];
+
         const funnyFirst = ["Gorg", "Blorp", "Squee", "Chunk", "Fumble", "Snarfy", "Wobble", "Gristle", "Pug", "Dink", "Plop", "Grumble", "Sprout", "Pip", "Blob"];
         const funnyTitle = ["the Unwashed", "the Confused", "the Round", "the Sticky", "the Loud", "of the Puddle", "the Clumsy", "the Hungry", "the Sleepy", "the Bold-ish"];
         const lastNames = ["Starwhisper", "Ironfoot", "Stormrider", "Nightshade", "Dawncaller", "Oakhaven", "Goldseeker", "Silverblade", "Stonebreaker", "Wildrunner"];
@@ -824,8 +856,15 @@ class CharacterComposer {
 
         // Detect pool based on theme/class
         let pool = generalNames;
+        let poolLast = lastNames;
         const normalizedTheme = theme ? theme.toLowerCase() : "";
-        if (normalizedTheme.includes("knight") || normalizedTheme.includes("melee")) {
+        if (normalizedTheme.includes("dwarf") || normalizedTheme.includes("dwarven")) {
+            pool = dwarfNames;
+            poolLast = dwarfLastNames;
+        } else if (normalizedTheme.includes("elf") || normalizedTheme.includes("elven") || normalizedTheme.includes("sylvan")) {
+            pool = elvenNames;
+            poolLast = elvenLastNames;
+        } else if (normalizedTheme.includes("knight") || normalizedTheme.includes("melee")) {
             pool = knightNames;
         } else if (normalizedTheme.includes("wizard") || normalizedTheme.includes("staff") || normalizedTheme.includes("alchemist") || normalizedTheme.includes("sage")) {
             pool = wizardNames;
@@ -841,7 +880,7 @@ class CharacterComposer {
         if (Math.random() < 0.4) {
             return first;
         }
-        const last = lastNames[Math.floor(Math.random() * lastNames.length)];
+        const last = poolLast[Math.floor(Math.random() * poolLast.length)];
         return first + " " + last;
     }
 }

@@ -34,10 +34,17 @@ class LevelGenerator {
     setBiomeVisuals(biomeOrZoneData, zoneType = 'Hostile') {
         let biome = biomeOrZoneData;
         let type = zoneType;
+        let zoneIndex = (window.saveData && window.saveData.currentZone) || 0;
         if (biomeOrZoneData && typeof biomeOrZoneData === 'object') {
             biome = biomeOrZoneData.biome;
             type = biomeOrZoneData.type || zoneType;
+            if (biomeOrZoneData.index !== undefined) {
+                zoneIndex = biomeOrZoneData.index;
+            }
         }
+
+        const isCapital = type === 'Safe' && window.isCapitalCity && window.isCapitalCity(zoneIndex);
+        const widthTiles = type === 'Safe' ? (isCapital ? 60 : 40) : 84;
 
         const scene = this.scene;
 
@@ -100,12 +107,12 @@ class LevelGenerator {
                 { key: 'bg_hell_gemini', scroll: 0.1, depth: -9 }
             ];
         } else if (biome === 'Heaven') {
-            skyColor = '#fff5e6'; // pearlescent golden sky
+            skyColor = '#8fc7f4'; // bright celestial sky blue
             floorKey = 'floor';
             floorFrame = undefined;
             floorTint = 0xffe8aa; // golden-yellow floor blocks
             bgConfig = [
-                { key: 'bg_coastal', scroll: 0.1, depth: -9, tint: 0xfff3cc } // golden coastal peaks
+                { key: 'bg_heaven', scroll: 0.1, depth: -9 }
             ];
         } else if (biome === 'Deadwoods') {
             skyColor = '#2b2a33';
@@ -167,9 +174,15 @@ class LevelGenerator {
 
         // Build Background Layers
         bgConfig.forEach(config => {
-            // Anchor backgrounds perfectly to the ground level (696)
-            let yPos = 696 + (config.yOffset || 0);
-            let bg = scene.add.image(640, yPos, config.key).setOrigin(0.5, 1).setScrollFactor(0, 1).setDepth(config.depth);
+            const isFullScreen = ['bg_heaven', 'bg_hell_gemini', 'bg_deadwoods_gemini', 'bg_coastal'].includes(config.key);
+            let yPos = isFullScreen ? (360 + (config.yOffset || 0)) : (696 + (config.yOffset || 0));
+            let scrollY = isFullScreen ? 0.05 : 1.0;
+            let originY = isFullScreen ? 0.5 : 1.0;
+            
+            let bg = scene.add.image(640, yPos, config.key)
+                .setOrigin(0.5, originY)
+                .setScrollFactor(0, scrollY)
+                .setDepth(config.depth);
             if (config.tint) {
                 bg.setTint(config.tint);
             }
@@ -182,7 +195,6 @@ class LevelGenerator {
         });
 
         // Build Floor / Platforms
-        const widthTiles = type === 'Safe' ? 40 : 84;
         // Set world bounds depending on biome height (Width totalWidth, height 3200 to cap bottom scroll at Y = 1200)
         scene.physics.world.setBounds(0, -2000, widthTiles * 46, 4000);
         scene.cameras.main.setBounds(0, -2000, widthTiles * 46, 3200);

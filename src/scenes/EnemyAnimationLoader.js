@@ -6,21 +6,48 @@ class EnemyAnimationLoader {
             scene.registry.set('debug_tex_house_tiles', scene.textures.get('house_inside_tiles').getSourceImage());
         }
 
-        // Load custom slice data from localStorage if available, otherwise use defaults
-        const defaultSliceData = {};
+        // Production-hardcoded slice data (rows) — tuned via Sprite Debugger
+        // Only NPC skins and house tiles are used at runtime; enemy sprites use PixelLab frames
+        const PRODUCTION_SLICE_DATA = {
+            "npc_male_skin1":[{"y":0,"h":75},{"y":73,"h":69},{"y":142,"h":58},{"y":202,"h":56},{"y":258,"h":62},{"y":318,"h":80},{"y":398,"h":69}],
+            "npc_female_skin1":[{"y":0,"h":77},{"y":76,"h":63},{"y":139,"h":60},{"y":200,"h":55},{"y":255,"h":64},{"y":320,"h":76},{"y":395,"h":74}],
+            "house_inside_tiles":[{"y":0,"h":32},{"y":32,"h":32},{"y":64,"h":32},{"y":96,"h":32},{"y":128,"h":32},{"y":160,"h":32},{"y":192,"h":32},{"y":224,"h":32},{"y":256,"h":32},{"y":288,"h":32},{"y":320,"h":32},{"y":352,"h":32},{"y":384,"h":32}]
+        };
+
+        // Production-hardcoded column slice data — tuned via Sprite Debugger
+        const PRODUCTION_SLICE_COLDATA = {
+            "npc_male_skin1":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82},{"x":320,"w":83},{"x":404,"w":70},{"x":475,"w":83},{"x":557,"w":71},{"x":628,"w":71},{"x":699,"w":76}],
+            "npc_female_skin1":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79},{"x":319,"w":53},{"x":378,"w":92},{"x":469,"w":89},{"x":557,"w":69},{"x":626,"w":69},{"x":695,"w":77}],
+            "npc_male_skin1_r0":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82},{"x":320,"w":83}],
+            "npc_male_skin1_r1":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82},{"x":320,"w":83},{"x":404,"w":70},{"x":475,"w":83},{"x":557,"w":71}],
+            "npc_male_skin1_r2":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82},{"x":320,"w":83},{"x":404,"w":70},{"x":475,"w":83},{"x":557,"w":71}],
+            "npc_male_skin1_r3":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82}],
+            "npc_male_skin1_r4":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82}],
+            "npc_male_skin1_r5":[{"x":0,"w":78},{"x":79,"w":78},{"x":157,"w":83},{"x":239,"w":82},{"x":320,"w":80},{"x":400,"w":74}],
+            "house_inside_tiles":[{"x":0,"w":32},{"x":32,"w":32},{"x":64,"w":32},{"x":96,"w":32},{"x":128,"w":32},{"x":160,"w":32},{"x":192,"w":32},{"x":224,"w":32},{"x":256,"w":32},{"x":288,"w":32},{"x":320,"w":32},{"x":352,"w":32},{"x":384,"w":32},{"x":416,"w":32}],
+            "npc_female_skin1_r0":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79},{"x":319,"w":86}],
+            "npc_female_skin1_r1":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79},{"x":319,"w":86},{"x":405,"w":65},{"x":469,"w":89},{"x":557,"w":69}],
+            "npc_female_skin1_r2":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79},{"x":319,"w":86},{"x":405,"w":65},{"x":469,"w":89},{"x":557,"w":69}],
+            "npc_female_skin1_r3":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79}],
+            "npc_female_skin1_r4":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79}],
+            "npc_female_skin1_r5":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79},{"x":319,"w":81},{"x":400,"w":70}],
+            "npc_female_skin1_r6":[{"x":0,"w":82},{"x":81,"w":81},{"x":162,"w":78},{"x":240,"w":79},{"x":319,"w":86},{"x":405,"w":65},{"x":469,"w":89},{"x":557,"w":69},{"x":626,"w":69},{"x":695,"w":77}]
+        };
+
+        // Use localStorage overrides in dev mode, fall back to hardcoded production values
         try {
             const savedData = localStorage.getItem('sprite_slice_data');
-            window.sliceData = savedData ? JSON.parse(savedData) : defaultSliceData;
+            window.sliceData = savedData ? JSON.parse(savedData) : JSON.parse(JSON.stringify(PRODUCTION_SLICE_DATA));
         } catch (e) {
-            window.sliceData = defaultSliceData;
+            window.sliceData = JSON.parse(JSON.stringify(PRODUCTION_SLICE_DATA));
         }
 
-        // Load saved column slice data
+        // Load saved column slice data (localStorage overrides production defaults)
         if (!window.sliceColData) {
             try {
                 const saved = localStorage.getItem('sprite_slice_coldata');
-                window.sliceColData = saved ? JSON.parse(saved) : {};
-            } catch(e) { window.sliceColData = {}; }
+                window.sliceColData = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(PRODUCTION_SLICE_COLDATA));
+            } catch(e) { window.sliceColData = JSON.parse(JSON.stringify(PRODUCTION_SLICE_COLDATA)); }
         }
 
         // Re-slice textures that have user-defined slice data
@@ -131,8 +158,32 @@ class EnemyAnimationLoader {
         scene.anims.create({ key: 'spider-hit',  frames: scene.anims.generateFrameNumbers('spider', { start: 32, end: 37 }), frameRate: 15, repeat: 0 });
         scene.anims.create({ key: 'spider-die',  frames: scene.anims.generateFrameNumbers('spider', { start: 40, end: 44 }), frameRate: 10, repeat: 0 });
 
-        // Projectile animations
         scene.anims.create({ key: 'projectile_blue_anim', frames: scene.anims.generateFrameNumbers('projectile_blue', { start: 0, end: 5 }), frameRate: 15, repeat: -1 });
+        scene.anims.create({ key: 'witch_spear_fly', frames: scene.anims.generateFrameNumbers('witch_spear', { start: 0, end: 4 }), frameRate: 15, repeat: -1 });
+        scene.anims.create({ key: 'witch_spear_explode', frames: scene.anims.generateFrameNumbers('witch_spear', { start: 5, end: 9 }), frameRate: 15, repeat: 0 });
+        if (scene.textures.exists('heal_animation') && !scene.anims.exists('heal_animation_anim')) {
+            scene.anims.create({ key: 'heal_animation_anim', frames: scene.anims.generateFrameNumbers('heal_animation', { start: 0, end: 15 }), frameRate: 16, repeat: 0 });
+        }
+        if (scene.textures.exists('witch_debuff') && !scene.anims.exists('witch_debuff_anim')) {
+            scene.anims.create({ key: 'witch_debuff_anim', frames: scene.anims.generateFrameNumbers('witch_debuff', { start: 0, end: 15 }), frameRate: 15, repeat: -1 });
+        }
+        if (scene.textures.exists('witch_3_charge') && !scene.anims.exists('witch_3_charge_fly')) {
+            scene.anims.create({ key: 'witch_3_charge_fly', frames: scene.anims.generateFrameNumbers('witch_3_charge', { start: 0, end: 4 }), frameRate: 15, repeat: -1 });
+            scene.anims.create({ key: 'witch_3_charge_explode', frames: scene.anims.generateFrameNumbers('witch_3_charge', { start: 5, end: 8 }), frameRate: 15, repeat: 0 });
+        }
+        if (scene.textures.exists('mind_control_debuff') && !scene.anims.exists('mind_control_debuff_anim')) {
+            scene.anims.create({ key: 'mind_control_debuff_anim', frames: scene.anims.generateFrameNumbers('mind_control_debuff', { start: 0, end: 15 }), frameRate: 15, repeat: -1 });
+        }
+        if (scene.textures.exists('elven_queen_buff') && !scene.anims.exists('elven_queen_buff_anim')) {
+            scene.anims.create({ key: 'elven_queen_buff_anim', frames: scene.anims.generateFrameNumbers('elven_queen_buff', { start: 0, end: 15 }), frameRate: 16, repeat: 0 });
+        }
+        if (scene.textures.exists('human_queen_buff') && !scene.anims.exists('human_queen_buff_anim')) {
+            scene.anims.create({ key: 'human_queen_buff_anim', frames: scene.anims.generateFrameNumbers('human_queen_buff', { start: 0, end: 15 }), frameRate: 16, repeat: 0 });
+        }
+        if (scene.textures.exists('pyromancer_1_charge') && !scene.anims.exists('pyromancer_1_charge_fly')) {
+            scene.anims.create({ key: 'pyromancer_1_charge_fly', frames: scene.anims.generateFrameNumbers('pyromancer_1_charge', { start: 0, end: 3 }), frameRate: 15, repeat: -1 });
+            scene.anims.create({ key: 'pyromancer_1_charge_explode', frames: scene.anims.generateFrameNumbers('pyromancer_1_charge', { start: 4, end: 5 }), frameRate: 15, repeat: 0 });
+        }
 
         // Lich Lord custom magic casting animation aliases
         if (scene.textures.exists('lich_lord')) {
@@ -150,6 +201,24 @@ class EnemyAnimationLoader {
                 scene.anims.create({ key: 'skeleton-summon_in', frames: scene.anims.generateFrameNumbers('skeleton', { start: 50, end: 58 }), frameRate: 10, repeat: 0 });
             }
         }
+
+        // Hellhound enemy animations (10 cols x 5 rows, 128x128)
+        const hellhoundVariants = [
+            { key: 'hellhound_1', idle: [0,5], walk: [10,18], attack: [20,24], hit: [30,33], die: [40,45] },
+            { key: 'hellhound_2', idle: [0,5], walk: [10,18], attack: [20,25], hit: [30,32], die: [40,45] },
+            { key: 'hellhound_3', idle: [0,5], walk: [10,18], attack: [20,25], hit: [30,32], die: [40,44] }
+        ];
+        hellhoundVariants.forEach(h => {
+            if (scene.textures.exists(h.key)) {
+                if (!scene.anims.exists(`${h.key}-idle`)) {
+                    scene.anims.create({ key: `${h.key}-idle`, frames: scene.anims.generateFrameNumbers(h.key, { start: h.idle[0], end: h.idle[1] }), frameRate: 8, repeat: -1 });
+                    scene.anims.create({ key: `${h.key}-move`, frames: scene.anims.generateFrameNumbers(h.key, { start: h.walk[0], end: h.walk[1] }), frameRate: 12, repeat: -1 });
+                    scene.anims.create({ key: `${h.key}-attack`, frames: scene.anims.generateFrameNumbers(h.key, { start: h.attack[0], end: h.attack[1] }), frameRate: 10, repeat: 0 });
+                    scene.anims.create({ key: `${h.key}-hit`, frames: scene.anims.generateFrameNumbers(h.key, { start: h.hit[0], end: h.hit[1] }), frameRate: 10, repeat: 0 });
+                    scene.anims.create({ key: `${h.key}-die`, frames: scene.anims.generateFrameNumbers(h.key, { start: h.die[0], end: h.die[1] }), frameRate: 8, repeat: 0 });
+                }
+            }
+        });
 
         // Mummy animations
         scene.anims.create({ key: 'mummy-idle', frames: scene.anims.generateFrameNumbers('mummy', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
@@ -290,6 +359,22 @@ class EnemyAnimationLoader {
             scene.anims.create({ key: 'willowisp-attack',  frames: scene.anims.generateFrameNumbers('willowisp', { start: 0, end: 4 }), frameRate: 12, repeat: 0 });
             scene.anims.create({ key: 'willowisp-hit',     frames: scene.anims.generateFrameNumbers('willowisp', { start: 0, end: 4 }), frameRate: 10, repeat: 0 });
             scene.anims.create({ key: 'willowisp-die',     frames: scene.anims.generateFrameNumbers('willowisp', { start: 0, end: 4 }), frameRate: 10, repeat: 0 });
+        }
+
+        // Caravan Pack Mule
+        if (scene.textures.exists('pack_mule') && !scene.anims.exists('pack_mule-idle')) {
+            scene.anims.create({ key: 'pack_mule-idle',   frames: scene.anims.generateFrameNumbers('pack_mule', { start: 0, end: 5 }), frameRate: 6, repeat: -1 });
+            scene.anims.create({ key: 'pack_mule-move',   frames: scene.anims.generateFrameNumbers('pack_mule', { start: 6, end: 11 }), frameRate: 10, repeat: -1 });
+            scene.anims.create({ key: 'pack_mule-hit',    frames: scene.anims.generateFrameNumbers('pack_mule', { start: 12, end: 17 }), frameRate: 12, repeat: 0 });
+            scene.anims.create({ key: 'pack_mule-die',    frames: scene.anims.generateFrameNumbers('pack_mule', { start: 18, end: 23 }), frameRate: 8, repeat: 0 });
+        }
+        
+        // Caravan Mule Cart
+        if (scene.textures.exists('mule_cart') && !scene.anims.exists('mule_cart-idle')) {
+            scene.anims.create({ key: 'mule_cart-idle',   frames: scene.anims.generateFrameNumbers('mule_cart', { start: 0, end: 5 }), frameRate: 6, repeat: -1 });
+            scene.anims.create({ key: 'mule_cart-move',   frames: scene.anims.generateFrameNumbers('mule_cart', { start: 6, end: 11 }), frameRate: 10, repeat: -1 });
+            scene.anims.create({ key: 'mule_cart-hit',    frames: scene.anims.generateFrameNumbers('mule_cart', { start: 12, end: 17 }), frameRate: 12, repeat: 0 });
+            scene.anims.create({ key: 'mule_cart-die',    frames: scene.anims.generateFrameNumbers('mule_cart', { start: 18, end: 23 }), frameRate: 8, repeat: 0 });
         }
     }
 }

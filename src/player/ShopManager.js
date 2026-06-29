@@ -1,16 +1,102 @@
+window.getReputationPriceMultiplier = function() {
+    const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+    const faction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
+    if (!faction) return 1.0;
+    
+    const rep = window.getFactionReputation ? window.getFactionReputation(faction.id) : 0;
+    if (rep <= -50) return Infinity; // Refuse service
+    if (rep <= -20) return 1.25;     // 25% markup
+    if (rep < 0) return 1.10;        // 10% markup
+    if (rep >= 100) return 0.75;     // 25% discount
+    if (rep >= 75) return 0.80;      // 20% discount
+    if (rep >= 50) return 0.85;      // 15% discount
+    if (rep >= 20) return 0.90;      // 10% discount
+    return 1.0;
+};
+
 class ShopManager {
     constructor(player) {
         this.player = player;
     }
 
     openShopUI(shopType, npcName) {
+        if (shopType === 'marketplace') {
+            return this.openMarketplaceUI(npcName);
+        }
         const player = this.player;
         const shopUI = document.getElementById('ui-shop');
-        const shopTitle = document.getElementById('shop-title');
-        const itemsContainer = document.getElementById('shop-items-container');
         
         shopUI.style.display = 'flex';
-        shopTitle.innerText = npcName;
+        
+        // Setup dynamic tab bar for town shops (Phase 11)
+        let tabHeader = document.getElementById('shop-tab-bar');
+        if (!tabHeader) {
+            tabHeader = document.createElement('div');
+            tabHeader.id = 'shop-tab-bar';
+            tabHeader.className = 'flex items-center gap-4 border-b border-outline-variant pb-2';
+            
+            const titleBlock = document.getElementById('shop-title').parentElement;
+            titleBlock.insertAdjacentElement('afterend', tabHeader);
+        }
+
+        const isSafeZone = player.scene.worldManager && player.scene.worldManager.currentZoneData && player.scene.worldManager.currentZoneData.type === 'Safe';
+        
+        if (isSafeZone) {
+            tabHeader.style.display = 'flex';
+            tabHeader.innerHTML = `
+                <button id="btn-shop-goods" class="px-4 py-1.5 text-[12px] font-bold tracking-widest uppercase border-b-2 border-primary text-primary transition-colors">🛒 Shop Goods</button>
+                <button id="btn-shop-cargo" class="px-4 py-1.5 text-[12px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant transition-colors hover:text-primary">📦 Cargo Trade</button>
+            `;
+            
+            const btnGoods = document.getElementById('btn-shop-goods');
+            const btnCargo = document.getElementById('btn-shop-cargo');
+            
+            btnGoods.onclick = () => {
+                btnGoods.className = "px-4 py-1.5 text-[12px] font-bold tracking-widest uppercase border-b-2 border-primary text-primary transition-colors";
+                btnCargo.className = "px-4 py-1.5 text-[12px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant transition-colors hover:text-primary";
+                this.renderStandardShopGoods(shopType, npcName);
+            };
+            
+            btnCargo.onclick = () => {
+                btnCargo.className = "px-4 py-1.5 text-[12px] font-bold tracking-widest uppercase border-b-2 border-primary text-primary transition-colors";
+                btnGoods.className = "px-4 py-1.5 text-[12px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant transition-colors hover:text-primary";
+                this.openMarketplaceUI(npcName);
+            };
+        } else {
+            tabHeader.style.display = 'none';
+        }
+
+        // Close btn
+        const closeBtn = document.getElementById('btn-close-shop');
+        closeBtn.onclick = () => {
+            player.scene.npcs.forEach(npc => {
+                if (npc.isShopOpen) npc.closeShop();
+            });
+        };
+
+        this.renderStandardShopGoods(shopType, npcName);
+    }
+
+    renderStandardShopGoods(shopType, npcName) {
+        const player = this.player;
+        const shopTitle = document.getElementById('shop-title');
+        
+        // Set shop faction emblem
+        const emblemEl = document.getElementById('shop-faction-emblem');
+        if (emblemEl) {
+            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+            const kingdomId = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
+            const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
+            if (emblemSrc) {
+                emblemEl.src = emblemSrc;
+                emblemEl.style.display = 'block';
+            } else {
+                emblemEl.style.display = 'none';
+            }
+        }
+
+        const itemsContainer = document.getElementById('shop-items-container');
+        itemsContainer.className = "grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto max-h-[60vh] pr-2 w-full";
         itemsContainer.innerHTML = ''; // clear
 
         let items = [];
@@ -91,10 +177,15 @@ class ShopManager {
             ];
         }
 
+        // Concat the new batch of 100 items dynamically
+        if (window.getNewItemsForShop) {
+            items = items.concat(window.getNewItemsForShop(shopType));
+        }
+
         // Filter items: only show generic items and items meant for the current class
         items = items.filter(item => {
             if (!item.classRestrict) return true;
-            if (item.classRestrict === player.classData.id) return true;
+            if (item.classRestrict === player.classData.id || (player.classData.id && player.classData.id.startsWith(item.classRestrict))) return true;
             if ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
                 (item.classRestrict === 'knight' || item.classRestrict === 'samurai')) {
                 return true;
@@ -152,6 +243,31 @@ class ShopManager {
             }
         }
         
+        let factionMultiplier = 1.0;
+        if (window.getReputationPriceMultiplier) {
+            factionMultiplier = window.getReputationPriceMultiplier();
+        }
+        
+        if (factionMultiplier === Infinity) {
+            if (shopTitle) {
+                shopTitle.innerText = npcName + " (Refuses to trade!)";
+            }
+            itemsContainer.innerHTML = `<div style="color: #ff4444; font-family: monospace; font-size: 14px; text-align: center; padding: 20px; width: 100%;">
+                "Begone, enemy of the Realm! I will not sell to you."
+            </div>`;
+            return;
+        }
+        
+        // Merchant's Ledger (15% discount)
+        if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
+            const artKey = player.inventory.artifacts[player.inventory.equippedArtifact];
+            if (artKey === 'artifact-merchant-purse') {
+                multiplier *= 0.85;
+            }
+        }
+
+        multiplier *= factionMultiplier;
+        
         if (shopTitle) {
             shopTitle.innerText = npcName + suffix;
         }
@@ -182,7 +298,7 @@ class ShopManager {
             } else if (itemSrc.includes('Hand Items')) {
                 frameW = 80;
                 frameH = 64;
-            } else if (itemSrc.includes('PixelArt_FantasyWeapons_01')) {
+            } else if (itemSrc.includes('PixelArt_FantasyWeapons_01') || itemSrc.includes('items/')) {
                 frameW = 48;
                 frameH = 48;
                 extraStyle = 'background-size: contain; background-position: center; transform: none;';
@@ -208,7 +324,7 @@ class ShopManager {
             
             let classBadge = '';
             if (item.classRestrict) {
-                const canUseThis = item.classRestrict === player.classData.id || 
+                const canUseThis = item.classRestrict === player.classData.id || (player.classData.id && player.classData.id.startsWith(item.classRestrict)) || 
                                   ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
                                    (item.classRestrict === 'knight' || item.classRestrict === 'samurai'));
                 const color = canUseThis ? 'text-primary' : 'text-error';
@@ -253,6 +369,197 @@ class ShopManager {
         const closeBtn = document.getElementById('btn-close-shop');
         closeBtn.onclick = () => {
             // Tell nearby NPC to close shop (which re-enables keyboard)
+            player.scene.npcs.forEach(npc => {
+                if (npc.isShopOpen) npc.closeShop();
+            });
+        };
+    }
+
+    openMarketplaceUI(npcName) {
+        const player = this.player;
+        const shopUI = document.getElementById('ui-shop');
+        const shopTitle = document.getElementById('shop-title');
+        
+        // Set shop faction emblem
+        const emblemEl = document.getElementById('shop-faction-emblem');
+        if (emblemEl) {
+            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+            const kingdomId = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
+            const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
+            if (emblemSrc) {
+                emblemEl.src = emblemSrc;
+                emblemEl.style.display = 'block';
+            } else {
+                emblemEl.style.display = 'none';
+            }
+        }
+
+        const itemsContainer = document.getElementById('shop-items-container');
+        itemsContainer.className = "flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-2 w-full";
+        
+        shopUI.style.display = 'flex';
+        shopTitle.innerText = npcName + " - Marketplace";
+        itemsContainer.innerHTML = ''; // clear
+        
+        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+        const faction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
+        const rep = faction ? (window.getFactionReputation ? window.getFactionReputation(faction.id) : 0) : 0;
+        if (rep <= -50) {
+            itemsContainer.innerHTML = `<div style="color: #ff4444; font-family: monospace; font-size: 14px; text-align: center; padding: 20px; width: 100%;">
+                "The Merchant League refuses to deal with a nemesis of the realm. Begone!"
+            </div>`;
+            return;
+        }
+
+        const self = this;
+        
+        function renderMarketContent() {
+            if (!window.saveData.cargo) window.saveData.cargo = {};
+            const totalCargo = Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0);
+            const playerGold = window.saveData.gold || 0;
+            const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
+            
+            itemsContainer.innerHTML = `
+                <div class="col-span-full flex flex-col gap-4 w-full text-on-surface">
+                    <div class="flex justify-between items-center bg-surface-container-high p-4 rounded border border-outline-variant">
+                        <div class="flex flex-col">
+                            <span class="text-[14px] font-bold uppercase tracking-wider text-tertiary">📦 International Trade Depot</span>
+                            <span class="text-[11px] text-on-surface-variant">Buy local exports cheap, sell them to importing kingdoms for high profits!</span>
+                        </div>
+                        <span class="text-[16px] font-bold" style="color: #4fc3f7;">Cargo hold: ${totalCargo} / 10 units</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                        <!-- BUYING SECTION -->
+                        <div class="flex flex-col gap-3">
+                            <h4 class="text-[14px] font-bold text-primary border-b border-outline-variant pb-2 uppercase tracking-wide">Buy Cargo (Local Exports)</h4>
+                            <div id="buy-cargo-list" class="flex flex-col gap-2 overflow-y-auto max-h-[40vh] pr-2">
+                                <!-- Buy items inserted here -->
+                            </div>
+                        </div>
+                        
+                        <!-- SELLING SECTION -->
+                        <div class="flex flex-col gap-3">
+                            <h4 class="text-[14px] font-bold text-secondary border-b border-outline-variant pb-2 uppercase tracking-wide">Sell Cargo (Your Cargo Hold)</h4>
+                            <div id="sell-cargo-list" class="flex flex-col gap-2 overflow-y-auto max-h-[40vh] pr-2">
+                                <!-- Sell items inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const buyContainer = document.getElementById('buy-cargo-list');
+            const sellContainer = document.getElementById('sell-cargo-list');
+            
+            const localExports = currentKingdom ? currentKingdom.exportGoods || [] : [];
+            if (localExports.length === 0) {
+                buyContainer.innerHTML = `<span class="text-[11px] text-on-surface-variant italic">This kingdom exports no trade goods.</span>`;
+            } else {
+                localExports.forEach(itemId => {
+                    const good = window.TRADE_GOODS[itemId];
+                    if (!good) return;
+                    
+                    const buyPrice = window.getTradePrice(itemId, true, currentZone);
+                    const canAfford = playerGold >= buyPrice;
+                    const isFull = totalCargo >= 10;
+                    
+                    const itemRow = document.createElement('div');
+                    itemRow.className = `flex justify-between items-center p-3 rounded border border-outline-variant/40 bg-surface-container-highest/40`;
+                    itemRow.innerHTML = `
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-[12px] font-bold text-on-surface">${good.name}</span>
+                            <span class="text-[9px] text-on-surface-variant max-w-[200px] leading-tight">${good.desc}</span>
+                            <span class="text-[10px] font-bold text-primary">💰 ${buyPrice}g</span>
+                        </div>
+                        <button class="px-3 py-1.5 rounded text-[11px] font-bold uppercase transition-colors ${canAfford && !isFull ? 'bg-primary text-on-primary hover:bg-primary-hover' : 'bg-outline-variant/30 text-on-surface-variant/50 cursor-not-allowed'}" id="btn-buy-${itemId}">
+                            ${isFull ? 'Full' : 'Buy'}
+                        </button>
+                    `;
+                    buyContainer.appendChild(itemRow);
+                    
+                    if (canAfford && !isFull) {
+                        const btn = document.getElementById(`btn-buy-${itemId}`);
+                        if (btn) {
+                            btn.onclick = () => {
+                                window.saveData.gold -= buyPrice;
+                                window.saveData.cargo[itemId] = (window.saveData.cargo[itemId] || 0) + 1;
+                                if (player.scene && player.scene.showFloatingText) {
+                                    player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `+1 ${good.name}`, 0xFFD700);
+                                }
+                                if (player.scene && typeof player.scene.spawnCargoCompanion === 'function') {
+                                    player.scene.spawnCargoCompanion();
+                                }
+                                if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
+                                if (typeof player._persistToLocalStorage === 'function') {
+                                    player._persistToLocalStorage();
+                                }
+                                renderMarketContent();
+                            };
+                        }
+                    }
+                });
+            }
+            
+            let hasCarried = false;
+            for (const itemId in window.saveData.cargo) {
+                const count = window.saveData.cargo[itemId] || 0;
+                if (count <= 0) continue;
+                
+                hasCarried = true;
+                const good = window.TRADE_GOODS[itemId];
+                if (!good) continue;
+                
+                const sellPrice = window.getTradePrice(itemId, false, currentZone);
+                const isLocalImport = currentKingdom && currentKingdom.importGoods && currentKingdom.importGoods.includes(itemId);
+                
+                const itemRow = document.createElement('div');
+                itemRow.className = `flex justify-between items-center p-3 rounded border border-outline-variant/40 bg-surface-container-highest/40`;
+                itemRow.innerHTML = `
+                    <div class="flex flex-col gap-0.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[12px] font-bold text-on-surface">${good.name}</span>
+                            <span class="text-[9px] px-1 bg-secondary/20 text-secondary border border-secondary/30 rounded font-bold">x${count}</span>
+                            ${isLocalImport ? `<span class="text-[9px] px-1 bg-tertiary/20 text-tertiary border border-tertiary/30 rounded font-bold">⭐ Import Demand</span>` : ''}
+                        </div>
+                        <span class="text-[9px] text-on-surface-variant max-w-[200px] leading-tight">${good.desc}</span>
+                        <span class="text-[10px] font-bold text-secondary">💰 ${sellPrice}g each</span>
+                    </div>
+                    <button class="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary-hover rounded text-[11px] font-bold uppercase transition-colors" id="btn-sell-${itemId}">
+                        Sell 1
+                    </button>
+                `;
+                sellContainer.appendChild(itemRow);
+                
+                const btn = document.getElementById(`btn-sell-${itemId}`);
+                if (btn) {
+                    btn.onclick = () => {
+                        window.saveData.gold += sellPrice;
+                        window.saveData.cargo[itemId]--;
+                        if (player.scene && player.scene.showFloatingText) {
+                            player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `-${good.name} (+${sellPrice}g)`, 0x4ade80);
+                        }
+                        if (player.scene && typeof player.scene.spawnCargoCompanion === 'function') {
+                            player.scene.spawnCargoCompanion();
+                        }
+                        if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
+                        if (typeof player._persistToLocalStorage === 'function') {
+                            player._persistToLocalStorage();
+                        }
+                        renderMarketContent();
+                    };
+                }
+            }
+            
+            if (!hasCarried) {
+                sellContainer.innerHTML = `<span class="text-[11px] text-on-surface-variant italic">No trade cargo currently in your caravan hold.</span>`;
+            }
+        }
+        
+        renderMarketContent();
+        
+        const closeBtn = document.getElementById('btn-close-shop');
+        closeBtn.onclick = () => {
             player.scene.npcs.forEach(npc => {
                 if (npc.isShopOpen) npc.closeShop();
             });
@@ -314,6 +621,9 @@ class ShopManager {
                 { key: 'artifact-iron-shield', name: 'Iron Kite Shield', desc: '12% Damage Reduction', price: 500, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_02.png' },
                 { key: 'artifact-crystal-aegis', name: 'Crystal Aegis', desc: '20% DR, +30 Max HP', price: 1200, type: 'artifact', isSpritesheet: false, imageSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_03.png' }
             ];
+            if (window.NEW_ITEMS_DATA) {
+                allItems = allItems.concat(window.NEW_ITEMS_DATA);
+            }
             itemObj = allItems.find(i => i.key === item) || { key: item, price: 0, type: 'unknown' };
             if (player.scene.zoneBiome === 'Heaven') {
                 itemObj.price = Math.max(1, Math.round(itemObj.price * 0.2));
@@ -336,13 +646,54 @@ class ShopManager {
             return;
         }
 
+        let finalPrice = itemObj.price;
+        if (typeof item === 'string') {
+            let mult = 1.0;
+            if (player.scene.zoneBiome === 'Heaven') {
+                mult = 0.2;
+            } else {
+                // Find NPC to get alignment
+                const openShopNpc = player.scene.npcs.find(n => n.isShopOpen);
+                if (openShopNpc) {
+                    const playerAlignType = player.alignment >= 10 ? 'Good' : (player.alignment <= -10 ? 'Evil' : 'Neutral');
+                    if (openShopNpc.alignment === 'Good') {
+                        if (playerAlignType === 'Good') mult = 0.8;
+                        else if (playerAlignType === 'Evil') mult = 1.5;
+                    } else if (openShopNpc.alignment === 'Evil') {
+                        if (playerAlignType === 'Evil') mult = 0.8;
+                        else if (playerAlignType === 'Good') mult = 1.5;
+                    } else {
+                        if (playerAlignType === 'Good') mult = 0.9;
+                        else if (playerAlignType === 'Evil') mult = 1.1;
+                    }
+                }
+            }
+            
+            let factionMultiplier = 1.0;
+            if (window.getReputationPriceMultiplier) {
+                factionMultiplier = window.getReputationPriceMultiplier();
+            }
+            if (factionMultiplier === Infinity) return; // Nemesis cannot buy
+            
+            // Merchant's Ledger (15% discount)
+            if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
+                const artKey = player.inventory.artifacts[player.inventory.equippedArtifact];
+                if (artKey === 'artifact-merchant-purse') {
+                    mult *= 0.85;
+                }
+            }
+
+            mult *= factionMultiplier;
+            finalPrice = Math.max(1, Math.round(itemObj.price * mult));
+        }
+
         if (window.saveData) {
             window.saveData = JSON.parse(JSON.stringify(window.saveData));
         }
         if (!window.saveData) window.saveData = { gold: 0 };
         if (window.saveData.gold === undefined || isNaN(window.saveData.gold)) window.saveData.gold = 0;
 
-        if (window.saveData.gold < itemObj.price) {
+        if (window.saveData.gold < finalPrice) {
             // Flash red for insufficient funds
             const ui = document.getElementById('hud-gold');
             if(ui) {
@@ -353,21 +704,79 @@ class ShopManager {
         }
 
         // Deduct gold
-        window.saveData.gold -= itemObj.price;
+        window.saveData.gold -= finalPrice;
         const goldEl = document.getElementById('hud-gold');
         if(goldEl) goldEl.innerText = `Gold: ${window.saveData.gold}`;
 
         // Apply item effect
         if (itemObj.type === 'weapon') {
-            player.inventory.weapon = { key: itemObj.key, iconSrc: itemObj.imageSrc, name: itemObj.name, damageBonus: itemObj.damageBonus, desc: itemObj.desc };
-        } else if (itemObj.type === 'potion') {
-            player.inventory.potions++;
-        } else if (itemObj.type === 'mp_potion') {
-            player.inventory.mpPotions = (player.inventory.mpPotions || 0) + 1;
-        } else if (itemObj.type === 'sp_potion') {
-            player.inventory.spPotions = (player.inventory.spPotions || 0) + 1;
+            player.inventory.weapons = player.inventory.weapons || [];
+            const weaponData = { key: itemObj.key, iconSrc: itemObj.imageSrc, name: itemObj.name, damageBonus: itemObj.damageBonus, desc: itemObj.desc };
+            if (!player.inventory.weapons.some(w => w.key === itemObj.key)) {
+                player.inventory.weapons.push(weaponData);
+            }
+            player.inventory.weapon = weaponData;
+        } else if (itemObj.type === 'potion' || itemObj.type === 'mp_potion' || itemObj.type === 'sp_potion') {
+            if (itemObj.buff) {
+                player.inventory.miscPotions = (player.inventory.miscPotions || 0) + 1;
+                player.inventory.miscPotionList = player.inventory.miscPotionList || [];
+                player.inventory.miscPotionList.push({
+                    key: itemObj.key,
+                    name: itemObj.name,
+                    imageSrc: itemObj.imageSrc,
+                    hpRestore: itemObj.hpRestore || 0,
+                    mpRestore: itemObj.mpRestore || 0,
+                    spRestore: itemObj.spRestore || 0,
+                    buff: itemObj.buff
+                });
+            } else if (itemObj.type === 'potion') {
+                player.inventory.potions++;
+                player.inventory.potionList = player.inventory.potionList || [];
+                player.inventory.potionList.push({
+                    key: itemObj.key,
+                    name: itemObj.name,
+                    imageSrc: itemObj.imageSrc,
+                    hpRestore: itemObj.hpRestore !== undefined ? itemObj.hpRestore : 50,
+                    mpRestore: itemObj.mpRestore || 0,
+                    spRestore: itemObj.spRestore || 0,
+                    buff: null
+                });
+            } else if (itemObj.type === 'mp_potion') {
+                player.inventory.mpPotions = (player.inventory.mpPotions || 0) + 1;
+                player.inventory.mpPotionList = player.inventory.mpPotionList || [];
+                player.inventory.mpPotionList.push({
+                    key: itemObj.key,
+                    name: itemObj.name,
+                    imageSrc: itemObj.imageSrc,
+                    hpRestore: 0,
+                    mpRestore: itemObj.mpRestore !== undefined ? itemObj.mpRestore : 50,
+                    spRestore: 0,
+                    buff: null
+                });
+            } else if (itemObj.type === 'sp_potion') {
+                player.inventory.spPotions = (player.inventory.spPotions || 0) + 1;
+                player.inventory.spPotionList = player.inventory.spPotionList || [];
+                player.inventory.spPotionList.push({
+                    key: itemObj.key,
+                    name: itemObj.name,
+                    imageSrc: itemObj.imageSrc,
+                    hpRestore: 0,
+                    mpRestore: 0,
+                    spRestore: itemObj.spRestore !== undefined ? itemObj.spRestore : 50,
+                    buff: null
+                });
+            }
         } else if (itemObj.type === 'meat') {
             player.inventory.meat = (player.inventory.meat || 0) + 1;
+            player.inventory.meatList = player.inventory.meatList || [];
+            player.inventory.meatList.push({
+                key: itemObj.key,
+                name: itemObj.name,
+                hpRestore: itemObj.hpRestore !== undefined ? itemObj.hpRestore : 20,
+                mpRestore: itemObj.mpRestore || 0,
+                spRestore: itemObj.spRestore || 0,
+                buff: itemObj.buff || null
+            });
         } else if (itemObj.type === 'junk') {
             player.inventory.furs = (player.inventory.furs || 0) + 1;
         } else if (itemObj.type === 'artifact') {
@@ -403,6 +812,9 @@ class ShopManager {
         }
         
         player.updateInventoryUI();
+        if (typeof player._persistToLocalStorage === 'function') {
+            player._persistToLocalStorage();
+        }
     }
 
     getNextWeaponUpgrade() {

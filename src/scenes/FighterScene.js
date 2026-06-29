@@ -22,8 +22,21 @@ class FighterScene extends Phaser.Scene {
         this.matchTime = 99;
         
         // P2 is hero if it's one of the hero classes or a custom NPC
-        const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
-        this.p2IsHero = heroClasses.includes(this.p2Class) || (this.p2Class && this.p2Class.startsWith('custom_npc_'));
+        const heroClasses = [
+            'knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'witch', 'priest', 'pyromancer', 
+            'custom_npc_male', 'custom_npc_female', 'knight_rival', 'wizard_rival', 'samurai_rival', 
+            'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman', 'elven_longbowman_rival', 'elven_guard', 'elven_guard_rival', 
+            'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
+            'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
+            'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
+            'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+        ];
+        this.p2IsHero = heroClasses.includes(this.p2Class) || (this.p2Class && (
+            this.p2Class.startsWith('custom_npc_') || 
+            this.p2Class.startsWith('witch_') || 
+            this.p2Class.startsWith('priest_') || 
+            this.p2Class.startsWith('pyromancer_')
+        ));
 
         this.p1 = null;
         this.p2 = null;
@@ -259,8 +272,21 @@ class FighterScene extends Phaser.Scene {
         this.p1.alignment = this.p1Alignment;
         
         // Apply fighter loadout (level, weapon, artifact)
-        const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
-        if (heroClasses.includes(this.p1Class) || (this.p1Class && this.p1Class.startsWith('custom_npc_'))) {
+        const heroClasses = [
+            'knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'witch', 'priest', 'pyromancer', 
+            'custom_npc_male', 'custom_npc_female', 'knight_rival', 'wizard_rival', 'samurai_rival', 
+            'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman', 'elven_longbowman_rival', 'elven_guard', 'elven_guard_rival', 
+            'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
+            'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
+            'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
+            'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+        ];
+        if (heroClasses.includes(this.p1Class) || (this.p1Class && (
+            this.p1Class.startsWith('custom_npc_') || 
+            this.p1Class.startsWith('witch_') || 
+            this.p1Class.startsWith('priest_') || 
+            this.p1Class.startsWith('pyromancer_')
+        ))) {
             this.applyHeroLoadout(this.p1, this.p1Level, this.p1Weapon, this.p1Artifact);
         }
 
@@ -274,6 +300,41 @@ class FighterScene extends Phaser.Scene {
 
         // Expose globally so managers/controllers can find this.player
         this.player = this.p1;
+
+        // Setup custom taking damage tracking for P1
+        this.p1._originalTakeDamage = this.p1.takeDamage;
+        this.p1.takeDamage = function(amount, knockbackDirection) {
+            if (this.scene.matchActive) {
+                this._originalTakeDamage(amount, knockbackDirection);
+            } else {
+                // In sandbox, just show floating text damage indicator without actual HP depletion
+                if (typeof this.scene.showFloatingText === 'function') {
+                    this.scene.showFloatingText(this.sprite.x, this.sprite.y - 20, amount, 0xff0000);
+                }
+                
+                // Play damage reaction anim if alive
+                if (this.sprite && this.sprite.active) {
+                    this.isHit = true;
+                    this.currentAnimKey = null;
+                    const hitKey = this.classId ? `${this.classId}_hit` : `${this.textureKey || this.type}-hit`;
+                    if (this.scene.anims.exists(hitKey)) {
+                        this.sprite.play(hitKey);
+                        this.sprite.off('animationcomplete-' + hitKey);
+                        this.sprite.once('animationcomplete-' + hitKey, () => {
+                            this.isHit = false;
+                        });
+                    } else {
+                        this.scene.time.delayedCall(400, () => {
+                            this.isHit = false;
+                        });
+                    }
+                    this.sprite.setTint(0xff4444);
+                    this.scene.time.delayedCall(200, () => {
+                        if (this.sprite && this.sprite.active) this.sprite.clearTint();
+                    });
+                }
+            }
+        };
     }
 
     spawnP2() {
@@ -297,11 +358,24 @@ class FighterScene extends Phaser.Scene {
             });
             this.p2.alignment = this.p2Alignment;
             this.p2.aiState = 'hostile'; // targets player.scene.player (P1)
-            this.heroGroup.add(this.p2.sprite);
+            this.enemies.add(this.p2.sprite);
 
             // Apply fighter loadout for hero P2
-            const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
-            if (heroClasses.includes(this.p2Class) || (this.p2Class && this.p2Class.startsWith('custom_npc_'))) {
+            const heroClasses = [
+                'knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'witch', 'priest', 'pyromancer', 
+                'custom_npc_male', 'custom_npc_female', 'knight_rival', 'wizard_rival', 'samurai_rival', 
+                'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman', 'elven_longbowman_rival', 'elven_guard', 'elven_guard_rival', 
+                'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
+                'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
+                'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
+                'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+            ];
+            if (heroClasses.includes(this.p2Class) || (this.p2Class && (
+                this.p2Class.startsWith('custom_npc_') || 
+                this.p2Class.startsWith('witch_') || 
+                this.p2Class.startsWith('priest_') || 
+                this.p2Class.startsWith('pyromancer_')
+            ))) {
                 this.applyHeroLoadout(this.p2, this.p2Level, this.p2Weapon, this.p2Artifact);
             }
 
@@ -332,34 +406,33 @@ class FighterScene extends Phaser.Scene {
 
         // Setup custom taking damage tracking
         this.p2._originalTakeDamage = this.p2.takeDamage;
-        const self = this;
         this.p2.takeDamage = function(amount, knockbackDirection) {
-            if (self.matchActive) {
+            if (this.scene.matchActive) {
                 this._originalTakeDamage(amount, knockbackDirection);
             } else {
                 // In sandbox, just show floating text damage indicator without actual HP depletion
-                if (typeof self.showFloatingText === 'function') {
-                    self.showFloatingText(this.sprite.x, this.sprite.y - 20, amount, 0xff0000);
+                if (typeof this.scene.showFloatingText === 'function') {
+                    this.scene.showFloatingText(this.sprite.x, this.sprite.y - 20, amount, 0xff0000);
                 }
                 
                 // Play damage reaction anim if alive
                 if (this.sprite && this.sprite.active) {
                     this.isHit = true;
                     this.currentAnimKey = null;
-                    const hitKey = `${this.textureKey || this.type}-hit`;
-                    if (self.anims.exists(hitKey)) {
+                    const hitKey = this.classId ? `${this.classId}_hit` : `${this.textureKey || this.type}-hit`;
+                    if (this.scene.anims.exists(hitKey)) {
                         this.sprite.play(hitKey);
                         this.sprite.off('animationcomplete-' + hitKey);
                         this.sprite.once('animationcomplete-' + hitKey, () => {
                             this.isHit = false;
                         });
                     } else {
-                        self.time.delayedCall(400, () => {
+                        this.scene.time.delayedCall(400, () => {
                             this.isHit = false;
                         });
                     }
                     this.sprite.setTint(0xff4444);
-                    self.time.delayedCall(200, () => {
+                    this.scene.time.delayedCall(200, () => {
                         if (this.sprite && this.sprite.active) this.sprite.clearTint();
                     });
                 }
@@ -472,9 +545,6 @@ class FighterScene extends Phaser.Scene {
                 }
             });
         }
-
-        // Restore damage function if dummy
-        if (this.p2 && this.p2._originalTakeDamage) this.p2.takeDamage = this.p2._originalTakeDamage;
 
         // Re-enable updates
         this.p1.isDummy = false;
@@ -826,6 +896,24 @@ class FighterScene extends Phaser.Scene {
                     const prefix = target.classId || target.type;
                     const action = btnId.replace('btn-test-', '');
                     
+                    if (!(target instanceof EnemyController)) {
+                        // For players, delegate to their controller methods for attack/magic to test actual combat logic
+                        if (action === 'attack') {
+                            const now = this.time.now;
+                            const canCombo = target.isAttacking && target.classData.attack2Frames && (!target._lastAttackTime || (now - target._lastAttackTime > 150));
+                            if (!target.isAttacking || canCombo) {
+                                target.attack();
+                            }
+                            return;
+                        }
+                        if (action === 'magic') {
+                            if (!target.isAttacking) {
+                                target.superComboSpell();
+                            }
+                            return;
+                        }
+                    }
+
                     let animKey = '';
                     if (target instanceof EnemyController) {
                         // Enemy format is goblin-idle
@@ -876,17 +964,30 @@ class FighterScene extends Phaser.Scene {
             colorStr = color;
         }
 
+        // Round numeric messages to prevent decimals
+        let displayMessage = message;
+        if (typeof message === 'number') {
+            displayMessage = String(Math.round(message));
+        } else if (typeof message === 'string') {
+            const num = Number(message);
+            if (!isNaN(num)) {
+                displayMessage = String(Math.round(num));
+            }
+        }
+
         const offsetX = (Math.random() - 0.5) * 30;
         
-        const text = this.add.text(x + offsetX, y, String(message), {
+        const text = this.add.text(x + offsetX, y, displayMessage, {
             fontFamily: '"Space Grotesk", sans-serif',
             fontSize: '22px',
             fill: colorStr,
             stroke: '#000000',
             strokeThickness: 4,
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            align: 'center',
+            wordWrap: { width: 280, useAdvancedWrap: true }
         });
-        text.setOrigin(0.5);
+        text.setOrigin(0.5, 1.0);
         text.setScale(0.5);
         text.setDepth(1000);
 

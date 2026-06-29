@@ -70,44 +70,46 @@
         #chat-ui {
             display: none;
             position: absolute;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            width: 800px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #555;
-            border-radius: 8px;
-            padding: 20px;
+            width: 720px;
+            background: rgba(14, 14, 14, 0.88);
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(246, 190, 59, 0.6);
+            border-radius: 12px;
+            padding: 18px 22px;
             color: white;
-            z-index: 20;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            z-index: 90;
+            box-shadow: 0 0 25px rgba(246, 190, 59, 0.2), 0 10px 40px rgba(0,0,0,0.9);
             font-family: 'Courier New', Courier, monospace;
         }
         #chat-close {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: #222;
-            border: 1px solid #555;
-            color: #aaa;
-            padding: 4px 8px;
+            background: rgba(200, 0, 0, 0.1);
+            border: 1px solid #cc0000;
+            color: #ff8888;
+            padding: 4px 10px;
             font-family: monospace;
             font-size: 11px;
             cursor: pointer;
-            border-radius: 4px;
-            transition: background 0.2s, color 0.2s;
+            border-radius: 6px;
+            transition: all 0.2s ease;
         }
         #chat-close:hover {
             background: #cc0000;
             color: white;
             border-color: #ff3333;
+            box-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
         }
         #chat-history {
-            height: 150px;
+            height: 200px;
             overflow-y: auto;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 12px;
         }
         #chat-input-container {
             display: flex;
@@ -311,6 +313,24 @@
     </style>
 </head>
 <body>
+    <!-- Beautiful Loading Screen Wrapper -->
+    <div id="loading-screen" style="position: fixed; inset: 0; z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #0d0d0f; font-family: 'Space Grotesk', sans-serif;">
+        <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+            <h1 class="title-glow-pulse" style="color: #2ddbde; font-size: 36px; font-weight: bold; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 24px; text-shadow: 0 0 15px rgba(45,219,222,0.4);">
+                ELDEN SOUL
+            </h1>
+            
+            <!-- Custom Retro Loader Bar -->
+            <div style="width: 256px; height: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 9999px; overflow: hidden; position: relative;">
+                <div id="loading-bar-fill" style="height: 100%; width: 15%; background: linear-gradient(90deg, #2ddbde, rgba(45,219,222,0.6)); border-radius: 9999px; transition: width 0.3s ease;"></div>
+            </div>
+            
+            <div id="loading-status" style="margin-top: 12px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 2px;">
+                Loading game assets & fonts...
+            </div>
+        </div>
+    </div>
+
     <style>
         /* === Title Glow Pulse === */
         @keyframes title-pulse {
@@ -376,8 +396,8 @@
                 <button id="btn-fighter-suite" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
                     1v1 Fighter Suite
                 </button>
-                <button class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
-                    Settings
+                <button id="btn-menu-help" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                    Help & Guide
                 </button>
                 <button class="menu-item font-body-lg text-[18px] text-on-surface-variant uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none hover:text-error transition-colors">
                     Quit
@@ -462,7 +482,7 @@
                     </div>
                     
                     <!-- Class Selection Grid -->
-                    <div class="grid grid-cols-5 gap-1 md:gap-2 shrink-0" id="class-select-grid">
+                    <div class="grid grid-cols-4 gap-1 md:gap-2 shrink-0" id="class-select-grid">
                         <button data-class="knight" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-highest border-2 border-secondary shadow-[0_0_8px_rgba(246,190,59,0.4)] transition-all">
                             <span class="material-symbols-outlined text-2xl md:text-3xl text-secondary" style="font-variation-settings: 'FILL' 1;">shield</span>
                             <span class="font-label-caps text-[8px] md:text-[10px] text-secondary">Knight</span>
@@ -482,6 +502,18 @@
                         <button data-class="elven_spellblade" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-cyan-500 hover:bg-surface-container-highest transition-all duration-200">
                             <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-cyan-500">bolt</span>
                             <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Spellblade</span>
+                        </button>
+                        <button data-class="witch" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-purple-500 hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-purple-500">auto_fix_high</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Witch</span>
+                        </button>
+                        <button data-class="priest" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-yellow-300 hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-yellow-300">local_hospital</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Priest</span>
+                        </button>
+                        <button data-class="pyromancer" class="class-btn relative group p-1 flex flex-col items-center gap-1 bg-surface-container-low border-2 border-outline-variant hover:border-orange-500 hover:bg-surface-container-highest transition-all duration-200">
+                            <span class="material-symbols-outlined text-2xl md:text-3xl text-on-surface-variant group-hover:text-orange-500">local_fire_department</span>
+                            <span class="font-label-caps text-[8px] md:text-[10px] text-on-surface-variant group-hover:text-on-surface">Pyromancer</span>
                         </button>
                     </div>
 
@@ -587,6 +619,11 @@
                     <span class="w-2 h-2 rounded-full bg-secondary"></span>
                     <span id="hud-gold" class="font-label-caps text-label-caps text-secondary uppercase tracking-wider">Gold: 0</span>
                 </div>
+                <!-- Cargo -->
+                <div id="hud-cargo-container" class="mt-2 px-3 py-1 bg-surface-container-lowest/90 border rounded-full w-fit flex items-center gap-2 shadow-md" style="border-color: #4fc3f7;">
+                    <span class="w-2 h-2 rounded-full bg-[#4fc3f7]"></span>
+                    <span id="hud-cargo" class="font-label-caps text-label-caps uppercase tracking-wider" style="color: #4fc3f7;">Cargo: 0/10</span>
+                </div>
             </div>
             
             <!-- Room Tracker (Top Right) -->
@@ -607,7 +644,10 @@
                         <span id="rt-c3" style="color: #5a403c; font-size: 10px;">───</span>
                         <span id="rt-n4" style="color: #5a403c; font-size: 16px; line-height:1;">□</span>
                     </div>
-                    <div id="hud-zone-name" class="font-label-caps text-[11px] text-primary text-center mt-1 leading-tight tracking-widest break-words w-full px-2">Unknown Zone</div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; margin-top: 4px;">
+                        <img id="hud-zone-faction-emblem" src="" style="display: none; width: 14px; height: 14px; image-rendering: pixelated; border: 1px solid rgba(45, 219, 222, 0.2); background: rgba(0,0,0,0.3); border-radius: 2px;" />
+                        <div id="hud-zone-name" class="font-label-caps text-[11px] text-primary text-center leading-tight tracking-widest break-words" style="margin: 0;">Unknown Zone</div>
+                    </div>
                     <div id="hud-zone-details" class="font-label-caps text-[9px] text-on-surface-variant flex justify-center items-center gap-1 mt-0.5 leading-none">
                         <span id="hud-zone-type">Unknown</span>
                         <span class="text-tertiary-fixed-dim text-[8px]">•</span>
@@ -637,7 +677,7 @@
         <!-- Bottom Row: Hotbar -->
         <div class="absolute top-4 left-1/2 transform -translate-x-1/2 flex opacity-70 hover:opacity-100 transition-opacity duration-300">
             <!-- Decorative Frame Left -->
-            <div class="w-12 h-16 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWE0MDNjIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0yMCAydjIwSDRWMmwxNiAwem0tMiAySDZ2MTZsMTItMTZ6Ii8+PC9zdmc+')] bg-contain bg-no-repeat bg-right opacity-50"></div>
+            <div class="w-12 h-12 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWE0MDNjIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0yMCAydjIwSDRWMmwxNiAwem0tMiAySDZ2MTZsMTItMTZ6Ii8+PC9zdmc+')] bg-contain bg-no-repeat bg-right opacity-50"></div>
             <div class="flex gap-2 p-2 hud-border rounded-lg bg-surface-container-lowest/95 pointer-events-auto items-center relative">
                 <!-- Inventory Popup -->
                 <div id="inv-popup" class="absolute -bottom-24 left-1/2 transform -translate-x-1/2 w-48 bg-surface-container border-2 border-primary rounded p-2 text-center shadow-lg transition-all opacity-0 pointer-events-none scale-95 z-50">
@@ -646,67 +686,76 @@
                 </div>
 
                 <!-- Slot 1: Weapon -->
-                <div id="inv-slot-1" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                <div id="inv-slot-1" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">1</span>
                     <div id="inv-icon-1" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-1" style="width: 80px; height: 64px; background-position: left top; background-repeat: no-repeat; transform: scale(0.5); image-rendering: pixelated;"></div>
                     </div>
-                    <span id="inv-placeholder-1" class="material-symbols-outlined text-4xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">swords</span>
-                    <!-- Active highlight -->
-                    <div class="absolute inset-0 border-2 border-secondary rounded opacity-50 shadow-[0_0_10px_rgba(246,190,59,0.5)] pointer-events-none z-30"></div>
+                    <span id="inv-placeholder-1" class="material-symbols-outlined text-3xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">swords</span>
                 </div>
                 <!-- Slot Artifact -->
-                <div id="inv-slot-artifact" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                <div id="inv-slot-artifact" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">2</span>
                     <div id="inv-icon-artifact" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-artifact" style="width: 40px; height: 40px; background-size: contain; background-position: center; background-repeat: no-repeat; image-rendering: pixelated;"></div>
                     </div>
-                    <span id="inv-placeholder-artifact" class="material-symbols-outlined text-4xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">diamond</span>
+                    <span id="inv-placeholder-artifact" class="material-symbols-outlined text-3xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">diamond</span>
                 </div>
                 <!-- Slot 2: Health Potion -->
-                <div id="inv-slot-2" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                <div id="inv-slot-2" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">3</span>
                     <div id="inv-icon-2" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-2" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png'); background-position: -16px 0px; background-size: 48px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
                     </div>
-                    <span id="inv-placeholder-2" class="material-symbols-outlined text-4xl text-primary group-hover:text-primary-fixed transition-colors z-10" style="font-variation-settings: 'FILL' 1;">water_drop</span>
+                    <span id="inv-placeholder-2" class="material-symbols-outlined text-3xl text-primary group-hover:text-primary-fixed transition-colors z-10" style="font-variation-settings: 'FILL' 1;">water_drop</span>
                     <span id="inv-qty-2" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
                 </div>
                 <!-- Slot 3: Mana Potion -->
-                <div id="inv-slot-3" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                <div id="inv-slot-3" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">4</span>
                     <div id="inv-icon-3" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-3" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png'); background-position: 0px 0px; background-size: 16px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
                     </div>
-                    <span id="inv-placeholder-3" class="material-symbols-outlined text-4xl text-info group-hover:text-info-fixed transition-colors z-10" style="color: #60a5fa; font-variation-settings: 'FILL' 1;">science</span>
+                    <span id="inv-placeholder-3" class="material-symbols-outlined text-3xl text-info group-hover:text-info-fixed transition-colors z-10" style="color: #60a5fa; font-variation-settings: 'FILL' 1;">science</span>
                     <span id="inv-qty-3" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
                 </div>
                 <!-- Slot 4: Meat -->
-                <div id="inv-slot-4" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                <div id="inv-slot-4" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">5</span>
                     <div id="inv-icon-4" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-4" style="width: 16px; height: 16px; background-position: left top; background-repeat: no-repeat; transform: scale(2.5); image-rendering: pixelated; background-image: url('src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png'); transform-origin: center;"></div>
                     </div>
-                    <span id="inv-placeholder-4" class="material-symbols-outlined text-4xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">set_meal</span>
+                    <span id="inv-placeholder-4" class="material-symbols-outlined text-3xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">set_meal</span>
                     <span id="inv-qty-4" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
                 </div>
                 <!-- Slot 5: Stamina Potion -->
-                <div id="inv-slot-5" class="relative w-16 h-16 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                <div id="inv-slot-5" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">6</span>
                     <div id="inv-icon-5" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-5" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png'); background-position: 0px 0px; background-size: 16px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
                     </div>
-                    <span id="inv-placeholder-5" class="material-symbols-outlined text-4xl text-success group-hover:text-success-fixed transition-colors z-10" style="color: #4ade80; font-variation-settings: 'FILL' 1;">bolt</span>
+                    <span id="inv-placeholder-5" class="material-symbols-outlined text-3xl text-success group-hover:text-success-fixed transition-colors z-10" style="color: #4ade80; font-variation-settings: 'FILL' 1;">bolt</span>
                     <span id="inv-qty-5" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
+                </div>
+                <!-- Slot 6: Miscellaneous Potion -->
+                <div id="inv-slot-6" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
+                    <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">7</span>
+                    <div id="inv-icon-6" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                        <div id="inv-bg-6" style="width: 40px; height: 40px; background-size: contain; background-position: center; background-repeat: no-repeat; image-rendering: pixelated;"></div>
+                    </div>
+                    <span id="inv-placeholder-6" class="material-symbols-outlined text-3xl text-warning group-hover:text-warning-fixed transition-colors z-10" style="color: #fbbf24; font-variation-settings: 'FILL' 1;">potion</span>
+                    <span id="inv-qty-6" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
                 </div>
             </div>
             <!-- Decorative Frame Right -->
-            <div class="w-12 h-16 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWE0MDNjIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik00IDJ2MjBoMTZWMkw0IDJ6bTIgMmgxMnYxNkw2IDR6Ii8+PC9zdmc+')] bg-contain bg-no-repeat bg-left opacity-50"></div>
+            <div class="w-12 h-12 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWE0MDNjIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik00IDJ2MjBoMTZWMkw0IDJ6bTIgMmgxMnYxNkw2IDR6Ii8+PC9zdmc+')] bg-contain bg-no-repeat bg-left opacity-50"></div>
         </div>
     </div>
 
     <!-- NPC Chat UI -->
     <div id="chat-ui">
+        <!-- Faction Emblem -->
+        <img id="chat-faction-emblem" src="" style="display: none; position: absolute; top: 12px; right: 90px; width: 36px; height: 36px; image-rendering: pixelated; border: 1px solid rgba(45, 219, 222, 0.3); padding: 2px; background: rgba(0,0,0,0.4); border-radius: 4px;" />
         <button id="chat-close">CLOSE (ESC)</button>
         <div id="chat-npc-name" style="font-weight: bold; color: #ffaa00; margin-bottom: 10px;">NPC Name</div>
         <div id="chat-history"></div>
@@ -722,8 +771,11 @@
     <!-- Shop UI -->
     <div id="ui-shop" style="display: none;" class="absolute inset-0 z-40 bg-background/90 text-on-background overflow-hidden font-body-lg flex items-center justify-center pointer-events-auto">
         <div class="bg-surface-container/95 backdrop-blur-md border-2 border-outline-variant p-8 flex flex-col gap-6 shadow-[10px_10px_30px_rgba(0,0,0,0.8)] relative w-full max-w-3xl">
-            <div class="border-b border-outline-variant pb-4 mb-2 flex justify-between items-center">
-                <h3 id="shop-title" class="font-headline-md text-[24px] font-bold text-secondary tracking-wide uppercase">Merchant Shop</h3>
+            <div class="border-b border-outline-variant pb-4 mb-2 flex justify-between items-center w-full">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img id="shop-faction-emblem" src="" style="display: none; width: 32px; height: 32px; image-rendering: pixelated; border: 1px solid rgba(45, 219, 222, 0.3); padding: 2px; background: rgba(0,0,0,0.4); border-radius: 4px;" />
+                    <h3 id="shop-title" class="font-headline-md text-[24px] font-bold text-secondary tracking-wide uppercase" style="margin: 0;">Merchant Shop</h3>
+                </div>
                 <button id="btn-close-shop" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px]">Close (ESC)</button>
             </div>
             
@@ -742,12 +794,37 @@
                     <span class="material-symbols-outlined text-4xl text-tertiary">explore</span>
                     <h3 class="font-headline-md text-[28px] font-bold text-tertiary tracking-wide uppercase">Town Directory</h3>
                 </div>
-                <button id="btn-close-directory" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px]">Close (ESC)</button>
+                <div class="flex items-center gap-4">
+                    <!-- Tab Buttons -->
+                    <button id="tab-directory" class="px-4 py-2 text-[12px] font-bold tracking-widest uppercase border-b-2 border-tertiary text-tertiary transition-colors" onclick="
+                        document.getElementById('directory-locations-container').style.display = 'grid';
+                        document.getElementById('travel-destinations-container').style.display = 'none';
+                        this.classList.add('border-tertiary', 'text-tertiary');
+                        this.classList.remove('border-transparent', 'text-on-surface-variant');
+                        document.getElementById('tab-travel').classList.remove('border-tertiary', 'text-tertiary');
+                        document.getElementById('tab-travel').classList.add('border-transparent', 'text-on-surface-variant');
+                    ">🏛 Directory</button>
+                    <button id="tab-travel" class="px-4 py-2 text-[12px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant transition-colors hover:text-tertiary" onclick="
+                        document.getElementById('directory-locations-container').style.display = 'none';
+                        document.getElementById('travel-destinations-container').style.display = 'flex';
+                        this.classList.add('border-tertiary', 'text-tertiary');
+                        this.classList.remove('border-transparent', 'text-on-surface-variant');
+                        document.getElementById('tab-directory').classList.remove('border-tertiary', 'text-tertiary');
+                        document.getElementById('tab-directory').classList.add('border-transparent', 'text-on-surface-variant');
+                        if (window._populateTravelPanel) window._populateTravelPanel();
+                    ">🗺️ Fast Travel</button>
+                    <button id="btn-close-directory" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px]">Close (ESC)</button>
+                </div>
             </div>
             
-            <!-- Locations Grid -->
+            <!-- Locations Grid (Directory Tab) -->
             <div id="directory-locations-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[60vh] pr-2">
                 <!-- Javascript will insert location cards here -->
+            </div>
+
+            <!-- Fast Travel Panel (Travel Tab) -->
+            <div id="travel-destinations-container" style="display: none;" class="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-2">
+                <!-- Javascript will insert travel destinations here -->
             </div>
         </div>
     </div>
@@ -789,14 +866,34 @@
     </div>
     
     <!-- Cinematic Cutscene Overlay -->
-    <div id="cutscene-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; pointer-events: none; flex-direction: column; justify-content: space-between; transition: opacity 0.5s;">
+    <!-- Cinematic Cutscene Overlay (Phase 7) -->
+    <div id="cutscene-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; flex-direction: column; justify-content: space-between; transition: opacity 0.5s; background: transparent; pointer-events: auto;">
+        <!-- Scanlines effect -->
+        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%); background-size: 100% 4px; z-index: 99; opacity: 0.7;"></div>
+
         <!-- Top black bar -->
-        <div style="width: 100%; height: 15vh; background: black; box-shadow: 0 10px 20px rgba(0,0,0,0.8);"></div>
-        <!-- Center transparent area for game -->
-        <div style="flex-grow: 1;"></div>
-        <!-- Bottom black bar with text -->
-        <div style="width: 100%; height: 25vh; background: black; box-shadow: 0 -10px 20px rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">
-            <div id="cutscene-text" style="font-family: 'Courier Prime', monospace; color: #ffb4a8; font-size: 24px; text-align: center; text-shadow: 0 0 10px rgba(255,180,168,0.5); max-width: 800px; line-height: 1.5;"></div>
+        <div style="width: 100%; height: 10vh; background: #0c0c0c; border-bottom: 2px solid #332222; box-shadow: 0 10px 20px rgba(0,0,0,0.9); z-index: 100;"></div>
+        
+        <!-- Center transparent area for game + Portraits -->
+        <div style="flex-grow: 1; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 12% 2vh 12%; pointer-events: none; position: relative; z-index: 98;">
+            <!-- Left Portrait Container -->
+            <div id="cutscene-portrait-left" style="width: 150px; height: 150px; background: rgba(12,12,12,0.9); border: 2px solid #553333; border-radius: 4px; box-shadow: 0 0 20px rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; overflow: hidden; transition: all 0.3s; transform: translateX(-50px); opacity: 0;">
+                <canvas id="cutscene-canvas-left" style="height: 130%; width: auto; image-rendering: pixelated;"></canvas>
+            </div>
+            <!-- Right Portrait Container -->
+            <div id="cutscene-portrait-right" style="width: 150px; height: 150px; background: rgba(12,12,12,0.9); border: 2px solid #553333; border-radius: 4px; box-shadow: 0 0 20px rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; overflow: hidden; transition: all 0.3s; transform: translateX(50px); opacity: 0;">
+                <canvas id="cutscene-canvas-right" style="height: 130%; width: auto; image-rendering: pixelated;"></canvas>
+            </div>
+        </div>
+
+        <!-- Bottom black bar with text & nameplate -->
+        <div style="width: 100%; height: 30vh; background: #0c0c0c; border-top: 2px solid #332222; box-shadow: 0 -10px 20px rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: flex-start; padding: 20px 12% 40px 12%; box-sizing: border-box; z-index: 100; position: relative;">
+            <!-- Nameplate -->
+            <div id="cutscene-nameplate" style="font-family: 'Cinzel', serif, Georgia; font-weight: bold; color: #ffb4a8; font-size: 20px; text-shadow: 0 0 10px rgba(255,180,168,0.7); margin-bottom: 10px; align-self: flex-start; border-bottom: 2px solid #ffb4a844; padding-bottom: 4px; min-height: 28px;"></div>
+            <!-- Text content -->
+            <div id="cutscene-text" style="font-family: 'Courier Prime', monospace; color: #e6d8d5; font-size: 18px; text-align: left; text-shadow: 0 0 6px rgba(255,180,168,0.3); line-height: 1.6; max-width: 950px;"></div>
+            <!-- Skip/Advance prompt -->
+            <div style="font-family: 'Courier Prime', monospace; color: #775555; font-size: 13px; position: absolute; bottom: 12px; right: 12%; font-style: italic;">[ Space / Click to Advance ]</div>
         </div>
     </div>
 
@@ -806,6 +903,7 @@
     <script src="src/InputManager.js"></script>
     <script src="src/player/StatsManager.js"></script>
     <script src="src/player/InventoryManager.js"></script>
+    <script src="src/data/NewItemsData.js"></script>
     <script src="src/player/ShopManager.js"></script>
     <script src="src/player/CombatController.js"></script>
     <script src="src/player/CompanionAI.js?v=20260625d"></script>
@@ -818,6 +916,7 @@
     <script src="src/RescueeNPCFactory.js?v=20260625"></script>
     <script src="src/RescueeNPC.js"></script>
     <script src="src/NPCController.js"></script>
+    <script src="src/data/WorldFactions.js"></script>
     <script src="src/WorldManager.js?v=20260625"></script>
     <script src="src/scenes/TitleScene.js"></script>
     <script src="src/scene_modules/HUDManager.js?v=20260625d"></script>
@@ -930,6 +1029,42 @@
         <div class="pb-class-card" data-class="custom" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
           <div style="font-size:24px;">🎲</div>
           <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">RANDOM</div>
+        </div>
+        <div class="pb-class-card" data-class="witch_1" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">🧙‍♀️</div>
+            <div style="font-size:11px; font-weight:bold;">Witch 1</div>
+        </div>
+        <div class="pb-class-card" data-class="witch_2" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">🧙‍♀️</div>
+            <div style="font-size:11px; font-weight:bold;">Witch 2</div>
+        </div>
+        <div class="pb-class-card" data-class="witch_3" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">🧙‍♀️</div>
+            <div style="font-size:11px; font-weight:bold;">Witch 3</div>
+        </div>
+        <div class="pb-class-card" data-class="priest_1" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">⛪</div>
+            <div style="font-size:11px; font-weight:bold;">Priest 1</div>
+        </div>
+        <div class="pb-class-card" data-class="priest_2" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">⛪</div>
+            <div style="font-size:11px; font-weight:bold;">Priest 2</div>
+        </div>
+        <div class="pb-class-card" data-class="priest_3" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">⛪</div>
+            <div style="font-size:11px; font-weight:bold;">Priest 3</div>
+        </div>
+        <div class="pb-class-card" data-class="pyromancer_1" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">🔥</div>
+            <div style="font-size:11px; font-weight:bold;">Pyromancer 1</div>
+        </div>
+        <div class="pb-class-card" data-class="pyromancer_2" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">🔥</div>
+            <div style="font-size:11px; font-weight:bold;">Pyromancer 2</div>
+        </div>
+        <div class="pb-class-card" data-class="pyromancer_3" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:24px;">🔥</div>
+            <div style="font-size:11px; font-weight:bold;">Pyromancer 3</div>
         </div>
       </div>
     </div>
@@ -1144,6 +1279,42 @@
                         <div class="text-[20px]">👩👥</div>
                         <div class="text-[9px] font-bold text-white mt-1 uppercase">Custom (F)</div>
                     </div>
+                    <div class="fighter-grid-item" data-class="witch_1">
+                        <div class="text-[20px]">🧙‍♀️1</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Witch 1</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="witch_2">
+                        <div class="text-[20px]">🧙‍♀️2</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Witch 2</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="witch_3">
+                        <div class="text-[20px]">🧙‍♀️3</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Witch 3</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="priest_1">
+                        <div class="text-[20px]">⛪1</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Priest 1</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="priest_2">
+                        <div class="text-[20px]">⛪2</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Priest 2</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="priest_3">
+                        <div class="text-[20px]">⛪3</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Priest 3</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="pyromancer_1">
+                        <div class="text-[20px]">🔥1</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Pyro 1</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="pyromancer_2">
+                        <div class="text-[20px]">🔥2</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Pyro 2</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="pyromancer_3">
+                        <div class="text-[20px]">🔥3</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Pyro 3</div>
+                    </div>
                 </div>
 
                 <!-- P1 Loadout Controls -->
@@ -1215,6 +1386,30 @@
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_skull_blue"><div class="text-[16px]">💀💙</div><div class="text-[8px] text-white">Blue Skull</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="cheeky_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Cheeky</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="bloated_damned"><div class="text-[16px]">🤢</div><div class="text-[8px] text-white">Bloated</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_1_rival"><div class="text-[16px]">🧙‍♀️🔴</div><div class="text-[8px] text-white">Witch 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_3_rival"><div class="text-[16px]">🧙‍♀️🟣</div><div class="text-[8px] text-white">Witch 3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_1_rival"><div class="text-[16px]">🔥🔴</div><div class="text-[8px] text-white">Pyro 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_2_rival"><div class="text-[16px]">🔥🟠</div><div class="text-[8px] text-white">Pyro 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_1"><div class="text-[16px]">🐕‍🦺🔥</div><div class="text-[8px] text-white">Hellhound 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_2"><div class="text-[16px]">🐕‍🦺💀</div><div class="text-[8px] text-white">Hellhound 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_3"><div class="text-[16px]">🐕‍🦺⚡</div><div class="text-[8px] text-white">Hellhound 3</div></div>
+                        <!-- Elven Warriors -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_spellblade_rival"><div class="text-[16px]">✨🔴</div><div class="text-[8px] text-white">Rival Spellblade</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_longbowman"><div class="text-[16px]">🏹🧝‍♂️</div><div class="text-[8px] text-white">Elven Archer</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_guard_rival"><div class="text-[16px]">🛡️🔴</div><div class="text-[8px] text-white">Elven Guard</div></div>
+                        <!-- Dwarven Pack -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_warrior"><div class="text-[16px]">🪓🧔</div><div class="text-[8px] text-white">Dwarf Warrior</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_warrior_rival"><div class="text-[16px]">🪓🔴</div><div class="text-[8px] text-white">Rival Dwarf</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_miner"><div class="text-[16px]">⛏️🧔</div><div class="text-[8px] text-white">Dwarf Miner</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_miner_rival"><div class="text-[16px]">⛏️🔴</div><div class="text-[8px] text-white">Rival Miner</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_king"><div class="text-[16px]">👑🧔</div><div class="text-[8px] text-white">Dwarf King</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_king_rival"><div class="text-[16px]">👑🔴</div><div class="text-[8px] text-white">Rival Dw King</div></div>
+                        <!-- Rulers -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="human_king"><div class="text-[16px]">👑👨</div><div class="text-[8px] text-white">Human King</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="human_queen"><div class="text-[16px]">👑👩</div><div class="text-[8px] text-white">Human Queen</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_king"><div class="text-[16px]">👑🧝‍♂️</div><div class="text-[8px] text-white">Elven King</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen"><div class="text-[16px]">👑🧝‍♀️</div><div class="text-[8px] text-white">Elven Queen</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen_rival"><div class="text-[16px]">👑🔴</div><div class="text-[8px] text-white">Rival El Queen</div></div>
                     </div>
                 </div>
             </div>
@@ -1298,6 +1493,42 @@
                         <div class="text-[20px]">👩👥</div>
                         <div class="text-[9px] font-bold text-white mt-1 uppercase">Custom (F)</div>
                     </div>
+                    <div class="fighter-grid-item" data-class="witch_1">
+                        <div class="text-[20px]">🧙‍♀️1</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Witch 1</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="witch_2">
+                        <div class="text-[20px]">🧙‍♀️2</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Witch 2</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="witch_3">
+                        <div class="text-[20px]">🧙‍♀️3</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Witch 3</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="priest_1">
+                        <div class="text-[20px]">⛪1</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Priest 1</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="priest_2">
+                        <div class="text-[20px]">⛪2</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Priest 2</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="priest_3">
+                        <div class="text-[20px]">⛪3</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Priest 3</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="pyromancer_1">
+                        <div class="text-[20px]">🔥1</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Pyro 1</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="pyromancer_2">
+                        <div class="text-[20px]">🔥2</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Pyro 2</div>
+                    </div>
+                    <div class="fighter-grid-item" data-class="pyromancer_3">
+                        <div class="text-[20px]">🔥3</div>
+                        <div class="text-[9px] font-bold text-white mt-1 uppercase">Pyro 3</div>
+                    </div>
                 </div>
 
                 <!-- P2 Loadout Controls -->
@@ -1369,6 +1600,35 @@
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="burning_skull_blue"><div class="text-[16px]">💀💙</div><div class="text-[8px] text-white">Blue Skull</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="cheeky_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Cheeky</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="bloated_damned"><div class="text-[16px]">🤢</div><div class="text-[8px] text-white">Bloated</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_1_rival"><div class="text-[16px]">🧙‍♀️🔴</div><div class="text-[8px] text-white">Witch 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_2_rival"><div class="text-[16px]">🧙‍♀️🟢</div><div class="text-[8px] text-white">Witch 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_3_rival"><div class="text-[16px]">🧙‍♀️🟣</div><div class="text-[8px] text-white">Witch 3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="priest_1_rival"><div class="text-[16px]">⛪🔴</div><div class="text-[8px] text-white">Priest 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="priest_2_rival"><div class="text-[16px]">⛪🟢</div><div class="text-[8px] text-white">Priest 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="priest_3_rival"><div class="text-[16px]">⛪🟣</div><div class="text-[8px] text-white">Priest 3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_1_rival"><div class="text-[16px]">🔥🔴</div><div class="text-[8px] text-white">Pyro 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_2_rival"><div class="text-[16px]">🔥🟠</div><div class="text-[8px] text-white">Pyro 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_3_rival"><div class="text-[16px]">🔥💀</div><div class="text-[8px] text-white">Pyro 3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_1"><div class="text-[16px]">🐕‍🦺🔥</div><div class="text-[8px] text-white">Hellhound 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_2"><div class="text-[16px]">🐕‍🦺💀</div><div class="text-[8px] text-white">Hellhound 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_3"><div class="text-[16px]">🐕‍🦺⚡</div><div class="text-[8px] text-white">Hellhound 3</div></div>
+                        <!-- Elven Warriors -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_spellblade_rival"><div class="text-[16px]">✨🔴</div><div class="text-[8px] text-white">Rival Spellblade</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_longbowman"><div class="text-[16px]">🏹🧝‍♂️</div><div class="text-[8px] text-white">Elven Archer</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_guard_rival"><div class="text-[16px]">🛡️🔴</div><div class="text-[8px] text-white">Elven Guard</div></div>
+                        <!-- Dwarven Pack -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_warrior"><div class="text-[16px]">🪓🧔</div><div class="text-[8px] text-white">Dwarf Warrior</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_warrior_rival"><div class="text-[16px]">🪓🔴</div><div class="text-[8px] text-white">Rival Dwarf</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_miner"><div class="text-[16px]">⛏️🧔</div><div class="text-[8px] text-white">Dwarf Miner</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_miner_rival"><div class="text-[16px]">⛏️🔴</div><div class="text-[8px] text-white">Rival Miner</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_king"><div class="text-[16px]">👑🧔</div><div class="text-[8px] text-white">Dwarf King</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dwarf_king_rival"><div class="text-[16px]">👑🔴</div><div class="text-[8px] text-white">Rival Dw King</div></div>
+                        <!-- Rulers -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="human_king"><div class="text-[16px]">👑👨</div><div class="text-[8px] text-white">Human King</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="human_queen"><div class="text-[16px]">👑👩</div><div class="text-[8px] text-white">Human Queen</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_king"><div class="text-[16px]">👑🧝‍♂️</div><div class="text-[8px] text-white">Elven King</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen"><div class="text-[16px]">👑🧝‍♀️</div><div class="text-[8px] text-white">Elven Queen</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen_rival"><div class="text-[16px]">👑🔴</div><div class="text-[8px] text-white">Rival El Queen</div></div>
                     </div>
                 </div>
             </div>
@@ -1406,8 +1666,18 @@
             <button class="preset-btn" data-preset="potion_saver">Potion Saver</button>
             <button class="preset-btn" data-preset="loot_goblin">Loot Goblin</button>
             <button class="preset-btn" data-preset="pacifist">Pacifist</button>
+            <button class="preset-btn" data-preset="merchant_trader">Merchant Trader</button>
+            <button class="preset-btn" data-preset="caravan_bodyguard">Caravan Bodyguard</button>
+            <button class="preset-btn" data-preset="faction_politician">Faction Politician</button>
+            <button class="preset-btn" data-preset="high_roller">High-Roller Traveler</button>
             <button class="preset-btn" data-preset="custom">Custom</button>
         </div>
+        <button id="btn-open-economy-guide" style="width:100%; margin-top:8px; py:6px; background:rgba(45,219,222,0.1); border:1px solid rgba(45,219,222,0.3); color:#2ddbde; font-family:inherit; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; border-radius:4px; cursor:pointer; padding:6px 0; transition:all 0.2s;" onmouseover="this.style.background='rgba(45,219,222,0.2)'" onmouseout="this.style.background='rgba(45,219,222,0.1)'">
+            📊 Global Economy Guide
+        </button>
+        <button id="btn-open-lore-bible" style="width:100%; margin-top:6px; py:6px; background:rgba(160,131,43,0.15); border:1px solid rgba(160,131,43,0.4); color:#f6be3b; font-family:inherit; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; border-radius:4px; cursor:pointer; padding:6px 0; transition:all 0.2s;" onmouseover="this.style.background='rgba(160,131,43,0.3)'" onmouseout="this.style.background='rgba(160,131,43,0.15)'">
+            📜 Faction Lore Bible
+        </button>
     </div>
 
     <!-- Target Zone Input (supports negative values) -->
@@ -1511,10 +1781,293 @@
 
         <!-- Custom Personality Textarea -->
         <div class="border-t border-outline-variant/20 pt-3">
-            <label class="text-[11px] font-bold text-on-surface uppercase block mb-1">Hero Personality / Disposition</label>
+            <div class="flex justify-between items-center mb-1">
+                <label class="text-[11px] font-bold text-on-surface uppercase block">Hero Personality / Disposition</label>
+                <button id="btn-ap-improve-personality" class="px-2 py-0.5 bg-tertiary/10 hover:bg-tertiary/20 border border-tertiary/40 text-tertiary rounded font-bold text-[9px] uppercase tracking-wider cursor-pointer transition-colors duration-150">🪄 Auto-Generate/Improve</button>
+            </div>
             <textarea id="ap-hero-personality" rows="3" class="ap-textarea" placeholder="e.g. A cynical, sarcastic warrior who complains about prices but is secretly soft-hearted..."></textarea>
         </div>
     </div>
+</div>
+
+<!-- Global Economy Guide Modal -->
+<div id="ui-economy-guide" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; font-family:'Courier Prime', monospace; box-sizing:border-box;">
+  <div style="background:#0d0d0f; border:2px solid #2ddbde; border-radius:8px; padding:28px; width:640px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:0 0 40px rgba(45,219,222,0.25); position:relative; box-sizing:border-box; color:#fff;">
+    
+    <!-- Close button -->
+    <button id="btn-close-economy-guide" style="position:absolute; top:16px; right:16px; background:transparent; border:none; color:#aaa; font-size:16px; font-weight:bold; cursor:pointer; font-family:inherit; transition:color 0.2s;" onmouseover="this.style.color='#ff4444'" onmouseout="this.style.color='#aaa'">✕ CLOSE</button>
+    
+    <h2 style="color:#2ddbde; text-align:center; margin:0 0 16px; font-size:20px; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 8px rgba(45,219,222,0.3);">📊 Global Trade & Economy Guide</h2>
+    
+    <p style="color:#bbb; font-size:11px; line-height:1.6; margin-bottom:20px; text-align:center;">
+      The world economy runs on trade. Purchase local exports cheap, and deliver them to far-off kingdoms that import them to maximize dynamic distance-based arbitrage profits!
+    </p>
+
+    <!-- Economy Table -->
+    <div style="border:1px solid #333; border-radius:6px; overflow:hidden; margin-bottom:20px; background:#111;">
+      <table style="width:100%; border-collapse:collapse; text-align:left; font-size:11px;">
+        <thead>
+          <tr style="background:#1a1a1f; border-bottom:2px solid #333; color:#2ddbde; font-weight:bold; text-transform:uppercase; letter-spacing:1px;">
+            <th style="padding:10px 12px;">Kingdom</th>
+            <th style="padding:10px 12px; text-align:center;">Capital</th>
+            <th style="padding:10px 12px;">Local Export (Buy Cheap)</th>
+            <th style="padding:10px 12px;">Import Demand (Sell High)</th>
+          </tr>
+        </thead>
+        <tbody id="economy-guide-table-body">
+          <!-- Populated dynamically via JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Core Rules Section -->
+    <div style="background:#16161a; border:1px solid #333; border-radius:6px; padding:16px; margin-bottom:20px; font-size:11px; line-height:1.6;">
+      <h3 style="color:#b8860b; margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:1px;">Core Economic Principles</h3>
+      <ul style="margin:0; padding-left:18px; color:#ccc; display:flex; flex-direction:column; gap:8px;">
+        <li><strong style="color:#fff;">Buy Local Exports:</strong> Shipped directly from the source, exports sell at <span style="color:#4ade80;">70% of base price</span>. Buy low!</li>
+        <li><strong style="color:#fff;">Sell High Imports:</strong> Kingdoms that import a good pay a premium of <span style="color:#4ade80;">120% of base price + distance bonus</span>. Sell high!</li>
+        <li><strong style="color:#fff;">Distance Arbitrage Bonus:</strong> Earn a travel reward of <span style="color:#4ade80;">+1.5 gold per zone tile</span> of distance between the producing capital and the buying capital.</li>
+        <li><strong style="color:#fff;">Faction Standings:</strong> High faction reputation gives up to <span style="color:#4ade80;">25% discount</span> on buying, and <span style="color:#4ade80;">25% extra payout</span> on selling. Negative standing incurs price penalties.</li>
+      </ul>
+    </div>
+
+    <!-- AI Presets note -->
+    <div style="background:rgba(45,219,222,0.06); border:1px solid rgba(45,219,222,0.3); border-radius:6px; padding:16px; font-size:11px; line-height:1.6;">
+      <h3 style="color:#2ddbde; margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:1px;">🧠 trained Merchant AI Arbitrage</h3>
+      <p style="color:#ccc; margin:0;">
+        When active, the <strong style="color:#fff;">Merchant Trader preset</strong> automatically scans the entire world map for cargo price discrepancies. It loads up on local exports, calculates the highest potential payout among all discovered capitals (incorporating dynamic distance bonuses and current faction standing), and automatically updates the player's Target Zone to navigate there.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Help & Guide Modal -->
+<div id="ui-menu-help" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; box-sizing:border-box; font-family:'Space Grotesk', sans-serif;">
+  <div style="background:rgba(13, 13, 15, 0.95); border:2px solid #2ddbde; border-radius:12px; padding:28px; width:850px; max-width:95vw; max-height:90vh; box-shadow:0 0 50px rgba(45,219,222,0.25); position:relative; box-sizing:border-box; color:#fff; display:flex; flex-direction:column; gap:16px;">
+    
+    <!-- Close button -->
+    <button id="btn-close-menu-help" style="position:absolute; top:20px; right:20px; background:transparent; border:none; color:#aaa; font-size:16px; font-weight:bold; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#ff4444'" onmouseout="this.style.color='#aaa'">✕ CLOSE</button>
+    
+    <div style="display:flex; flex-direction:column; gap:16px; height:100%; overflow:hidden;">
+      <div style="text-align:center;">
+        <h2 style="color:#2ddbde; margin:0; font-size:26px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 10px rgba(45,219,222,0.4);">🛡️ Elden Soul Guide</h2>
+        <p style="color:#888; font-size:11px; margin:4px 0 0; text-transform:uppercase; letter-spacing:1px;">Controls, Combat, Items & Faction Mechanics</p>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div style="display:flex; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px; gap:8px;">
+        <button class="help-tab-btn active" data-tab="controls" style="flex:1; background:transparent; border:none; color:#2ddbde; padding:8px 0; font-family:inherit; font-size:13px; font-weight:bold; text-transform:uppercase; cursor:pointer; border-bottom:2px solid #2ddbde; transition:all 0.2s;">⌨️ Controls</button>
+        <button class="help-tab-btn" data-tab="combat" style="flex:1; background:transparent; border:none; color:#aaa; padding:8px 0; font-family:inherit; font-size:13px; font-weight:bold; text-transform:uppercase; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;">⚔️ Combat</button>
+        <button class="help-tab-btn" data-tab="items" style="flex:1; background:transparent; border:none; color:#aaa; padding:8px 0; font-family:inherit; font-size:13px; font-weight:bold; text-transform:uppercase; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;">💎 Gear & Items</button>
+        <button class="help-tab-btn" data-tab="factions" style="flex:1; background:transparent; border:none; color:#aaa; padding:8px 0; font-family:inherit; font-size:13px; font-weight:bold; text-transform:uppercase; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;">👑 Factions</button>
+      </div>
+
+      <!-- Tab Contents -->
+      <div id="help-tab-contents" style="flex:1; overflow-y:auto; padding-right:8px; min-height:350px; max-height:55vh;">
+        
+        <!-- Controls Content -->
+        <div id="help-content-controls" class="help-tab-panel" style="display:flex; flex-direction:column; gap:16px;">
+          <table style="width:100%; border-collapse:collapse; background:rgba(255,255,255,0.02); border-radius:6px; overflow:hidden;">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05);">
+                <th style="padding:10px; text-align:left; font-size:12px; color:#2ddbde; text-transform:uppercase;">Action</th>
+                <th style="padding:10px; text-align:left; font-size:12px; color:#2ddbde; text-transform:uppercase;">Keybind</th>
+                <th style="padding:10px; text-align:left; font-size:12px; color:#2ddbde; text-transform:uppercase;">Description</th>
+              </tr>
+            </thead>
+            <tbody style="font-size:13px;">
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Move Left / Right</td>
+                <td style="padding:10px; color:#f6be3b;">A / D <span style="color:#666;">or</span> Left / Right Arrow</td>
+                <td style="padding:10px; color:#ccc;">Run horizontally through the zone</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Jump / Double Jump</td>
+                <td style="padding:10px; color:#f6be3b;">W <span style="color:#666;">or</span> Up Arrow <span style="color:#666;">or</span> SPACE</td>
+                <td style="padding:10px; color:#ccc;">Leap into the air. Jump again mid-air to double jump</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Block / Duck</td>
+                <td style="padding:10px; color:#f6be3b;">S <span style="color:#666;">or</span> Down Arrow</td>
+                <td style="padding:10px; color:#ccc;">Mitigate damage. Wizards trigger a magic ward dome</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Attack Combo</td>
+                <td style="padding:10px; color:#f6be3b;">CLICK <span style="color:#666;">or</span> ENTER</td>
+                <td style="padding:10px; color:#ccc;">Strike with your weapon. Chain clicks for multi-hit combos</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Dash / Dodge</td>
+                <td style="padding:10px; color:#f6be3b;">SHIFT</td>
+                <td style="padding:10px; color:#ccc;">Perform a quick dodge dash to phase through attacks</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Interact / Chat</td>
+                <td style="padding:10px; color:#f6be3b;">F</td>
+                <td style="padding:10px; color:#ccc;">Speak to NPCs, open chests, or inspect town objects</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">Character & Inventory</td>
+                <td style="padding:10px; color:#f6be3b;">C</td>
+                <td style="padding:10px; color:#ccc;">Toggle character stats sheet, equip gear, and check level</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px; font-weight:bold; color:#fff;">AI Autoplay Manager</td>
+                <td style="padding:10px; color:#f6be3b;">A</td>
+                <td style="padding:10px; color:#ccc;">Toggle the automated AI companion manager overlay</td>
+              </tr>
+              <tr>
+                <td style="padding:10px; font-weight:bold; color:#fff;">Hide Menu / Interface</td>
+                <td style="padding:10px; color:#f6be3b;">TAB</td>
+                <td style="padding:10px; color:#ccc;">Toggle HUD and settings UI for screenshots or raw play</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Combat Content -->
+        <div id="help-content-combat" class="help-tab-panel" style="display:none; flex-direction:column; gap:16px;">
+          <div style="display:flex; flex-direction:column; gap:12px; font-size:13px; line-height:1.6; color:#ccc;">
+            <div style="background:rgba(255,255,255,0.03); border-left:4px solid #2ddbde; padding:12px; border-radius:4px;">
+              <strong style="color:#fff; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">💥 Combo Combat System</strong>
+              Strike repeatedly in quick succession! Chaining attacks increases damage output. The combo resets if you take a hit or wait too long between swings.
+            </div>
+            
+            <div style="background:rgba(255,255,255,0.03); border-left:4px solid #e1b12c; padding:12px; border-radius:4px;">
+              <strong style="color:#fff; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">🛡️ Blocking & Defensive Stances</strong>
+              Holding <span style="color:#e1b12c; font-weight:bold;">S</span> or <span style="color:#e1b12c; font-weight:bold;">DOWN</span> reduces all incoming physical damage by up to 50%.
+              <ul style="margin:4px 0 0; padding-left:18px;">
+                <li><strong style="color:#fff;">Wizard Dome:</strong> Playing as a Wizard spawns an active magical barrier dome that completely nullifies spell attacks!</li>
+                <li><strong style="color:#fff;">Samurai Deflect:</strong> Samurai blocking grants a temporary speed and dodge boost.</li>
+              </ul>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.03); border-left:4px solid #ff4757; padding:12px; border-radius:4px;">
+              <strong style="color:#fff; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">🎯 Backstabs & Critical Hits</strong>
+              Attacking an enemy from behind bypasses portion of their defense and deals <span style="color:#ff4757; font-weight:bold;">1.5x critical damage</span>. Listen for the satisfying crunch sound!
+            </div>
+          </div>
+        </div>
+
+        <!-- Items Content -->
+        <div id="help-content-items" class="help-tab-panel" style="display:none;">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:12px;">
+              
+              <!-- Health Potion -->
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px; display:flex; gap:10px; align-items:center;">
+                <div style="width:40px; height:40px; background:rgba(0,0,0,0.4); border:1px solid rgba(45,219,222,0.3); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                  <img src="src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png" style="width:120px; height:120px; image-rendering:pixelated; transform: translate(32px, 32px) scale(3.5);" />
+                </div>
+                <div style="font-size:11px;">
+                  <div style="color:#fff; font-weight:bold; font-size:12px;">Health Potion</div>
+                  <div style="color:#888;">Restores 50 HP immediately. Keep a stock for long wilderness journeys.</div>
+                </div>
+              </div>
+
+              <!-- Mana Potion -->
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px; display:flex; gap:10px; align-items:center;">
+                <div style="width:40px; height:40px; background:rgba(0,0,0,0.4); border:1px solid rgba(45,219,222,0.3); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                  <img src="src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png" style="width:120px; height:120px; image-rendering:pixelated; transform: translate(32px, 32px) scale(3.5);" />
+                </div>
+                <div style="font-size:11px;">
+                  <div style="color:#fff; font-weight:bold; font-size:12px;">Mana Potion</div>
+                  <div style="color:#888;">Restores 50 MP. Crucial for wizard spellcasting.</div>
+                </div>
+              </div>
+
+              <!-- Ring of Strength -->
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px; display:flex; gap:10px; align-items:center;">
+                <img src="src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon1.png" style="width:40px; height:40px; image-rendering:pixelated; background:rgba(0,0,0,0.4); border:1px solid rgba(45,219,222,0.3); border-radius:4px;" />
+                <div style="font-size:11px;">
+                  <div style="color:#fff; font-weight:bold; font-size:12px;">Ring of Strength</div>
+                  <div style="color:#4ade80;">+20% Physical & Spell Damage</div>
+                  <div style="color:#888;">A rare magic accessory amplifying force.</div>
+                </div>
+              </div>
+
+              <!-- Boar Meat -->
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px; display:flex; gap:10px; align-items:center;">
+                <img src="src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png" style="width:40px; height:40px; image-rendering:pixelated; background:rgba(0,0,0,0.4); border:1px solid rgba(45,219,222,0.3); border-radius:4px;" />
+                <div style="font-size:11px;">
+                  <div style="color:#fff; font-weight:bold; font-size:12px;">Boar Meat</div>
+                  <div style="color:#888;">Restores 20 HP. Collected from hunting wild forest boars.</div>
+                </div>
+              </div>
+
+              <!-- Void Staff -->
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px; display:flex; gap:10px; align-items:center;">
+                <img src="src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Staves/PixelArt_FantasyWeapons_01_Staff_04.png" style="width:40px; height:40px; image-rendering:pixelated; background:rgba(0,0,0,0.4); border:1px solid rgba(45,219,222,0.3); border-radius:4px;" />
+                <div style="font-size:11px;">
+                  <div style="color:#fff; font-weight:bold; font-size:12px;">Staff of the Void</div>
+                  <div style="color:#4ade80;">+32 Wizard Spell Damage</div>
+                  <div style="color:#888;">A legendary cosmic staff channels void energy.</div>
+                </div>
+              </div>
+
+              <!-- Elven Longbow -->
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px; display:flex; gap:10px; align-items:center;">
+                <img src="src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Ranged/PixelArt_FantasyWeapons_01_Ranged_02.png" style="width:40px; height:40px; image-rendering:pixelated; background:rgba(0,0,0,0.4); border:1px solid rgba(45,219,222,0.3); border-radius:4px;" />
+                <div style="font-size:11px;">
+                  <div style="color:#fff; font-weight:bold; font-size:12px;">Elven Longbow</div>
+                  <div style="color:#4ade80;">+10 Ranger Ranged Damage</div>
+                  <div style="color:#888;">Crafted from sacred sylvan ironwood.</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Factions Content -->
+        <div id="help-content-factions" class="help-tab-panel" style="display:none; flex-direction:column; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:12px; font-size:13px; line-height:1.6; color:#ccc;">
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(45,219,222,0.15); padding:12px; border-radius:6px;">
+              <strong style="color:#2ddbde; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">⚖️ Alignment & Morality Shifts</strong>
+              Your decisions during encounters change your standing.
+              <ul style="margin:4px 0 0; padding-left:18px;">
+                <li><strong style="color:#4ade80;">Heroic (>20):</strong> Unlocks holy blessings, Seraphim faction trust, and discounts.</li>
+                <li><strong style="color:#f87171;">Ruthless (<-20):</strong> Unlocks lifesteal artifacts and demon pacts.</li>
+                <li><strong style="color:#a8a8a8;">Neutral (-20 to 20):</strong> Balanced boosts via specific artifacts like the Scales of Balance.</li>
+              </ul>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(246,190,59,0.15); padding:12px; border-radius:6px;">
+              <strong style="color:#f6be3b; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">🏢 Faction Standing Perks</strong>
+              Earning reputation with local political factions yields passive gameplay bonuses:
+              <ul style="margin:4px 0 0; padding-left:18px;">
+                <li><strong style="color:#fff;">Discounted Goods:</strong> Buy items at up to 25% lower prices in friendly faction capitals.</li>
+                <li><strong style="color:#fff;">Recruitment:</strong> Faction guards and royal companions will only join your party if you hold sufficient standing.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Faction Lore Bible Modal -->
+<div id="ui-lore-bible" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; font-family:'Courier Prime', monospace; box-sizing:border-box;">
+  <div style="background:#0d0d0f; border:2px solid #f6be3b; border-radius:8px; padding:28px; width:700px; max-width:95vw; max-height:90vh; box-shadow:0 0 40px rgba(246,190,59,0.25); position:relative; box-sizing:border-box; color:#fff; display:flex; flex-direction:col; gap:16px;">
+    
+    <!-- Close button -->
+    <button id="btn-close-lore-bible" style="position:absolute; top:16px; right:16px; background:transparent; border:none; color:#aaa; font-size:14px; font-weight:bold; cursor:pointer; font-family:inherit; transition:color 0.2s;" onmouseover="this.style.color='#ff4444'" onmouseout="this.style.color='#aaa'">✕ CLOSE</button>
+    
+    <div style="width:100%; display:flex; flex-direction:column; gap:12px;">
+      <h2 style="color:#f6be3b; text-align:center; margin:0; font-size:22px; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 8px rgba(246,190,59,0.3);">📜 Faction Lore Bible</h2>
+      <p style="color:#888; font-size:11px; text-align:center; margin:0 0 10px; text-transform:uppercase; letter-spacing:1px;">The Chronicles & Faction History of Elden Soul</p>
+      
+      <!-- Scrollable content -->
+      <div id="lore-bible-content" style="display:flex; flex-direction:column; gap:20px; max-height:60vh; overflow-y:auto; padding-right:8px; border:1px solid #222; background:#111; border-radius:6px; padding:12px;">
+        <!-- JavaScript will populate this dynamically -->
+      </div>
+    </div>
+
+  </div>
 </div>
 </body>
 </html>

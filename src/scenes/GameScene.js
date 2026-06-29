@@ -136,6 +136,7 @@ class GameScene extends Phaser.Scene {
 
         // Transition State Flag
         this.isTransitioning = false;
+        this.isCutscene = false;
         
         // Build HUD (must be before loadZone so zone name element exists)
         this.createHUD();
@@ -143,6 +144,8 @@ class GameScene extends Phaser.Scene {
         // Load Initial Zone
         this.worldManager.loadZone(startZone, 'center').then(() => {
             if (this.isSceneDestroyed) return;
+            // Spawn cargo mules AFTER platforms are loaded
+            this.spawnCargoCompanion();
             // Trigger New Game Intro Cutscene
             if (window.saveData && window.saveData.isNewGame) {
                 window.saveData.isNewGame = false;
@@ -188,10 +191,16 @@ class GameScene extends Phaser.Scene {
         
         // Restore saved party members
          if (window.saveData && window.saveData.party && window.saveData.party.length > 0) {
+             // Cleanup any corrupted pack mules in the save data (Phase 12)
+             window.saveData.party = window.saveData.party.filter(member => member.classId !== 'pack_mule' && (!member.npcName || !member.npcName.startsWith('Pack Mule')));
+             
+             const mapWidth = this.physics.world.bounds.width || 1280;
              window.saveData.party.forEach((memberData, i) => {
-                 const spawnX = this.player.sprite.x + 60 + (i * 60);
+                 const spawnX = Phaser.Math.Clamp(this.player.sprite.x + 60 + (i * 60), 50, mapWidth - 50);
                  let classId = memberData.classId;
-                 if (!['knight', 'wizard', 'ranger', 'samurai', 'warrior'].includes(classId)) {
+                 const isStandard = ['knight', 'wizard', 'ranger', 'samurai', 'warrior'].includes(classId);
+                 const isValidRegistered = window.classesData && window.classesData[classId.replace('_rival', '')];
+                 if (!isStandard && !isValidRegistered) {
                      if (classId && classId.startsWith('custom_npc_')) {
                          if (this.textures.exists(classId)) {
                              // Keep custom texture key if it still exists in memory
@@ -220,6 +229,11 @@ class GameScene extends Phaser.Scene {
                 this.physics.add.collider(hero.sprite, this.platforms);
             });
         }
+
+        // Setup caravan rope graphics
+        this.caravanRopeGraphics = this.add.graphics();
+
+        // Caravan companion (mule/cart) is spawned inside loadZone().then() above
         
         // Auto-save every 30 seconds
         this.time.addEvent({
@@ -463,21 +477,24 @@ class GameScene extends Phaser.Scene {
             
             if (align >= 20 && rand < chance) {
                 wrathDimension = 'Heaven';
+                window.saveData.lastMortalZone = currentZone;
                 window.saveData.preWrathZone = nextZoneIndex; // Store original progression target
                 nextZoneIndex = 777;
                 spawnedWrath = true;
                 window.saveData.wrathCooldown = 5; // 5 normal zones cooldown
             } else if (align <= -20 && rand < chance) {
                 wrathDimension = 'Hell';
+                window.saveData.lastMortalZone = currentZone;
                 window.saveData.preWrathZone = nextZoneIndex; // Store original progression target
                 nextZoneIndex = -666;
                 spawnedWrath = true;
                 window.saveData.wrathCooldown = 5; // 5 normal zones cooldown
             }
-        } else if (isPocketDimension && window.saveData && typeof window.saveData.preWrathZone === 'number') {
+        } else if (isPocketDimension) {
             // Exiting a pocket dimension always returns to the pre-wrath progression zone
-            nextZoneIndex = window.saveData.preWrathZone;
-            delete window.saveData.preWrathZone;
+            const fallbackZone = (window.saveData && typeof window.saveData.lastMortalZone === 'number') ? window.saveData.lastMortalZone : 0;
+            nextZoneIndex = (window.saveData && typeof window.saveData.preWrathZone === 'number') ? window.saveData.preWrathZone : fallbackZone;
+            if (window.saveData) delete window.saveData.preWrathZone;
             
             this.time.delayedCall(1200, () => {
                 if (this.player && this.player.sprite && this.player.sprite.active) {
@@ -582,6 +599,7 @@ class GameScene extends Phaser.Scene {
                 // Snap camera Y on zone load
                 this.cameras.main.scrollY = Phaser.Math.Clamp(this.player.sprite.y - this.cameras.main.height * 0.72, 50, 350);
                 this.isTransitioning = false;
+                this.spawnCargoCompanion();
                 this.cameras.main.fadeIn(500, 0, 0, 0);
             }).catch(err => {
                 if (this.isSceneDestroyed) return;
@@ -605,7 +623,7 @@ class GameScene extends Phaser.Scene {
         }
 
         // Add a giant dramatic banner text at the center of the screen
-        const bannerText = dimension === 'Heaven' ? 'THE WRATH OF THE HEAVENS!' : 'THE WRATH OF HELL!';
+        const bannerText = dimension === 'Heaven' ? 'THE BLESSINGS OF THE HEAVENS!' : 'THE DAMNATION OF HELL!';
         const bannerColor = dimension === 'Heaven' ? '#ffeb88' : '#ff4444';
         
         const text = this.add.text(640, 260, bannerText, {
@@ -848,12 +866,26 @@ class GameScene extends Phaser.Scene {
         
         // Handle Zone Transitions (disabled if indoors)
         if (!this.isTransitioning && !this.isIndoors) {
-            const isTown = this.worldManager && this.worldManager.currentZoneData && this.worldManager.currentZoneData.type === 'Safe';
-            const rightBoundary = isTown ? 1800 : 3800;
-            if (this.player.sprite.x > rightBoundary) {
-                this.transitionZone(1); // Move Right
-            } else if (this.player.sprite.x < 60 && !this.isIndoors) {
-                this.transitionZone(-1); // Move Left
+            // Compute boundaries dynamically from the actual map width (accounts for capital cities being wider)
+            const mapWidth = this.physics.world.bounds.width || 1840;
+            const rightBoundary = mapWidth - 120;
+            const leftBoundary = 60;
+
+            // Anti-bounce cooldown: prevent transitions within 2 seconds of the last one
+            const now = Date.now();
+            const lastTransition = this._lastTransitionTime || 0;
+            if (now - lastTransition < 2000) {
+                // Clamp player to safe area instead of transitioning
+                if (this.player.sprite.x < leftBoundary) this.player.sprite.x = leftBoundary + 20;
+                if (this.player.sprite.x > rightBoundary) this.player.sprite.x = rightBoundary - 20;
+            } else {
+                if (this.player.sprite.x > rightBoundary) {
+                    this._lastTransitionTime = now;
+                    this.transitionZone(1); // Move Right
+                } else if (this.player.sprite.x < leftBoundary && !this.isIndoors) {
+                    this._lastTransitionTime = now;
+                    this.transitionZone(-1); // Move Left
+                }
             }
         }
         
@@ -1016,6 +1048,39 @@ class GameScene extends Phaser.Scene {
             this.angelPromptText.setVisible(false);
         }
 
+        // Draw caravan attachment ropes/chains
+        if (this.caravanRopeGraphics) {
+            this.caravanRopeGraphics.clear();
+            const carriers = this.partyMembers.filter(m => m.isCargoCarrier && m.sprite && m.sprite.active);
+            
+            if (carriers.length > 0) {
+                // Build a chain: player → mule1 → mule2 → ...
+                let prevSprite = this.player.sprite;
+                carriers.forEach(carrier => {
+                    if (prevSprite && prevSprite.active && carrier.sprite && carrier.sprite.active) {
+                        const pX = prevSprite.x;
+                        const pY = prevSprite.y;
+                        const cX = carrier.sprite.x;
+                        const cY = carrier.sprite.y;
+                        
+                        // Only draw rope if they're reasonably close (< 400px)
+                        const dist = Math.abs(pX - cX);
+                        if (dist < 400) {
+                            // Draw connecting rope
+                            this.caravanRopeGraphics.lineStyle(3, 0x5c4033, 0.8);
+                            this.caravanRopeGraphics.lineBetween(pX, pY + 10, cX, cY + 10);
+                            
+                            // Draw attachment knots/rings
+                            this.caravanRopeGraphics.fillStyle(0x3e2723, 1);
+                            this.caravanRopeGraphics.fillCircle(pX, pY + 10, 4);
+                            this.caravanRopeGraphics.fillCircle(cX, cY + 10, 4);
+                        }
+                    }
+                    prevSprite = carrier.sprite;
+                });
+            }
+        }
+
         // HUD Update (throttled to 4x/sec to avoid DOM thrashing)
         if (!this._lastHudUpdate || time - this._lastHudUpdate > 250) {
             this._lastHudUpdate = time;
@@ -1029,7 +1094,7 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0, weaponType = null) {
+    spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0, weaponType = null, faction = null) {
         if (!this.partyMembers) this.partyMembers = [];
         
         const isParty = (aiState === 'party');
@@ -1044,7 +1109,17 @@ class GameScene extends Phaser.Scene {
             console.trace();
             x = 400; // Fallback
         }
-        const hero = new PlayerController(this, x, spawnY, this.inputManager, { isAI: true, aiState: aiState, classId: spriteKey, npcName: npcName, persona: persona, camaraderie: camaraderie, weaponType: weaponType });
+        const hero = new PlayerController(this, x, spawnY, this.inputManager, { 
+            isAI: true, 
+            aiState: aiState, 
+            classId: spriteKey, 
+            npcName: npcName, 
+            persona: persona, 
+            camaraderie: camaraderie, 
+            weaponType: weaponType,
+            faction: faction,
+            factionRank: faction ? 'champion' : null
+        });
         
         if (this.isIndoors) {
             if (typeof hero.setScaleWithPhysics === 'function') {
@@ -1118,18 +1193,31 @@ class GameScene extends Phaser.Scene {
             colorStr = color;
         }
 
+        // Round numeric messages to prevent decimals
+        let displayMessage = message;
+        if (typeof message === 'number') {
+            displayMessage = String(Math.round(message));
+        } else if (typeof message === 'string') {
+            const num = Number(message);
+            if (!isNaN(num)) {
+                displayMessage = String(Math.round(num));
+            }
+        }
+
         // Slight random X offset to prevent stacking
         const offsetX = (Math.random() - 0.5) * 30;
         
-        const text = this.add.text(x + offsetX, y, String(message), {
+        const text = this.add.text(x + offsetX, y, displayMessage, {
             fontFamily: '"Space Grotesk", sans-serif',
             fontSize: '22px',
             fill: colorStr,
             stroke: '#000000',
             strokeThickness: 4,
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            align: 'center',
+            wordWrap: { width: 280, useAdvancedWrap: true }
         });
-        text.setOrigin(0.5);
+        text.setOrigin(0.5, 1.0);
         text.setScale(0.5);
         text.setDepth(1000); // Ensure text always renders on top of particles and sprites
 
@@ -1142,11 +1230,11 @@ class GameScene extends Phaser.Scene {
             onComplete: () => {
                 this.tweens.add({
                     targets: text,
-                    y: y - 50,
-                    scale: 0.8,
+                    y: y - 80,
+                    scale: 0.9,
                     alpha: 0,
-                    duration: 900,
-                    ease: 'Power2',
+                    duration: 3500,
+                    ease: 'Power1.easeOut',
                     onComplete: () => text.destroy()
                 });
             }
@@ -1315,5 +1403,82 @@ class GameScene extends Phaser.Scene {
         }
         this.decorGroup = null;
         this.isSceneDestroyed = true;
+    }
+
+    spawnCargoCompanion() {
+        if (!this.player || !this.player.sprite || !this.partyMembers) return;
+
+        // Count total cargo
+        if (!window.saveData.cargo) window.saveData.cargo = {};
+        const totalCargo = Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0);
+
+        // Find existing cargo carriers
+        const existingCarriers = this.partyMembers.filter(m => m.isCargoCarrier);
+
+        // Hide caravan if indoors or if no cargo is carried
+        const isActuallyIndoor = this.currentIndoorLocation || this.isIndoors || (window.saveData && window.saveData.currentZoneType === 'Safe_Indoor');
+        
+        if (totalCargo === 0 || isActuallyIndoor) {
+            existingCarriers.forEach(carrier => {
+                const idx = this.partyMembers.indexOf(carrier);
+                if (idx > -1) this.partyMembers.splice(idx, 1);
+                if (this.heroGroup) this.heroGroup.remove(carrier.sprite);
+                carrier.destroy();
+            });
+            return;
+        }
+
+        // Determine targets: 1 pack mule per every 2 units of cargo (up to 5 mules)
+        const targetClasses = [];
+        const numMules = Math.min(5, Math.ceil(totalCargo / 2));
+        for (let i = 0; i < numMules; i++) {
+            targetClasses.push('pack_mule');
+        }
+
+        const currentClasses = existingCarriers.map(m => m.classData.id);
+        const matches = currentClasses.length === targetClasses.length;
+
+        if (matches) {
+            // Keep active and updated
+            return;
+        }
+
+        // Destroy mismatches
+        existingCarriers.forEach(carrier => {
+            const idx = this.partyMembers.indexOf(carrier);
+            if (idx > -1) this.partyMembers.splice(idx, 1);
+            if (this.heroGroup) this.heroGroup.remove(carrier.sprite);
+            carrier.destroy();
+        });
+
+        // Spawn caravan units
+        const playerX = this.player.sprite.x;
+        const mapWidth = this.physics.world.bounds.width || 1280;
+        const mapCenter = mapWidth / 2;
+        // Spawn mules toward the center of the map so they don't fall off either edge
+        const direction = playerX > mapCenter ? -1 : 1;
+        targetClasses.forEach((classId, index) => {
+            const spawnX = Phaser.Math.Clamp(playerX + direction * (40 + index * 50), 80, mapWidth - 80);
+            // Use a safe ground Y — capped so they spawn on ground, not in the void
+            const spawnY = Math.min(this.player.sprite.y, 500);
+            const carrier = new PlayerController(this, spawnX, spawnY, this.inputManager, {
+                isAI: true,
+                aiState: 'party',
+                classId: classId,
+                npcName: `Pack Mule ${index + 1}`,
+                isCargoCarrier: true
+            });
+            carrier.isCargoCarrier = true;
+            carrier.isCargoWagon = false;
+            
+            // Set stats and base HP (150 HP for pack mules)
+            carrier.maxHp = 150;
+            carrier.hp = carrier.maxHp;
+
+            this.partyMembers.push(carrier);
+            if (this.heroGroup) this.heroGroup.add(carrier.sprite);
+            this.physics.add.collider(carrier.sprite, this.platforms);
+            
+        });
     }
 }

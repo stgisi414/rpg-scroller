@@ -31,12 +31,41 @@ class CompanionAI {
         if (deliveryQuest && deliveryQuest.deliveryPickedUp) {
             return deliveryQuest.deliveryTargetZone; // Go to target town zone
         }
+
+        // 3. Political quests (Phase 6 / 10)
+        const politicalQuest = player.quests.find(q => ['espionage', 'diplomacy', 'assassination', 'intel_report'].includes(q.type));
+        if (politicalQuest) {
+            if (politicalQuest.targetZone !== undefined) return politicalQuest.targetZone;
+            if (politicalQuest.deliveryTargetZone !== undefined) return politicalQuest.deliveryTargetZone;
+            if (politicalQuest.assassinationTargetZone !== undefined) return politicalQuest.assassinationTargetZone;
+            
+            if (politicalQuest.targetKingdom) {
+                const kingdomObj = window.WORLD_KINGDOMS[politicalQuest.targetKingdom] || (window.saveData && window.saveData.discoveredKingdoms && window.saveData.discoveredKingdoms[politicalQuest.targetKingdom]);
+                if (kingdomObj) {
+                    return kingdomObj.capital;
+                }
+            }
+            if (politicalQuest.targetFaction) {
+                const factionObj = window.WORLD_FACTIONS[politicalQuest.targetFaction];
+                if (factionObj && factionObj.kingdom) {
+                    const kingdomObj = window.WORLD_KINGDOMS[factionObj.kingdom];
+                    if (kingdomObj) {
+                        return kingdomObj.capital;
+                    }
+                }
+            }
+        }
         
         // 3. Kill quest — hunt in non-town zones, progressing toward the compass target
         const killQuest = player.quests.find(q => q.type === 'kill');
         if (killQuest) {
-            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-            const compassTarget = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+            let compassTarget = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+            if (compassTarget === 0 && player.quests && player.quests.length > 0) {
+                const questZone = this._getQuestTargetZone(player);
+                if (questZone !== null) {
+                    compassTarget = questZone;
+                }
+            }
             const isInTown = Math.abs(currentZone) > 0 ? (Math.abs(currentZone) % 4 === 0) : currentZone === 0;
 
             if (isInTown) {
@@ -77,7 +106,7 @@ class CompanionAI {
 
     updateAI(time, delta) {
         const player = this.player;
-        if (!player.sprite || !player.sprite.active) {
+        if (!player.sprite || !player.sprite.active || !player.classData) {
             return;
         }
 
@@ -148,7 +177,16 @@ class CompanionAI {
             this._isElementVisible('ui-town-directory')
         );
 
-        if (player.aiState === 'party' && !hasMainHeroSafeZoneInput) {
+        if (player.isCargoCarrier) {
+            // Mules ALWAYS follow the main player, not other party members
+            target = p.sprite;
+
+            // Hard clamp: prevent mules from going near zone edges
+            const mapW = (player.scene.physics && player.scene.physics.world)
+                ? player.scene.physics.world.bounds.width : 1840;
+            if (player.sprite.x < 60) player.sprite.x = 60;
+            if (player.sprite.x > mapW - 60) player.sprite.x = mapW - 60;
+        } else if (player.aiState === 'party' && !hasMainHeroSafeZoneInput) {
             let closestEnemy = null;
             let bestScore = -Infinity;
             let chosenDist = Infinity;
@@ -156,11 +194,11 @@ class CompanionAI {
             player.scene.enemies.getChildren().forEach(e => {
                 if (e.active && (!e.controller || !e.controller.isDead)) {
                     // Prevent AI Main Hero from chasing enemies near zone borders to avoid transition loops
-                    if (player === p && player.scene && player.scene.zoneType) {
-                        const widthTiles = isActuallySafe ? 40 : 84;
+                        const currentZoneIdx = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : 0;
+                        const isCapital = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
+                        const widthTiles = isActuallySafe ? (isCapital ? 60 : 40) : 84;
                         const totalWidth = widthTiles * 46;
                         if (e.x < 150 || e.x > totalWidth - 150) return; // Ignore enemies near borders
-                    }
                     const d = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, e.x, e.y);
                     
                     // --- PART 1: WEIGHTED TARGET RANKING ---
@@ -172,7 +210,7 @@ class CompanionAI {
                     
                     // Ranged Snipers: +300
                     const eTexture = e.texture ? e.texture.key : '';
-                    const isRanged = eTexture.includes('wizard') || eTexture.includes('ranger') || eTexture.includes('archer') || eTexture.includes('witch') || eTexture.includes('mage') || eTexture.includes('devil') || eTexture.includes('lich') || (e.scene && e.scene.anims.exists(eTexture + '-shoot'));
+                    const isRanged = eTexture.includes('wizard') || eTexture.includes('ranger') || eTexture.includes('archer') || eTexture.includes('longbowman') || eTexture.includes('witch') || eTexture.includes('mage') || eTexture.includes('devil') || eTexture.includes('lich') || (e.scene && e.scene.anims.exists(eTexture + '-shoot'));
                     if (isRanged) score += 300;
                     
                     // Low Health: +200
@@ -201,29 +239,40 @@ class CompanionAI {
                     target = rescuee.sprite;
                 } else {
                     let isProgression = false;
-                    const widthTiles = isActuallySafe ? 40 : 84;
+                    const currentZoneIdx = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : 0;
+                    const isCapital = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
+                    const widthTiles = isActuallySafe ? (isCapital ? 60 : 40) : 84;
                     const totalWidth = widthTiles * 46;
                     
                     let targetZone = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
-                    const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
-                    const wantsToQuest = player.quests && player.quests.length > 0 && (Math.random() * 100 < questFocus);
-                    if (wantsToQuest) {
-                        const questZone = this._getQuestTargetZone(player);
-                        if (questZone !== null) {
-                            targetZone = questZone;
+                    const isMerchantMode = window.autoplayConfig && window.autoplayConfig.preset === 'merchant_trader';
+                    if (!isMerchantMode && player.quests && player.quests.length > 0) {
+                        const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
+                        if (targetZone === 0 || questFocus >= 40) {
+                            const questZone = this._getQuestTargetZone(player);
+                            if (questZone !== null) {
+                                targetZone = questZone;
+                            }
                         }
                     }
                     
                     if (player === p) {
                         if (player.scene.zoneType !== 'Safe') {
-                            // Check if all enemies in the zone are dead
+                            // Check if all TARGETABLE enemies in the zone are dead
+                            // (ignore enemies near zone borders — same filter as targeting)
                             let hasEnemies = false;
+                            const currentZoneIdx = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : 0;
+                            const isCapital = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
+                            const progWidthTiles = isActuallySafe ? (isCapital ? 60 : 40) : 84;
+                            const progTotalWidth = progWidthTiles * 46;
                             player.scene.enemies.getChildren().forEach(e => {
                                 if (e.active && (!e.controller || !e.controller.isDead)) {
-                                    hasEnemies = true;
+                                    if (e.x > 150 && e.x < progTotalWidth - 150) {
+                                        hasEnemies = true;
+                                    }
                                 }
                             });
-                            if (!hasEnemies && currentZoneIndex !== targetZone) {
+                            if (!hasEnemies && currentZoneIdx !== targetZone) {
                                 isProgression = true;
                             }
                         } else {
@@ -243,10 +292,13 @@ class CompanionAI {
                     } else {
                         let targetX = player.lastVirtualTargetX || player.sprite.x;
                         if (!player.lastVirtualTargetX || Math.abs(player.sprite.x - player.lastVirtualTargetX) < 15 || time % 8000 < 100) {
-                            // Wander towards the right, but if close to the border, wander towards the left
-                            if (player.sprite.x > totalWidth - 250) targetX = player.sprite.x - 200;
-                            else if (player.sprite.x < 250) targetX = player.sprite.x + 200;
-                            else targetX = player.sprite.x + (Math.random() < 0.5 ? 200 : -200);
+                            const leftBound = 400;
+                            const rightBound = totalWidth - 400;
+                            if (player.sprite.x > rightBound) targetX = player.sprite.x - 250;
+                            else if (player.sprite.x < leftBound) targetX = player.sprite.x + 250;
+                            else targetX = player.sprite.x + (Math.random() < 0.5 ? 250 : -250);
+                            
+                            targetX = Phaser.Math.Clamp(targetX, leftBound, rightBound);
                         }
                         player.lastVirtualTargetX = targetX;
                         if (player !== p) {
@@ -270,9 +322,13 @@ class CompanionAI {
                 if (time - (player.lastTacticTime || 0) > 3000) {
                     player.lastTacticTime = time;
                     let optimalDist = 40; // Melee
-                    const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+                    const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
                     if (isRanged) {
                         optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                    } else if (player.classData.id && player.classData.id.startsWith('witch')) {
+                        optimalDist = 65; // Account for wider body collision limits
+                    } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
+                        optimalDist = 60;
                     }
 
                     const battleState = {
@@ -317,9 +373,13 @@ class CompanionAI {
                         player.currentTactic = 'IDLE';
                     } else if (player.currentTactic === 'CHASE') {
                         let optimalDist = 40; // Melee
-                        const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+                        const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
                         if (isRanged) {
                             optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                        } else if (player.classData.id && player.classData.id.startsWith('witch')) {
+                            optimalDist = 65; // Account for wider body collision limits
+                        } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
+                            optimalDist = 60;
                         }
                         if (dist > optimalDist - 20) {
                             if (dx > 0) player.aiInput.right = true; else player.aiInput.left = true;
@@ -330,8 +390,12 @@ class CompanionAI {
                         if (dx > 0) player.aiInput.left = true; else player.aiInput.right = true;
                     } else if (player.currentTactic === 'HEAL') {
                         if (player.inventory && player.inventory.potions > 0) {
-                            player.inventory.potions--;
-                            player.hp = Math.min(player.maxHp, player.hp + 50);
+                            if (typeof player.usePotion === 'function') {
+                                player.usePotion();
+                            } else {
+                                player.inventory.potions--;
+                                player.hp = Math.min(player.maxHp, player.hp + 50);
+                            }
                             if (player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "Potion!", 0x00ff00);
                         }
                         player.currentTactic = 'IDLE';
@@ -343,11 +407,19 @@ class CompanionAI {
             // --- END GEMINI AI ---
             
             let optimalDist = 40; // Melee
-            const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+            const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
             if (isRanged) {
                 optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+            } else if (player.classData.id && player.classData.id.startsWith('witch')) {
+                optimalDist = 65; // Account for wider body collision limits
+            } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
+                optimalDist = 60;
             }
-            if (target === p.sprite && player.aiState === 'party') optimalDist = 80; // Follow distance
+            if (player.isCargoCarrier) {
+                optimalDist = player.isCargoWagon ? 100 : 60;
+            } else if ((target === p.sprite || (player.scene.partyMembers && player.scene.partyMembers.some(m => m.sprite === target))) && player.aiState === 'party') {
+                optimalDist = 80; // Follow distance
+            }
             
             // For virtual targets (wandering), ignore optimal distance and just walk there
             const isVirtual = target.isVirtual;
@@ -432,7 +504,7 @@ class CompanionAI {
             }
 
             // Attack logic - attack when in range and target is an enemy
-            const isEnemy = target && !target.isVirtual && target !== p.sprite && target !== player.sprite && (!player.scene.activeRescuee || target !== player.scene.activeRescuee.sprite);
+            const isEnemy = !player.isCargoCarrier && target && !target.isVirtual && target !== p.sprite && target !== player.sprite && (!player.scene.activeRescuee || target !== player.scene.activeRescuee.sprite);
             if (player.aiState === 'hostile' || isEnemy) {
                 let attackRange = optimalDist + 30;
                 if (!isVirtual && target.type === 'spider') attackRange = optimalDist + 60;
@@ -468,7 +540,7 @@ class CompanionAI {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
-                } else if (player.classData.id === 'ranger' || player.classData.id === 'ranger_rival') {
+                } else if (player.classData.id === 'ranger' || player.classData.id === 'ranger_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival') {
                     if (verticallyAligned && player.sp >= player.maxSp * 0.4 && dist <= attackRange + 100 && Math.random() < 0.15 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
@@ -490,6 +562,40 @@ class CompanionAI {
                         player.aiInput.megaSpell = true;
                         usedSpell = true;
                     } else if (verticallyAligned && player.mp >= 4 && dist <= attackRange + 80 && Math.random() < 0.2 * spellRateMult) {
+                        player.aiInput.superSpell = true;
+                        usedSpell = true;
+                    }
+                } else if (player.classData.id.startsWith('witch')) {
+                    const maxSpellDist = (player.classData.id === 'witch_3_rival') ? 450 : 300;
+                    if (player.mp >= 35 && dist <= maxSpellDist && Math.random() < 0.15 * spellRateMult) {
+                        player.aiInput.superSpell = true;
+                        usedSpell = true;
+                    }
+                } else if (player.classData.id.startsWith('pyromancer')) {
+                    if (player.mp >= 15 && dist <= 220 && Math.random() < 0.18 * spellRateMult) {
+                        player.aiInput.superSpell = true;
+                        usedSpell = true;
+                    }
+                } else if (player.classData.id.startsWith('priest')) {
+                    let shouldHeal = false;
+                    if (player.aiState === 'hostile') {
+                        if (player.hp < player.maxHp * 0.7) {
+                            shouldHeal = true;
+                        }
+                    } else {
+                        const p1 = player.scene.player;
+                        if (p1 && p1.hp < p1.maxHp * 0.7) {
+                            shouldHeal = true;
+                        }
+                        if (!shouldHeal && player.scene.partyMembers) {
+                            player.scene.partyMembers.forEach(m => {
+                                if (m && m.hp < m.maxHp * 0.7) {
+                                    shouldHeal = true;
+                                }
+                            });
+                        }
+                    }
+                    if (shouldHeal && player.mp >= 4 && Math.random() < 0.25 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }
@@ -685,13 +791,76 @@ class CompanionAI {
             const chest = scene.lootChests.find(c => !c.isOpen);
             if (chest) {
                 const cx = chest.sprite.x;
+                const cy = chest.sprite.y;
                 const dist = Math.abs(cx - player.sprite.x);
-                if (dist > 40) {
-                    if (cx > player.sprite.x) player.aiInput.right = true;
-                    else player.aiInput.left = true;
-                    if (dist > 150 && Math.random() < 0.1) {
-                        if (cx > player.sprite.x) player.aiInput.dashRight = true;
-                        else player.aiInput.dashLeft = true;
+                const verticalDist = Math.abs(cy - player.sprite.y);
+
+                if (dist > 40 || verticalDist > 50) {
+                    // Check if we are blocked by a ceiling or running into a wall horizontally while seeking a chest
+                    const isHittingWall = (player.sprite.body.blocked.left && player.aiInput.left) || (player.sprite.body.blocked.right && player.aiInput.right);
+                    if (player.sprite.body.blocked.up || isHittingWall) {
+                        if (!player._chestCeilingEscapeTicks || player._chestCeilingEscapeTicks <= 0) {
+                            // Take a running start: walk away from the wall/obstruction
+                            if (player.sprite.body.blocked.left) {
+                                player._chestCeilingEscapeDir = 1; // Run right
+                            } else if (player.sprite.body.blocked.right) {
+                                player._chestCeilingEscapeDir = -1; // Run left
+                            } else {
+                                player._chestCeilingEscapeDir = (player.sprite.x < cx) ? -1 : 1;
+                            }
+                            player._chestCeilingEscapeTicks = 45; // 45 frames of running start
+                        }
+                    }
+
+                    if (player._chestCeilingEscapeTicks && player._chestCeilingEscapeTicks > 0) {
+                        player._chestCeilingEscapeTicks--;
+                        if (player._chestCeilingEscapeDir === 1) {
+                            player.aiInput.right = true;
+                            player.aiInput.left = false;
+                        } else {
+                            player.aiInput.left = true;
+                            player.aiInput.right = false;
+                        }
+                        // Jump while escaping to clear any lower obstacles
+                        if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
+                            player.aiInput.up = true;
+                        }
+                    } else if (dist > 5) {
+                        // Move towards the chest horizontally
+                        if (cx > player.sprite.x) {
+                            player.aiInput.right = true;
+                            player.aiInput.left = false;
+                        } else {
+                            player.aiInput.left = true;
+                            player.aiInput.right = false;
+                        }
+                        
+                        if (dist > 150 && Math.random() < 0.1) {
+                            if (cx > player.sprite.x) player.aiInput.dashRight = true;
+                            else player.aiInput.dashLeft = true;
+                        }
+                    }
+
+                    // Jump if the chest is above us (only if not actively taking a running start)
+                    if (cy < player.sprite.y - 40 && (!player._chestCeilingEscapeTicks || player._chestCeilingEscapeTicks <= 0)) {
+                        if (player.sprite.body.blocked.down || player.sprite.body.touching.down) {
+                            player.aiInput.up = true;
+                        } else if (player.jumps < 2 && player.sprite.body.velocity.y > -50) {
+                            player.aiInput.up = true;
+                        }
+                    }
+
+                    // Stuck jump check (if horizontal movement is blocked by a wall or platform ceiling)
+                    if (!player._chestStuckTicks) player._chestStuckTicks = 0;
+                    const isStuck = (player.aiInput.left || player.aiInput.right) && Math.abs(player.sprite.body.velocity.x) < 5;
+                    if (isStuck) {
+                        player._chestStuckTicks++;
+                    } else {
+                        player._chestStuckTicks = 0;
+                    }
+                    if (player._chestStuckTicks >= 5) {
+                        player.aiInput.up = true;
+                        player._chestStuckTicks = 0;
                     }
                 } else {
                     player.aiInput.interact = true;
@@ -774,13 +943,15 @@ class CompanionAI {
 
             // Wants to adventure - respect townFocus
             const currentZoneIndex = scene.worldManager ? scene.worldManager.currentZoneIndex : 0;
-            let targetZone = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
             const questFocus = window.autoplayConfig ? window.autoplayConfig.questFocus : 70;
-            const wantsToQuest = player.quests && player.quests.length > 0 && (Math.random() * 100 < questFocus);
-            if (wantsToQuest) {
-                const questZone = this._getQuestTargetZone(player);
-                if (questZone !== null) {
-                    targetZone = questZone;
+            let targetZone = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+            const isMerchantMode = window.autoplayConfig && window.autoplayConfig.preset === 'merchant_trader';
+            if (!isMerchantMode && player.quests && player.quests.length > 0) {
+                if (targetZone === 0 || questFocus >= 40) {
+                    const questZone = this._getQuestTargetZone(player);
+                    if (questZone !== null) {
+                        targetZone = questZone;
+                    }
                 }
             }
 
@@ -794,8 +965,10 @@ class CompanionAI {
                 }
             } else if (!isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && !this._wantsToAdventure) {
                 const coliseumGrind = window.autoplayConfig && window.autoplayConfig.coliseumGrind;
-                if (coliseumGrind) {
-                    // In coliseum grind mode, never want to adventure — stay in town
+                const isMerchantTrader = window.autoplayConfig && window.autoplayConfig.preset === 'merchant_trader';
+                if (coliseumGrind || isMerchantTrader) {
+                    // In coliseum grind or merchant trader mode, never randomly adventure —
+                    // merchant traders only leave town after cargo trading sets a new targetZone
                     this._wantsToAdventure = false;
                 } else {
                     const adventureChance = ((100 - townFocus) / 100) * 0.01;
@@ -839,7 +1012,197 @@ class CompanionAI {
                     return;
                 }
                 
-                // Buying items chance respect partyBuildFocus
+                const isMerchantTrader = window.autoplayConfig && window.autoplayConfig.preset === 'merchant_trader';
+                if (isMerchantTrader) {
+                    const btnCargo = document.getElementById('btn-shop-cargo');
+                    const buyCargoList = document.getElementById('buy-cargo-list');
+                    if (btnCargo && !buyCargoList) {
+                        // Check if we already clicked cargo tab and got refused
+                        if (this._cargoTabClickTime && time - this._cargoTabClickTime > 1500) {
+                            // Cargo tab was clicked but buy-cargo-list never appeared — trade refused
+                            this._cargoTabClickTime = null;
+                            const closeBtn = document.getElementById('btn-close-shop');
+                            if (closeBtn) closeBtn.click();
+                            // Force leave this town — the faction here hates us
+                            this._wantsToAdventure = true;
+                            // Set target to a different kingdom's capital
+                            const currentZoneIdx = scene.worldManager ? scene.worldManager.currentZoneIndex : 0;
+                            const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdx) : null;
+                            const currentKingdomId = currentKingdom ? currentKingdom.id : null;
+                            let bestTarget = currentZoneIdx + 20;
+                            let bestDist = Infinity;
+                            if (window.WORLD_KINGDOMS) {
+                                for (const kId in window.WORLD_KINGDOMS) {
+                                    if (kId === currentKingdomId) continue;
+                                    const k = window.WORLD_KINGDOMS[kId];
+                                    const dist = Math.abs(k.capital - currentZoneIdx);
+                                    if (dist < bestDist) { bestDist = dist; bestTarget = k.capital; }
+                                }
+                            }
+                            const config = window.autoplayConfig || {};
+                            config.targetZone = bestTarget;
+                            if (scene.hudManager && typeof scene.hudManager._saveAutoplayConfig === 'function') {
+                                scene.hudManager._saveAutoplayConfig();
+                            }
+                            if (scene.showFloatingText) {
+                                scene.showFloatingText(player.sprite.x, player.sprite.y - 60, 'Trade refused! Leaving kingdom...', 0xff4444);
+                            }
+                            return;
+                        }
+                        if (!this._cargoTabClickTime) {
+                            this._cargoTabClickTime = time;
+                        }
+                        btnCargo.click(); // Switch to Cargo tab
+                        return;
+                    }
+                    this._cargoTabClickTime = null; // Reset on success
+
+                    if (time - (this._lastTradeTime || 0) > 800) {
+                        this._lastTradeTime = time;
+
+                        if (buyCargoList) {
+                            // 1. Sell ONLY goods that are in Import Demand here (profitable sales)
+                            const sellContainer = document.getElementById('sell-cargo-list');
+                            if (sellContainer) {
+                                // Find sell rows that have the "Import Demand" badge
+                                const sellRows = Array.from(sellContainer.querySelectorAll('div.flex'));
+                                for (const row of sellRows) {
+                                    if (row.innerText.includes('Import Demand')) {
+                                        const sellBtn = row.querySelector('[id^="btn-sell-"]');
+                                        if (sellBtn) {
+                                            sellBtn.click();
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Buy local exports if cargo hold has space
+                            const buyContainer = document.getElementById('buy-cargo-list');
+                            if (buyContainer && window.saveData) {
+                                const totalCargo = window.saveData.cargo
+                                    ? Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0)
+                                    : 0;
+
+                                if (totalCargo < 10) {
+                                    const buyButtons = Array.from(buyContainer.querySelectorAll('[id^="btn-buy-"]')).filter(btn => {
+                                        return btn.innerText.trim().toLowerCase() === 'buy';
+                                    });
+                                    if (buyButtons.length > 0) {
+                                        buyButtons[Math.floor(Math.random() * buyButtons.length)].click();
+                                        return; // Keep buying until full
+                                    }
+                                }
+                            }
+
+                            // 3. Done trading at this town — close shop and set next destination
+                            const closeBtn = document.getElementById('btn-close-shop');
+                            if (closeBtn) closeBtn.click();
+
+                            const totalCargo = window.saveData.cargo
+                                ? Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0)
+                                : 0;
+
+                            // Always update target to avoid getting stuck at the current zone
+                            // If carrying cargo, head to the capital of the kingdom that pays the absolute most for it!
+                            // If no cargo, head to the nearest different-kingdom capital to resupply.
+                            {
+                                const currentZoneIdx = scene.worldManager ? scene.worldManager.currentZoneIndex : 0;
+                                const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdx) : null;
+                                const currentKingdomId = currentKingdom ? currentKingdom.id : null;
+
+                                // Fallback: Find the nearest town (capital) in a DIFFERENT kingdom
+                                let bestTarget = currentZoneIdx + 20; // fallback: go far enough to leave any kingdom
+                                let bestDist = Infinity;
+
+                                if (window.WORLD_KINGDOMS) {
+                                    for (const kId in window.WORLD_KINGDOMS) {
+                                        if (kId === currentKingdomId) continue; // skip same kingdom
+                                        const k = window.WORLD_KINGDOMS[kId];
+                                        const capitalZone = k.capital;
+                                        const dist = Math.abs(capitalZone - currentZoneIdx);
+                                        if (dist < bestDist) {
+                                            bestDist = dist;
+                                            bestTarget = capitalZone;
+                                        }
+                                    }
+                                }
+
+                                if (window.saveData && window.saveData.discoveredKingdoms) {
+                                    for (const kId in window.saveData.discoveredKingdoms) {
+                                        if (kId === currentKingdomId) continue;
+                                        const fk = window.saveData.discoveredKingdoms[kId];
+                                        const capitalZone = fk.capital;
+                                        const dist = Math.abs(capitalZone - currentZoneIdx);
+                                        if (dist < bestDist) {
+                                            bestDist = dist;
+                                            bestTarget = capitalZone;
+                                        }
+                                    }
+                                }
+
+                                // ARBITRAGE OPTIMIZATION: If we have cargo, calculate potential sale price at each capital
+                                if (totalCargo > 0 && window.saveData && window.saveData.cargo) {
+                                    let bestArbitrageTarget = null;
+                                    let maxArbitrageValue = -Infinity;
+
+                                    const evalCapital = (capZone) => {
+                                        let totalVal = 0;
+                                        for (const itemId in window.saveData.cargo) {
+                                            const qty = window.saveData.cargo[itemId] || 0;
+                                            if (qty > 0) {
+                                                const unitPrice = window.getTradePrice ? window.getTradePrice(itemId, false, capZone) : 0;
+                                                totalVal += unitPrice * qty;
+                                            }
+                                        }
+                                        if (totalVal > maxArbitrageValue) {
+                                            maxArbitrageValue = totalVal;
+                                            bestArbitrageTarget = capZone;
+                                        }
+                                    };
+
+                                    if (window.WORLD_KINGDOMS) {
+                                        for (const kId in window.WORLD_KINGDOMS) {
+                                            if (kId === currentKingdomId) continue;
+                                            evalCapital(window.WORLD_KINGDOMS[kId].capital);
+                                        }
+                                    }
+                                    if (window.saveData.discoveredKingdoms) {
+                                        for (const kId in window.saveData.discoveredKingdoms) {
+                                            if (kId === currentKingdomId) continue;
+                                            evalCapital(window.saveData.discoveredKingdoms[kId].capital);
+                                        }
+                                    }
+
+                                    if (bestArbitrageTarget !== null) {
+                                        bestTarget = bestArbitrageTarget;
+                                    }
+                                }
+
+                                const config = window.autoplayConfig || {};
+                                config.targetZone = bestTarget;
+                                const zoneInput = document.getElementById('ap-target-zone');
+                                if (zoneInput) zoneInput.value = bestTarget;
+
+                                if (scene.hudManager && typeof scene.hudManager._saveAutoplayConfig === 'function') {
+                                    scene.hudManager._saveAutoplayConfig();
+                                }
+
+                                const targetKingdom = window.getKingdomForZone ? window.getKingdomForZone(bestTarget) : null;
+                                const destName = targetKingdom ? targetKingdom.name : `Zone ${bestTarget}`;
+                                if (scene.showFloatingText) {
+                                    const msg = totalCargo > 0
+                                        ? `Cargo loaded! Trading to ${destName}`
+                                        : `Heading to ${destName} to resupply`;
+                                    scene.showFloatingText(player.sprite.x, player.sprite.y - 60, msg, 0x00ffff);
+                                }
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // Standard item buying fallback
                 if (time - (this._lastTradeTime || 0) > 1500) {
                     this._lastTradeTime = time;
                     const itemsContainer = document.getElementById('shop-items-container');
@@ -865,11 +1228,88 @@ class CompanionAI {
                 return;
             }
 
+            if (isDirOpen) {
+                const currentZoneIdx = scene.worldManager ? scene.worldManager.currentZoneIndex : 0;
+                const targetZone = window.autoplayConfig ? window.autoplayConfig.targetZone : 0;
+                
+                if (currentZoneIdx !== targetZone) {
+                    const travelContainer = document.getElementById('travel-destinations-container');
+                    const tabTravel = document.getElementById('tab-travel');
+                    if (travelContainer && travelContainer.style.display === 'none' && tabTravel) {
+                        tabTravel.click();
+                        return;
+                    }
+                    
+                    if (travelContainer && time - (this._lastTravelClickTime || 0) > 1500) {
+                        this._lastTravelClickTime = time;
+                        const allDescendants = Array.from(travelContainer.querySelectorAll('div'));
+                        const travelCards = allDescendants.filter(el => {
+                            return el.innerText.includes('Zone ') && el.innerHTML.includes('💰');
+                        });
+                        
+                        if (travelCards.length > 0) {
+                            let bestCard = null;
+                            let bestDist = Math.abs(currentZoneIdx - targetZone);
+                            
+                            travelCards.forEach(card => {
+                                const zoneMatch = card.innerText.match(/Zone\s+(-?\d+)/);
+                                if (zoneMatch) {
+                                    const zIdx = parseInt(zoneMatch[1]);
+                                    const dist = Math.abs(zIdx - targetZone);
+                                    if (dist < bestDist) {
+                                        bestDist = dist;
+                                        bestCard = card;
+                                    }
+                                }
+                            });
+                            
+                            if (bestCard) {
+                                bestCard.click();
+                                if (scene.showFloatingText) {
+                                    scene.showFloatingText(player.sprite.x, player.sprite.y - 65, "Fast Traveling...", 0x00ff00);
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                const closeBtn = document.getElementById('btn-close-directory');
+                if (closeBtn) closeBtn.click();
+                return;
+            }
+
             if (isChatOpen) {
                 this._wasChatOpen = true;
 
                 const inputField = document.getElementById('chat-input');
                 const submitBtn = document.getElementById('chat-submit');
+
+                // Merchant Trader: skip chatting, go straight to trade
+                const isMerchantPreset = window.autoplayConfig && window.autoplayConfig.preset === 'merchant_trader';
+                if (isMerchantPreset) {
+                    // Don't try to trade while the NPC greeting is still loading
+                    if (inputField && inputField.disabled) {
+                        return;
+                    }
+                    const tradeBtn = document.getElementById('chat-trade');
+                    if (tradeBtn) {
+                        const computedDisplay = window.getComputedStyle(tradeBtn).display;
+                        if (computedDisplay !== 'none') {
+                            tradeBtn.click();
+                            return;
+                        }
+                    }
+                    // If no trade button (NPC can't trade), close chat and move on
+                    const activeNpc = scene.npcs.find(n => n.isChatOpen);
+                    if (activeNpc) {
+                        activeNpc.closeChat();
+                        this._wasChatOpen = false;
+                        this._lastChatClosedTime = time;
+                        this._currentChatNpc = null;
+                    }
+                    return;
+                }
 
                 if (inputField && inputField.disabled) {
                     return;
@@ -930,8 +1370,9 @@ class CompanionAI {
                     const historyDiv = document.getElementById('chat-history');
                     const tradeBtn = document.getElementById('chat-trade');
                     
-                    if (tradeBtn && tradeBtn.style.display !== 'none' && Math.random() < 0.3) {
-                        tradeBtn.click(); // Open shop
+                    const isMerchantTrader = window.autoplayConfig && window.autoplayConfig.preset === 'merchant_trader';
+                    if (tradeBtn && tradeBtn.style.display !== 'none' && (isMerchantTrader || Math.random() < 0.3)) {
+                        tradeBtn.click(); // Open shop — merchants always trade immediately
                         return;
                     }
 
@@ -1087,6 +1528,13 @@ class CompanionAI {
             if (player.hp < player.maxHp * 0.3 && Math.random() < 0.05 && scene.showFloatingText) {
                 scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "💦", 0x44aaff);
             }
+        }
+
+        // Disable jumping and dashing for cargo caravans (Phase 11)
+        if (player.isCargoCarrier) {
+            player.aiInput.up = false;
+            player.aiInput.dashLeft = false;
+            player.aiInput.dashRight = false;
         }
     }
 }

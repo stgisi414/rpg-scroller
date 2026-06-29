@@ -10,9 +10,45 @@ class GeminiService {
             }
         }
         this.apiKey = key || "";
+
+        // Seed user's Chartopia API Key if not already present
+        let chartopiaKey = localStorage.getItem("chartopia_api_key");
+        if (!chartopiaKey) {
+            localStorage.setItem("chartopia_api_key", "0xsvZGh2.PJQSDv3nV3FQ7n2kyJZatHv4KpTmm3fw");
+        }
+
         this.ai = null;
         this.model = null;
         this.isReady = false;
+    }
+
+    cleanAndParseJson(text) {
+        if (!text) {
+            throw new Error("Empty response received from AI");
+        }
+        let cleaned = text.trim();
+        // Remove markdown JSON code blocks if present
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replace(/^```(json)?\s*/i, "");
+            cleaned = cleaned.replace(/\s*```$/, "");
+        }
+        cleaned = cleaned.trim();
+        try {
+            return JSON.parse(cleaned);
+        } catch (err) {
+            // Try to extract JSON if there's leading/trailing commentary
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                const potentialJson = cleaned.substring(firstBrace, lastBrace + 1);
+                try {
+                    return JSON.parse(potentialJson);
+                } catch (innerErr) {
+                    // Fall back to original error
+                }
+            }
+            throw new Error(`Failed to parse JSON: ${err.message}. Raw text: ${text}`);
+        }
     }
 
     async init() {
@@ -27,15 +63,121 @@ class GeminiService {
             this.ai = new GoogleGenerativeAI(this.apiKey);
             
             // We use the JSON response mimeType to ensure structured data back to our game engine
+            const tools = [{
+                functionDeclarations: [{
+                    name: "rollChartopiaChart",
+                    description: "Rolls a random result from a specified Chartopia public chart/table ID. Use this to generate fantasy names for characters, towns, items, or lore details.",
+                    parameters: {
+                        type: "OBJECT",
+                        properties: {
+                            chartId: { 
+                                type: "INTEGER", 
+                                description: "The Chartopia public chart ID to roll on (e.g. 19449)." 
+                            },
+                            variables: {
+                                type: "STRING",
+                                description: "Optional key-value parameters/variables to pass to the generator chart, formatted as a JSON-serialized string (e.g. '{\"gender\":\"female\"}')."
+                            }
+                        },
+                        required: ["chartId"]
+                    }
+                }]
+            }];
+
             this.model = this.ai.getGenerativeModel({ 
                 model: "gemini-3.5-flash",
-                generationConfig: { responseMimeType: "application/json" }
+                generationConfig: { responseMimeType: "application/json" },
+                tools: tools
             });
             this.isReady = true;
             console.log("GeminiService: Successfully connected to Gemini API.");
         } catch (e) {
             console.error("GeminiService: Failed to initialize AI SDK", e);
         }
+    }
+
+    async rollChartopia(chartId, variables) {
+        const apiKey = localStorage.getItem("chartopia_api_key") || "";
+        console.log(`[ChartopiaDebug] Attempting to roll chartId ${chartId}. API key present in localStorage: ${!!apiKey}`);
+        
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        };
+        if (apiKey) {
+            headers["X-Api-Key"] = apiKey;
+        }
+
+        let varsObj = {};
+        if (typeof variables === 'string' && variables.trim()) {
+            try {
+                varsObj = JSON.parse(variables);
+            } catch (e) {
+                console.warn("[ChartopiaDebug] Failed to parse variables JSON string:", variables);
+            }
+        } else if (typeof variables === 'object' && variables !== null) {
+            varsObj = variables;
+        }
+
+        const body = JSON.stringify({ variables: varsObj });
+        const url = `https://chartopia.d12dev.com/api/charts/${chartId}/roll/`;
+        console.log(`[ChartopiaDebug] Sending POST to ${url}`);
+        
+        const response = await fetch(url, {
+            method: "POST",
+            headers: headers,
+            body: body
+        });
+
+        if (!response.ok) {
+            console.error(`[ChartopiaDebug] HTTP Error: status=${response.status}`);
+            throw new Error(`Chartopia HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.results && Array.isArray(data.results)) {
+            return data.results.join("\n");
+        }
+        return JSON.stringify(data);
+    }
+
+    async generateContentWithTools(prompt) {
+        if (!this.isReady) throw new Error("GeminiService is not ready");
+        
+        const chat = this.model.startChat();
+        let result = await chat.sendMessage(prompt);
+        
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        while (attempts < maxAttempts) {
+            const functionCalls = result.functionCalls;
+            if (functionCalls && functionCalls.length > 0) {
+                const call = functionCalls[0];
+                let resultStr = "";
+                if (call.name === "rollChartopiaChart") {
+                    const chartId = call.args.chartId;
+                    const variables = call.args.variables || {};
+                    try {
+                        resultStr = await this.rollChartopia(chartId, variables);
+                    } catch (e) {
+                        console.error("GeminiService: Chartopia roll failed", e);
+                        resultStr = `Error: ${e.message}`;
+                    }
+                }
+                
+                result = await chat.sendMessage([{
+                    functionResponse: {
+                        name: call.name,
+                        response: { result: resultStr }
+                    }
+                }]);
+                attempts++;
+            } else {
+                return result;
+            }
+        }
+        throw new Error("Max tool call attempts exceeded");
     }
 
     async getEnemyTactic(battleState) {
@@ -73,11 +215,11 @@ Return ONLY a valid JSON object in this exact format:
 
         try {
             const result = await Promise.race([
-                this.model.generateContent(prompt),
+                this.generateContentWithTools(prompt),
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
             ]);
             const text = result.response.text();
-            return JSON.parse(text);
+            return this.cleanAndParseJson(text);
         } catch (e) {
             console.error("GeminiService: Failed to get tactic", e);
             return { tactic: "CHASE", dialogue: "" };
@@ -114,12 +256,12 @@ Return ONLY a valid JSON object:
 
         try {
             const result = await Promise.race([
-                this.model.generateContent(prompt),
+                this.generateContentWithTools(prompt),
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
             ]);
             const text = result.response.text();
             console.log("Game Master Decision:", text);
-            return JSON.parse(text);
+            return this.cleanAndParseJson(text);
         } catch (e) {
             console.error("GeminiService: GM failed", e);
             return { action: "NONE", announcement: "" };
@@ -161,14 +303,65 @@ Return ONLY a valid JSON object:
                     contextText += `- CRITICAL: There is a severe alignment mismatch! You find this player's karma repulsive. Refuse to help them, trade with them, or cooperate in any way. Keep your response cold, hostile, or dismissive.\n`;
                 }
             }
+            if (state.politicalContext) {
+                const pc = state.politicalContext;
+                contextText += `\nPolitical Map Context:\n`;
+                contextText += `- Kingdom/Domain: ${pc.kingdom}\n`;
+                if (pc.rulingFaction) {
+                    contextText += `- Ruling Faction: ${pc.rulingFaction.name} (${pc.rulingFaction.alignment})\n`;
+                    contextText += `- Player's Standing with Ruling Faction: ${pc.rulingFactionReputation} Reputation\n`;
+                }
+                if (pc.npcFaction) {
+                    contextText += `- Your Faction: ${pc.npcFaction.name} (${pc.npcFaction.alignment})\n`;
+                    contextText += `- Your Faction Rank/Title: ${state.npc.factionRank} (${state.npc.politicalTitle || 'Commoner'})\n`;
+                    contextText += `- Player's Standing with Your Faction: ${pc.npcFactionReputation} Reputation\n`;
+                }
+                if (pc.rulingFactionRelations && Object.keys(pc.rulingFactionRelations).length > 0) {
+                    contextText += `- Ruling Faction Relations: ${JSON.stringify(pc.rulingFactionRelations)}\n`;
+                }
+                if (pc.discoveredFrontierKingdoms && pc.discoveredFrontierKingdoms.length > 0) {
+                    contextText += `- Discovered Frontier Kingdoms (Rumors): ${pc.discoveredFrontierKingdoms.join(', ')}\n`;
+                }
+            }
             contextText += `-------------------------------\n`;
+        }
+
+        let languageInstruction = "";
+        if (state && state.npc && state.npc.languageInfo) {
+            const lang = state.npc.languageInfo.language;
+            const dialect = state.npc.languageInfo.dialect;
+            const understands = state.npc.playerUnderstandsLanguage;
+
+            if (!understands) {
+                languageInstruction = `
+CRITICAL LANGUAGE BARRIER INSTRUCTION: 
+The player DOES NOT understand your language (${lang}) or dialect (${dialect}). 
+You must speak EXCLUSIVELY and PURELY in your native fantasy language (${dialect}). 
+- Do not write in English. Do not write translations. Do not write "Hello (Translated from Elvish)".
+- Speak entirely in the fictional words of that tongue. E.g.:
+  * If speaking Elvish (Sylvan): Use Sindarin/Tolkien-style words (e.g. "Mae govannen! Mellalon elen sil omentielvo...").
+  * If speaking Celestial: Use melodic, high-latinate, Enochian-style words (e.g. "Sanctus et venerabilis, gloriam domini celestis...").
+  * If speaking Infernal: Use guttural, harsh, demonic/abyssal sounds and dark words (e.g. "Kharash'tar, val'ghoul vor'taz abyssum...").
+  * If speaking Dwarvish: Use runic, Norse-sounding, booming, harsh guttural words (e.g. "Khuzdul karad, baruk khazad, durnik dwergar...").
+  * If speaking a regional human dialect (like Coastal Cant, High Volcanic, West Elden, High Northern, Old Spell, Desert Oasis Cant): Speak in its unique accent/words that make it unintelligible to outsiders.
+- Stay 100% in this language. Keep it brief.
+`;
+            } else {
+                languageInstruction = `
+LANGUAGE DIALECT INSTRUCTION: 
+The player understands your language (${lang}) and dialect (${dialect}). 
+Write your response in English, but you must weave in characteristic speech patterns, accents, slang, greetings, or minor terms from the "${dialect}" dialect to make it authentic (e.g., "Mae govannen" for Elvish, nautical terms for Coastal Cant, formal/archaic words for West Elden, cold/harsh curt words for High Northern).
+`;
+            }
         }
 
         const prompt = `You are a roleplaying NPC in a dark fantasy video game.
 Your Persona: ${npcPersona}
 
+${languageInstruction}
+
 You must act perfectly in character. Do not break the fourth wall. 
-CRITICAL RAG INSTRUCTION: Use the Game Context provided below to dynamically weave the player's class, location, inventory, or active quests into your dialogue where natural. If they are heavily wounded, comment on it. If they have lots of gold, act greedy or impressed. If they are an samurai, be wary.
+CRITICAL RAG INSTRUCTION: Use the Game Context and Political Map Context provided below to dynamically weave the player's class, location, inventory, active quests, or political alignment/standing into your dialogue where natural. Speak in-character matching your faction, rank, title, and relationships. If they are heavily wounded, comment on it. If they have lots of gold, act greedy or impressed. If they are an samurai, be wary.
 If your alignment is Good:
 - Treat players with positive alignment (Good karma) with high respect, kindness, and warmth.
 - Treat players with negative alignment (Evil karma) with suspicion, hostility, or try to guide them back to the light.
@@ -189,6 +382,7 @@ If the player says something that aligns with your values, return a positive ali
 If they insult you or act evil, return a negative alignmentShift (-1 to -10).
 Otherwise, alignmentShift is 0.
 socialShift represents how this interaction changes your personal relationship with the player (-10 to 10). Positive gifts, kind roleplay actions (*bow*, *give gold*), and impressive deeds raise it. Insults and hostile actions lower it. Normal conversation is 0.
+rpXpReward represents a reward (0 to 20) for immersive in-character roleplaying or world/lore integration. If the player writes an expressive message, uses action text (e.g. *bows*, *hands over treaty*, *kneels*), stays in-character, or directly references world history, current kingdom status, or the local faction lore, reward them with a small amount of XP (5 to 20 depending on depth). If they write a generic message, speak out-of-character, or break immersion, reward 0.
 
 You can optionally offer the player a quest if they ask for work, or if it fits the conversation. 
 IMPORTANT: Vary the quest types! Do NOT always give kill quests. Use rescue and delivery quests too.
@@ -196,6 +390,10 @@ If you offer a quest, include a "quest" object in the JSON. Supported quest type
 1. Kill quest: Slay a certain number of a specific enemy type. (fields: type: "kill", targetType: "<enemy>", targetCount: 3-5, rewardGold: 50-150)
 2. Rescue quest: Rescue a captive person from a dangerous zone. (fields: type: "rescue", rescueeName: "<name>", rescueeGender: "male"|"female", rescueeZone: <zone_number>, rescueState: "captive", targetCount: 1, rewardGold: 100-200)
 3. Delivery quest: Deliver an item to a target NPC in another zone. (fields: type: "delivery", deliveryItem: "<item_name>", deliveryTargetZone: <town_zone_number>, deliveryTargetNPC: "<npc_role>", targetCount: 1, deliveryPickedUp: true, rewardGold: 80-150)
+4. Espionage quest: Infiltrate another kingdom's capital. (fields: type: "espionage", targetKingdom: "<kingdom_id_e.g._duskveil/tidereach>", targetCount: 1, rewardGold: 150-300, rewardReputation: 25)
+5. Assassination quest: Eliminate guards of a hostile faction. (fields: type: "assassination", targetFaction: "<faction_id_e.g._shadow_covenant>", targetCount: 1, rewardGold: 200-400, rewardReputation: 35)
+6. Diplomacy quest: Deliver a treaty to another ruler. (fields: type: "diplomacy", targetKingdom: "<kingdom_id>", targetRuler: "<leader_name>", targetCount: 1, rewardGold: 120-250, rewardReputation: 20)
+7. Intel Report quest: Report back news/details of discovered frontier areas. (fields: type: "intel_report", targetCount: 1, rewardGold: 100-300, rewardReputation: 15)
 
 For kill quests, pick an enemy that fits the current biome. Supported enemy targetTypes: "slime", "goblin", "bat", "mushroom", "orc", "bandit", "skeleton", "troll", "ogre", "giant", "frost_giant", "dragon", "spider", "mummy".
 For rescue quests, rescueeZone should be a non-town zone near the current area (current zone ± 1-3, but NOT a multiple of 4 since those are towns). Pick a creative name for the rescuee.
@@ -212,6 +410,7 @@ Kill example:
   "response": "Your dialogue here...",
   "alignmentShift": 0,
   "socialShift": 0,
+  "rpXpReward": 0,
   "turnsHostile": false,
   "joinsParty": false,
   "quest": { "id": "hunt_ogres_1", "title": "Ogre Menace", "description": "Slay 3 ogres terrorizing the region.", "type": "kill", "targetType": "ogre", "targetCount": 3, "rewardGold": 100 }
@@ -221,6 +420,7 @@ Rescue example:
   "response": "Your dialogue here...",
   "alignmentShift": 0,
   "socialShift": 0,
+  "rpXpReward": 15,
   "quest": { "id": "rescue_lyra_1", "title": "Save Lyra", "description": "Rescue Lyra from captivity in the wilds.", "type": "rescue", "rescueeName": "Lyra", "rescueeGender": "female", "rescueeZone": 3, "rescueState": "captive", "targetCount": 1, "rewardGold": 150 }
 }
 Delivery example:
@@ -228,18 +428,19 @@ Delivery example:
   "response": "Your dialogue here...",
   "alignmentShift": 0,
   "socialShift": 0,
+  "rpXpReward": 10,
   "quest": { "id": "deliver_scroll_1", "title": "Urgent Scroll", "description": "Deliver this ancient scroll to the Sage in the next town.", "type": "delivery", "deliveryItem": "Ancient Scroll", "deliveryTargetZone": 4, "deliveryTargetNPC": "Sage", "targetCount": 1, "deliveryPickedUp": true, "rewardGold": 120 }
 }
 If you do NOT want to give a quest, simply omit the "quest" field.`;
 
         try {
             const result = await Promise.race([
-                this.model.generateContent(prompt),
+                this.generateContentWithTools(prompt),
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
             ]);
             const text = result.response.text();
             console.log("Gemini NPC Decision:", text);
-            return JSON.parse(text);
+            return this.cleanAndParseJson(text);
         } catch (e) {
             console.error("GeminiService: Failed to get NPC response", e);
             return { response: "... *stares blankly*", alignmentShift: 0 };
@@ -247,7 +448,12 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
     }
 
     async generateZoneData(zoneIndex, playerLevel, forceTown, playerClassId, targetBiome) {
-        const allHeroes = ['wizard', 'ranger', 'samurai', 'knight', 'elven_spellblade'];
+        const allHeroes = [
+            'wizard', 'ranger', 'samurai', 'knight', 'elven_spellblade',
+            'witch_1', 'witch_2', 'witch_3',
+            'priest_1', 'priest_2', 'priest_3',
+            'pyromancer_1', 'pyromancer_2', 'pyromancer_3'
+        ];
         const availableHeroes = allHeroes.filter(c => c !== playerClassId);
 
         const biomeEnemies = {
@@ -322,9 +528,9 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
                     });
                 }
                 return {
-                    name: townNames[absIdx % townNames.length],
+                    name: window.getTownNameForZone ? window.getTownNameForZone(zoneIndex) : townNames[absIdx % townNames.length],
                     type: 'Safe',
-                    biome: 'Plains',
+                    biome: targetBiome || 'Plains',
                     enemies: [],
                     npcs: npcs
                 };
@@ -359,10 +565,60 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
         }
 
         const suggestedBiome = targetBiome;
+        const suggestedTownName = (isTown && window.getTownNameForZone) ? window.getTownNameForZone(zoneIndex) : null;
+
+        const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIndex) : null;
+        const isElvenKingdom = currentKingdom && (
+            (currentKingdom.biomes && currentKingdom.biomes.includes('Deadwoods')) || 
+            currentKingdom.id === 'duskveil' || 
+            currentKingdom.id === 'ashenmoor' || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('elven')) || 
+            (currentKingdom.rulingFaction && currentKingdom.rulingFaction.toLowerCase().includes('elven'))
+        );
+        const isDwarvenKingdom = currentKingdom && (
+            (currentKingdom.biomes && currentKingdom.biomes.includes('Cave')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('dwarf')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('dwarven')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('underrealm')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('stronghold')) || 
+            (currentKingdom.rulingFaction && currentKingdom.rulingFaction.toLowerCase().includes('dwarf')) ||
+            (currentKingdom.rulingFaction && currentKingdom.rulingFaction.toLowerCase().includes('dwarven'))
+        );
+
+        let elvenPromptInstruction = "";
+        if (isElvenKingdom) {
+            elvenPromptInstruction = `
+CRITICAL ELVEN KINGDOM INSTRUCTION:
+This zone belongs to an Elven Kingdom (${currentKingdom.name}).
+- Safe Zone NPCs: Their descriptions/personas MUST explicitly mention their sylvan elf-like traits (pointed elven ears, slender stature, shimmering hair, elegant leaf clothing) and they should roleplay as elves.
+- NPC names must be classic elven names (e.g., Elowen, Legolas, Elara, Galadriel, Celeborn, Haldir, Thranduil).
+`;
+        } else if (isDwarvenKingdom) {
+            elvenPromptInstruction = `
+CRITICAL DWARVEN KINGDOM INSTRUCTION:
+This zone belongs to a Dwarven Kingdom (${currentKingdom.name}).
+- Safe Zone NPCs: Their descriptions/personas MUST explicitly mention their dwarven traits (stout stature, stocky build, long braided beards, sturdy iron boots, speaking of mines, gold, and ale) and they should roleplay as dwarves.
+- NPC names must be classic dwarven names (e.g., Thorin, Balin, Gimli, Bruenor, Dvalin, Gloin, Bofur, Dain).
+`;
+        }
 
         const prompt = `You are a procedural generation engine for a 2D Action-RPG.
 Generate data for Zone Index ${zoneIndex}. Note: Negative zoneIndex values indicate backtracking or moving to the left from the starting town (Zone 0); please treat them as valid progression areas. Use the absolute index ${Math.abs(zoneIndex)} for biome/difficulty calculations. Each zone MUST be unique.
 The player is Level ${playerLevel}.
+
+TOOL INSTRUCTION:
+You are equipped with the 'rollChartopiaChart' tool. To respect API rate limits, please call 'rollChartopiaChart' at most ONCE or TWICE (e.g., roll once for a town name on chartId 14967, and once for an NPC name). If generating multiple NPCs, roll once and extrapolate or adapt them cohesively.
+Recommended Chart IDs to call:
+- Fantasy Town/City Names: 14967
+- Fantasy Human Character Names: 12493
+- Sylvan/Elven Names: 13576
+- Dwarven Stronghold/Character Names: 14092
+- General Townsfolk/NPC Names: 18671
+
+If you are naming this zone (whether it is a town or wilderness area), call 'rollChartopiaChart' with chartId 14967 or another appropriate table.
+If you are generating names for NPCs, call 'rollChartopiaChart' with the appropriate name chart ID to get their name.
+
+${elvenPromptInstruction}
 
 Rules:
 1. "type" MUST be either "Safe" or "Dangerous".
@@ -370,7 +626,8 @@ ${forceTown ?
 `2. CRITICAL: This zone MUST be a Town/Castle. "type" MUST be "Safe". Safe zones MUST have exactly 3 NPCs:
    - Make all 3 NPCs have a spriteKey of "custom_townsfolk".
    - Assign them unique fantasy names.
-   - Assign them personas based on town roles (e.g., merchant, guard, villager).` 
+   - Assign them personas based on town roles (e.g., merchant, guard, villager).
+   - The town name MUST be exactly "${suggestedTownName}".` 
 :
 `2. CRITICAL: This zone MUST be a wilderness area. "type" MUST be "Dangerous".
 3. Wilderness zones MUST generate between ${minEnemies} and ${maxEnemies} enemies.
@@ -424,12 +681,42 @@ Return ONLY a valid JSON object in this exact format:
 
         try {
             const result = await Promise.race([
-                this.model.generateContent(prompt),
+                this.generateContentWithTools(prompt),
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 20000))
             ]);
             const text = result.response.text();
             console.log("Gemini Generated Zone:", text);
-            return JSON.parse(text);
+            const parsed = this.cleanAndParseJson(text);
+
+            // Log the generated zone and NPC details
+            if (window.logGeneratedName) {
+                if (parsed.type === "Safe" || (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0)) {
+                    window.logGeneratedName("towns", {
+                        name: parsed.name,
+                        zoneIndex: zoneIndex,
+                        lore: parsed.lore
+                    });
+                } else {
+                    window.logGeneratedName("wilderness_zones", {
+                        name: parsed.name,
+                        zoneIndex: zoneIndex,
+                        lore: parsed.lore
+                    });
+                }
+                
+                if (parsed.npcs && Array.isArray(parsed.npcs)) {
+                    parsed.npcs.forEach(n => {
+                        window.logGeneratedName("npcs", {
+                            name: n.name,
+                            persona: n.persona,
+                            spriteKey: n.spriteKey,
+                            zoneIndex: zoneIndex
+                        });
+                    });
+                }
+            }
+
+            return parsed;
         } catch (e) {
             console.error("GeminiService: Failed to generate zone", e);
             // Use the rich fallback instead of a bare error stub
@@ -468,7 +755,9 @@ Return ONLY a valid JSON object in this exact format:
             if (suggestedBiome === 'Heaven') {
                 finalName = heavenNames[aIdx % heavenNames.length];
             } else {
-                finalName = isTownFallback ? townNames[aIdx % townNames.length] : wildNames[aIdx % wildNames.length];
+                finalName = isTownFallback 
+                    ? (window.getTownNameForZone ? window.getTownNameForZone(zoneIndex) : townNames[aIdx % townNames.length]) 
+                    : wildNames[aIdx % wildNames.length];
             }
 
             let finalNpcs = fallbackTownNpcs;
@@ -516,13 +805,11 @@ Keep it short, punchy, and atmospheric.`;
 
         try {
             const result = await Promise.race([
-                this.model.generateContent(prompt),
+                this.generateContentWithTools(prompt),
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
             ]);
             let text = result.response.text();
-            // Clean up any markdown code blocks
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(text);
+            return this.cleanAndParseJson(text);
         } catch (e) {
             console.error("GeminiService: Failed GM response", e);
             return { storyText: "Prepare to meet your doom!" };
@@ -557,14 +844,12 @@ Return ONLY a valid JSON object in this format:
 
         try {
             const result = await Promise.race([
-                this.model.generateContent(prompt),
+                this.generateContentWithTools(prompt),
                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000))
             ]);
             let text = result.response.text().trim();
-            // Clean up any markdown code blocks
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
             try {
-                const parsed = JSON.parse(text);
+                const parsed = this.cleanAndParseJson(text);
                 if (parsed && typeof parsed.response === 'string') {
                     return parsed.response;
                 }
@@ -580,6 +865,282 @@ Return ONLY a valid JSON object in this format:
         } catch (e) {
             console.error("GeminiService: Failed to generate hero autoplay response", e);
             return "...";
+        }
+    }
+    async generateFrontierKingdom(zoneRange) {
+        const start = zoneRange[0];
+        const end = zoneRange[1];
+        const townZones = [];
+        for (let z = start; z <= end; z++) {
+            if (z === 0 || (Math.abs(z) > 0 && Math.abs(z) % 4 === 0)) {
+                townZones.push(z);
+            }
+        }
+        const townNamesTemplate = {};
+        townZones.forEach(z => {
+            townNamesTemplate[z] = "Themed Town Name";
+        });
+        const townNamesJsonStr = JSON.stringify(townNamesTemplate);
+
+        let rolledName = "";
+        try {
+            console.log("[ChartopiaDebug] Initiating Chartopia roll for kingdom name on chartId 19449...");
+            rolledName = await this.rollChartopia(19449);
+            // Clean up name: strip HTML tags and trim whitespace
+            rolledName = rolledName.replace(/<[^>]*>/g, '').trim();
+            console.log(`[ChartopiaDebug] Chartopia roll succeeded! Rolled candidate: "${rolledName}"`);
+        } catch (e) {
+            console.error("[ChartopiaDebug] Failed to roll Chartopia for kingdom name, will fall back to using default template seeds:", e);
+        }
+        if (!rolledName) {
+            rolledName = "Kingdom of Vaelgard";
+            console.log("[ChartopiaDebug] No name rolled, using fallback seed: 'Kingdom of Vaelgard'");
+        }
+
+        const existingKingdomNames = [];
+        for (const key in window.WORLD_KINGDOMS) {
+            existingKingdomNames.push(window.WORLD_KINGDOMS[key].name);
+        }
+        if (window.saveData && window.saveData.discoveredKingdoms) {
+            for (const key in window.saveData.discoveredKingdoms) {
+                existingKingdomNames.push(window.saveData.discoveredKingdoms[key].name);
+            }
+        }
+
+        const prompt = `Generate a completely unique and procedurally drafted fantasy kingdom located in the wild frontier of the world between zones ${zoneRange[0]} and ${zoneRange[1]}.
+The candidate kingdom name rolled from Chartopia is: "${rolledName}"
+The list of existing kingdoms in the world is: ${JSON.stringify(existingKingdomNames)}
+
+YOUR CRITICAL INSTRUCTIONS:
+1. Check if the candidate name "${rolledName}" is identical to, or highly similar to, any kingdom name in the existing list.
+2. If it already exists or conflicts, modify/tweak it to be a unique fantasy name. If it is unique, keep "${rolledName}". Let's call the finalized name "name".
+3. Generate a creative faction name ("factionName") representing the ruling order of the kingdom, which must be themed and designed directly based on the finalized kingdom name.
+4. Keep the biomes, descriptions, ruler details, imports/exports, and town names cohesive with this kingdom's theme.
+
+Return ONLY a valid JSON object in this format (no markdown formatting, no backticks, just the raw JSON):
+{
+  "id": "frontier_kingdom_${Math.abs(zoneRange[0])}",
+  "name": "Finalized unique fantasy name of the Kingdom",
+  "desc": "A highly detailed, creative, and immersive fantasy history and lore paragraph describing the kingdom's origins, its rise in the frontier, and its current state.",
+  "capital": ${zoneRange[0] + Math.floor(Math.random() * (zoneRange[1] - zoneRange[0] + 1))},
+  "zoneRange": [${zoneRange[0]}, ${zoneRange[1]}],
+  "biomes": ["Biome1", "Biome2"], // Pick two different biomes from: Forest, Plains, Coastal, Desert, Winter, Deadwoods, Hell, Cave, Dungeon
+  "rulingFaction": "faction_frontier_${Math.abs(zoneRange[0])}",
+  "factionName": "Faction Name representing the ruling order, generated based on the kingdom name",
+  "factionColor": "#HEXCODE",
+  "leaderTitle": "King/Grand Magister/Jarl/etc.",
+  "leaderName": "Leader Name",
+  "leaderPersona": "Persona profile of the ruler",
+  "allies": ["crown_of_willowbrook"], // Select 1-2 allied faction ids (can include: crown_of_willowbrook, shadow_covenant, merchant_league, high_mage_council, frost_jarls, infernal_pact)
+  "rivals": ["shadow_covenant"], // Select 1-2 rival faction ids
+  "exportGoods": ["wheat"], // Pick 1-2 export cargo ids from: wheat, iron_ore, herbs, silk, whiskey, salt, spices, celestial_ambrosia, abyssal_brimstone
+  "importGoods": ["iron_ore"], // Pick 1-2 import cargo ids
+  "townNames": ${townNamesJsonStr} // Generate creative, unique town names for each town zone in this range that fit the kingdom's biomes/culture.
+}`;
+
+        try {
+            const result = await Promise.race([
+                this.generateContentWithTools(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 20000))
+            ]);
+            let text = result.response.text().trim();
+            console.log("Gemini Generated Frontier Kingdom:", text);
+            let parsed = this.cleanAndParseJson(text);
+
+            // Enforce rulingFaction ID naming convention (Phase 21)
+            if (parsed.factionName) {
+                let fid = parsed.factionName.toLowerCase().trim();
+                if (fid.startsWith("the ")) {
+                    fid = fid.substring(4);
+                }
+                fid = fid.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                parsed.rulingFaction = fid || `faction_frontier_${Math.abs(zoneRange[0])}`;
+            }
+            
+            // Programmatically align capital to nearest multiple of 4 (town zone) in range
+            const start = parsed.zoneRange[0];
+            const end = parsed.zoneRange[1];
+            const townZones = [];
+            for (let z = start; z <= end; z++) {
+                if (z === 0 || (Math.abs(z) > 0 && Math.abs(z) % 4 === 0)) {
+                    townZones.push(z);
+                }
+            }
+            if (townZones.length > 0 && Math.abs(parsed.capital) % 4 !== 0) {
+                parsed.capital = townZones.reduce((prev, curr) => Math.abs(curr - parsed.capital) < Math.abs(prev - parsed.capital) ? curr : prev);
+            }
+
+            // Save and log town names in saveData.zones
+            if (parsed.townNames) {
+                if (!window.saveData.zones) window.saveData.zones = {};
+                for (const zIdx in parsed.townNames) {
+                    const z = parseInt(zIdx);
+                    let name = parsed.townNames[zIdx];
+                    if (z === parsed.capital && !name.toLowerCase().includes('capital')) {
+                        name = `${name} Capital`;
+                    }
+                    if (!window.saveData.zones[zIdx]) {
+                        window.saveData.zones[zIdx] = {
+                            name: name,
+                            biome: (z === parsed.capital) ? 'Capital' : 'Town'
+                        };
+                    }
+                    if (window.logGeneratedName) {
+                        window.logGeneratedName("towns", {
+                            name: name,
+                            zoneIndex: z,
+                            lore: `Pre-generated town under ${parsed.name}.`
+                        });
+                    }
+                }
+            }
+
+            // Log the generated kingdom
+            if (window.logGeneratedName) {
+                window.logGeneratedName("kingdoms", {
+                    name: parsed.name,
+                    id: parsed.id,
+                    desc: parsed.desc,
+                    faction: parsed.factionName
+                });
+            }
+
+            return parsed;
+        } catch (e) {
+            console.error("GeminiService: Failed to generate frontier kingdom, using fallback", e);
+            const templates = [
+                {
+                    name: 'Kingdom of Vaelgard',
+                    desc: 'A rugged outpost kingdom founded by exiled knights seeking freedom in the wild frontier.',
+                    biomes: ['Forest', 'Plains'],
+                    factionName: 'The Iron Vanguard',
+                    factionColor: '#a06040',
+                    leaderTitle: 'Lord Commander',
+                    leaderName: 'Garrick the Stalwart',
+                    leaderPersona: 'A hard-nosed soldier who values strength, directness, and loyalty. Sceptical of outsiders.',
+                    townNames: ["Thornhaven", "Ashenmere", "Goldfall", "Cinderveil"]
+                },
+                {
+                    name: 'Sylvan Sultanate of Zanj-Abar',
+                    desc: 'An exotic oasis kingdom of golden minarets and vast trade networks spanning the arid frontier.',
+                    biomes: ['Desert', 'Coastal'],
+                    factionName: 'The Obsidian Crescent',
+                    factionColor: '#ccaa44',
+                    leaderTitle: 'Grand Sultan',
+                    leaderName: 'Al-Mansur the Wise',
+                    leaderPersona: 'A cunning, polite ruler who cares deeply about commerce, wealth, and diplomacy.',
+                    townNames: ["Qasira", "Shadzar", "Tidepool", "Seawind"]
+                },
+                {
+                    name: 'Stronghold of Irondeep',
+                    desc: 'A colossal subterranean kingdom carved into the roots of the world, rich with metal and gem mines.',
+                    biomes: ['Cave', 'Dungeon'],
+                    factionName: 'The Stoneforge Clan',
+                    factionColor: '#777788',
+                    leaderTitle: 'High Thane',
+                    leaderName: 'Thorgar Bronzebeard',
+                    leaderPersona: 'A stubborn, traditionalist dwarf ruler who trusts only steel, stone, and strong ale.',
+                    townNames: ["Deephearth", "Stonebridge", "Glimmerlode", "Anvilgard"]
+                },
+                {
+                    name: 'Duskveil Dominion',
+                    desc: 'A mysterious, fog-shrouded realm of darkwoods where shadow magic and ancient curses linger.',
+                    biomes: ['Deadwoods', 'Cave'],
+                    factionName: 'The Nightshade Coven',
+                    factionColor: '#663399',
+                    leaderTitle: 'Dread Lord',
+                    leaderName: 'Malakor the Silent',
+                    leaderPersona: 'A cold, calculating spellcaster who rarely speaks but rules with absolute authority.',
+                    townNames: ["Shadowfen", "Gravewood", "Mistweaver", "Whisperwind"]
+                },
+                {
+                    name: 'Frosthold Realm',
+                    desc: 'A freezing northern tundra of snow-covered peaks, ruled by proud giant-slaying clans.',
+                    biomes: ['Winter', 'Plains'],
+                    factionName: 'The Winter Vanguard',
+                    factionColor: '#88ccff',
+                    leaderTitle: 'Jarl',
+                    leaderName: 'Bjorn Icebreaker',
+                    leaderPersona: 'A boisterous warrior king who respects physical might, hospitality, and tales of glory.',
+                    townNames: ["Snowdrift", "Glacierpoint", "Coldstone", "Frostkeep"]
+                }
+            ];
+
+            const tIdx = Math.floor(Math.abs(zoneRange[0]) / 16) % templates.length;
+            const template = templates[tIdx];
+
+            const fallbackTownNames = {};
+            townZones.forEach((z, i) => {
+                const name = (z === capital) ? `${template.name} Capital` : template.townNames[i % template.townNames.length];
+                fallbackTownNames[z] = name;
+                if (!window.saveData.zones) window.saveData.zones = {};
+                if (!window.saveData.zones[z]) {
+                    window.saveData.zones[z] = {
+                        name: name,
+                        biome: (z === capital) ? 'Capital' : 'Town'
+                    };
+                }
+            });
+
+            let fid = template.factionName.toLowerCase().trim();
+            if (fid.startsWith("the ")) {
+                fid = fid.substring(4);
+            }
+            fid = fid.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+            return {
+                id: `frontier_kingdom_${Math.abs(zoneRange[0])}`,
+                name: template.name,
+                desc: template.desc,
+                capital: capital,
+                zoneRange: [zoneRange[0], zoneRange[1]],
+                biomes: template.biomes,
+                rulingFaction: fid || `faction_frontier_${Math.abs(zoneRange[0])}`,
+                factionName: template.factionName,
+                factionColor: template.factionColor,
+                leaderTitle: template.leaderTitle,
+                leaderName: template.leaderName,
+                leaderPersona: template.leaderPersona,
+                allies: ["crown_of_willowbrook"],
+                rivals: ["shadow_covenant"],
+                exportGoods: ["wheat"],
+                importGoods: ["iron_ore"],
+                townNames: fallbackTownNames
+            };
+        }
+    }
+
+    async improveHeroPersonality(currentPersonality, state) {
+        if (!this.model) return { personality: currentPersonality || "A brave adventurer." };
+
+        const prompt = `You are a creative writer and roleplay designer for a dark fantasy RPG.
+Your task is to write a highly creative, immersive 1-2 sentence roleplay personality / disposition profile for the player's character.
+
+Current character context:
+- Class: ${state.player.class}
+- Level: ${state.player.level}
+- Alignment: ${state.player.alignment} (Negative is Evil, Positive is Good)
+- Current Zone: ${state.zone ? state.zone.name : 'Unknown lands'}
+- Active Quests: ${JSON.stringify(state.player.quests)}
+
+${currentPersonality ? `The player has started writing this draft: "${currentPersonality}". Please improve, flesh out, and polish this draft, making it highly atmospheric and creative, incorporating their class/alignment/level traits.` : `No draft exists. Please procedurally generate a completely new, unique, and highly creative personality profile that matches their class and alignment.`}
+
+Format the output strictly as a JSON object:
+{
+  "personality": "Your polished/generated 1-2 sentence personality here."
+}
+Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.`;
+
+        try {
+            const result = await Promise.race([
+                this.generateContentWithTools(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+            ]);
+            let text = result.response.text().trim();
+            return this.cleanAndParseJson(text);
+        } catch (e) {
+            console.error("GeminiService: Failed to improve/generate hero personality", e);
+            return { personality: currentPersonality || `A level ${state.player.level} ${state.player.class} seeking fortune in the realm.` };
         }
     }
 }

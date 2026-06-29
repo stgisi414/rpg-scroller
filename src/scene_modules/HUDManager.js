@@ -34,7 +34,16 @@ class HUDManager {
             this.scene.hudElements.nameLevel.style.borderRadius = '4px';
             this.scene.hudElements.nameLevel.style.border = '1px solid rgba(255,255,255,0.15)';
         }
-        
+        // Clean up any stale elements from previous scenes to avoid memory leaks and stale event listener bindings
+        const staleSheet = document.getElementById('btn-char-sheet');
+        if (staleSheet) staleSheet.remove();
+        const staleAP = document.getElementById('btn-auto-play');
+        if (staleAP) staleAP.remove();
+        const staleAPConfig = document.getElementById('btn-auto-play-config');
+        if (staleAPConfig) staleAPConfig.remove();
+        const staleModal = document.getElementById('char-sheet-modal');
+        if (staleModal) staleModal.remove();
+
         if (this.scene.hudElements.nameLevel && !document.getElementById('btn-char-sheet')) {
             const btn = document.createElement('button');
             btn.id = 'btn-char-sheet';
@@ -58,6 +67,23 @@ class HUDManager {
                     this.scene.player.aiState = 'party';
                     btnAP.style.background = this.scene.player.isAI ? 'rgba(80,160,30,0.9)' : 'rgba(30,60,80,0.9)';
                     btnAP.innerText = this.scene.player.isAI ? '🛑 Stop AI' : '🤖 Auto-Play';
+
+                    // When stopping AI, immediately halt all movement and clear AI state
+                    if (!this.scene.player.isAI) {
+                        if (this.scene.player.sprite && this.scene.player.sprite.body) {
+                            this.scene.player.sprite.setVelocityX(0);
+                        }
+                        // Clear all AI input flags
+                        const ai = this.scene.player.aiInput;
+                        if (ai) { ai.left = false; ai.right = false; ai.up = false; ai.down = false; ai.interact = false; }
+                        // Reset AI navigation state
+                        const companion = this.scene.player.companionAI;
+                        if (companion) {
+                            companion._wantsToAdventure = false;
+                            companion._wantsToTravel = false;
+                            companion._wantsGuildHall = false;
+                        }
+                    }
                 }
             });
             this.scene.hudElements.nameLevel.appendChild(btnAP);
@@ -153,6 +179,12 @@ class HUDManager {
                         <div>
                             <h3 class="font-headline-sm text-tertiary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">military_tech</span> Arena Status</h3>
                             <div id="cs-arena-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
+                                <!-- Injected -->
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-sm uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]" style="color: #4fc3f7;"><span class="material-symbols-outlined text-[22px]">inventory_2</span> Caravan Cargo Hold</h3>
+                            <div id="cs-cargo" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
                                 <!-- Injected -->
                             </div>
                         </div>
@@ -289,26 +321,54 @@ class HUDManager {
         if (coliseumGrindCheckbox) coliseumGrindCheckbox.checked = config.coliseumGrind || false;
     }
 
+    _saveAutoplayConfig() {
+        if (window.autoplayConfig) {
+            if (window.saveData) {
+                window.saveData.autoplayConfig = JSON.parse(JSON.stringify(window.autoplayConfig));
+                // Call player._persistToLocalStorage() to write it to local storage slot
+                if (this.scene && this.scene.player && typeof this.scene.player._persistToLocalStorage === 'function') {
+                    this.scene.player._persistToLocalStorage();
+                } else {
+                    // Fallback direct write to local storage if player is not fully initialized yet
+                    try {
+                        const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
+                        const idx = saves.findIndex(s => s.id === window.saveData.id);
+                        if (idx > -1) {
+                            saves[idx] = window.saveData;
+                            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                        }
+                    } catch(e) {
+                        console.error("Failed to write autoplay config to save slot:", e);
+                    }
+                }
+            }
+        }
+    }
+
     _setupAutoplayListeners() {
         if (this._autoplayListenersBound) return;
         this._autoplayListenersBound = true;
 
-        const config = window.autoplayConfig;
         const closeBtn = document.getElementById('btn-close-ap-config');
         if (closeBtn) {
             closeBtn.onclick = () => this.toggleAutoplayConfig();
         }
 
         const presetValues = {
-            aggressive: { selfPotionPct: 25, partyPotionPct: 20, spellRate: 90, dashFreq: 60, blockRate: 10, townFocus: 20, partyBuildFocus: 40, questFocus: 50 },
-            speedrunner: { selfPotionPct: 30, partyPotionPct: 20, spellRate: 30, dashFreq: 95, blockRate: 15, townFocus: 0, partyBuildFocus: 20, questFocus: 0 },
-            potion_saver: { selfPotionPct: 14, partyPotionPct: 14, spellRate: 40, dashFreq: 20, blockRate: 80, townFocus: 40, partyBuildFocus: 30, questFocus: 60 },
-            loot_goblin: { selfPotionPct: 40, partyPotionPct: 40, spellRate: 50, dashFreq: 40, blockRate: 30, townFocus: 80, partyBuildFocus: 90, questFocus: 90 },
-            pacifist: { selfPotionPct: 50, partyPotionPct: 70, spellRate: 20, dashFreq: 40, blockRate: 90, townFocus: 60, partyBuildFocus: 70, questFocus: 80 }
+            aggressive: { selfPotionPct: 25, partyPotionPct: 20, spellRate: 90, dashFreq: 60, blockRate: 10, townFocus: 20, partyBuildFocus: 40, questFocus: 50, heroPersonality: "An aggressive warrior focusing on standard combat, high spell usage, and active dashes." },
+            speedrunner: { selfPotionPct: 30, partyPotionPct: 20, spellRate: 30, dashFreq: 95, blockRate: 15, townFocus: 0, partyBuildFocus: 20, questFocus: 0, heroPersonality: "Focuses on speedrunning the game, ignoring towns and quests, and constant dashes." },
+            potion_saver: { selfPotionPct: 14, partyPotionPct: 14, spellRate: 40, dashFreq: 20, blockRate: 80, townFocus: 40, partyBuildFocus: 30, questFocus: 60, heroPersonality: "A defensive, potion-saving build with extremely high block rates and cautious combat." },
+            loot_goblin: { selfPotionPct: 40, partyPotionPct: 40, spellRate: 50, dashFreq: 40, blockRate: 30, townFocus: 80, partyBuildFocus: 90, questFocus: 90, heroPersonality: "Obsessed with gold, gear, hiring maximum party members, and clearing every quest." },
+            pacifist: { selfPotionPct: 50, partyPotionPct: 70, spellRate: 20, dashFreq: 40, blockRate: 90, townFocus: 60, partyBuildFocus: 70, questFocus: 80, heroPersonality: "A passive traveler focusing on block defense and healing party members rather than fighting." },
+            merchant_trader: { selfPotionPct: 40, partyPotionPct: 40, spellRate: 40, dashFreq: 30, blockRate: 50, townFocus: 95, partyBuildFocus: 80, questFocus: 10, heroPersonality: "A profit-minded merchant trader. Values gold above glory, seeks out trade cargo in towns, and is obsessed with market arbitrage." },
+            caravan_bodyguard: { selfPotionPct: 50, partyPotionPct: 85, spellRate: 80, dashFreq: 50, blockRate: 70, townFocus: 30, partyBuildFocus: 90, questFocus: 90, heroPersonality: "A stout caravan bodyguard. Sworn to defend the pack mules and party from wilderness threats. Prioritizes healing allies and blocking enemy attacks." },
+            faction_politician: { selfPotionPct: 35, partyPotionPct: 35, spellRate: 60, dashFreq: 40, blockRate: 40, townFocus: 70, partyBuildFocus: 40, questFocus: 95, heroPersonality: "A diplomat and faction politician. Highly immersed in the local lore. Focuses on completing court contracts and espionage missions." },
+            high_roller: { selfPotionPct: 45, partyPotionPct: 40, spellRate: 50, dashFreq: 80, blockRate: 30, townFocus: 80, partyBuildFocus: 50, questFocus: 20, heroPersonality: "A wealthy traveler. Disdains long, muddy roads; prefers fast traveling using town portal networks and pays transit taxes without batting an eye." }
         };
 
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
+                const config = window.autoplayConfig || {};
                 const presetName = btn.dataset.preset;
                 config.preset = presetName;
                 if (presetName !== 'custom') {
@@ -318,13 +378,16 @@ class HUDManager {
                     });
                 }
                 this._syncAutoplayUI();
+                this._saveAutoplayConfig();
             };
         });
 
         const zoneInput = document.getElementById('ap-target-zone');
         if (zoneInput) {
             zoneInput.oninput = () => {
+                const config = window.autoplayConfig || {};
                 config.targetZone = parseInt(zoneInput.value) || 0;
+                this._saveAutoplayConfig();
             };
             zoneInput.onfocus = () => {
                 if (this.scene.inputManager) this.scene.inputManager.disableForInput();
@@ -337,7 +400,9 @@ class HUDManager {
         const coliseumGrindCheckbox = document.getElementById('ap-coliseum-grind');
         if (coliseumGrindCheckbox) {
             coliseumGrindCheckbox.onchange = () => {
+                const config = window.autoplayConfig || {};
                 config.coliseumGrind = coliseumGrindCheckbox.checked;
+                this._saveAutoplayConfig();
             };
         }
 
@@ -357,6 +422,7 @@ class HUDManager {
             const display = document.getElementById(s.valId);
             if (input) {
                 input.oninput = () => {
+                    const config = window.autoplayConfig || {};
                     const val = parseInt(input.value) || 0;
                     config[s.prop] = val;
                     config.preset = 'custom';
@@ -366,20 +432,226 @@ class HUDManager {
                         if (btn.dataset.preset === 'custom') btn.classList.add('active');
                         else btn.classList.remove('active');
                     });
+                    this._saveAutoplayConfig();
                 };
             }
         });
 
         const pTextarea = document.getElementById('ap-hero-personality');
         if (pTextarea) {
+            const improveBtn = document.getElementById('btn-ap-improve-personality');
+            if (improveBtn) {
+                improveBtn.onclick = async () => {
+                    const config = window.autoplayConfig || {};
+                    const currentVal = pTextarea.value.trim();
+                    
+                    improveBtn.innerText = "⏳ Generating...";
+                    improveBtn.disabled = true;
+
+                    const p = this.scene.player;
+                    const wm = this.scene.worldManager;
+                    const state = {
+                        zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, biome: wm.currentZoneData.biome } : null,
+                        player: {
+                            level: window.saveData ? (window.saveData.level || 1) : 1,
+                            class: p.classData ? p.classData.id : "adventurer",
+                            alignment: p.alignment || 0,
+                            quests: p.quests || []
+                        }
+                    };
+
+                    try {
+                        const response = await this.scene.geminiService.improveHeroPersonality(currentVal, state);
+                        if (response && response.personality) {
+                            config.heroPersonality = response.personality;
+                            pTextarea.value = response.personality;
+                            this._saveAutoplayConfig();
+                        }
+                    } catch(e) {
+                        console.error("Failed to improve hero personality:", e);
+                    } finally {
+                        improveBtn.innerText = "🪄 Auto-Generate/Improve";
+                        improveBtn.disabled = false;
+                    }
+                };
+            }
+
             pTextarea.oninput = () => {
+                const config = window.autoplayConfig || {};
                 config.heroPersonality = pTextarea.value;
+                this._saveAutoplayConfig();
             };
             pTextarea.onfocus = () => {
                 if (this.scene.inputManager) this.scene.inputManager.disableForInput();
             };
             pTextarea.onblur = () => {
                 if (this.scene.inputManager) this.scene.inputManager.enableForInput();
+            };
+        }
+
+        // Global Economy Guide Modal Triggers
+        const guideOpenBtn = document.getElementById('btn-open-economy-guide');
+        const guideCloseBtn = document.getElementById('btn-close-economy-guide');
+        const guideModal = document.getElementById('ui-economy-guide');
+        
+        if (guideOpenBtn && guideModal) {
+            guideOpenBtn.onclick = () => {
+                guideModal.style.display = 'flex';
+                // Populate the dynamic economy guide table
+                const tbody = document.getElementById('economy-guide-table-body');
+                if (tbody && window.WORLD_KINGDOMS) {
+                    tbody.innerHTML = '';
+                    
+                    const renderRow = (kId, k) => {
+                        const exportNames = (k.exportGoods || []).map(itemId => {
+                            const item = window.TRADE_GOODS ? window.TRADE_GOODS[itemId] : null;
+                            return item ? `${item.name} (${item.basePrice}g)` : itemId;
+                        }).join(', ');
+                        const importNames = (k.importGoods || []).map(itemId => {
+                            const item = window.TRADE_GOODS ? window.TRADE_GOODS[itemId] : null;
+                            return item ? item.name : itemId;
+                        }).join(', ');
+                        
+                        const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(k) : 'src/assets/emblems/emblem_unknown_2.png';
+                        
+                        const emblemImgHtml = `<img src="${emblemSrc}" style="width:20px; height:20px; vertical-align:middle; image-rendering:pixelated; margin-right:8px; display:inline-block; border:1px solid rgba(45,219,222,0.2); padding:1px; background:rgba(0,0,0,0.3); border-radius:2px;" />`;
+
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid #222';
+                        tr.style.transition = 'background 0.15s';
+                        tr.onmouseover = () => { tr.style.background = 'rgba(255,255,255,0.02)'; };
+                        tr.onmouseout = () => { tr.style.background = 'transparent'; };
+                        tr.innerHTML = `
+                            <td style="padding:10px 12px; font-weight:bold; color:#fff; border-bottom:1px solid #222; display:flex; align-items:center;">
+                                ${emblemImgHtml}
+                                <span>${k.name}</span>
+                            </td>
+                            <td style="padding:10px 12px; text-align:center; color:#2ddbde; font-weight:bold; border-bottom:1px solid #222; vertical-align:middle;">Zone ${k.capital}</td>
+                            <td style="padding:10px 12px; color:#4ade80; border-bottom:1px solid #222; vertical-align:middle;">${exportNames}</td>
+                            <td style="padding:10px 12px; color:#eab308; border-bottom:1px solid #222; vertical-align:middle;">${importNames}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    };
+
+                    for (const kId in window.WORLD_KINGDOMS) {
+                        renderRow(kId, window.WORLD_KINGDOMS[kId]);
+                    }
+                    if (window.saveData && window.saveData.discoveredKingdoms) {
+                        for (const kId in window.saveData.discoveredKingdoms) {
+                            renderRow(kId, window.saveData.discoveredKingdoms[kId]);
+                        }
+                    }
+                }
+            };
+        }
+        if (guideCloseBtn && guideModal) {
+            guideCloseBtn.onclick = () => {
+                guideModal.style.display = 'none';
+            };
+        }
+
+        // Faction Lore Bible
+        const loreOpenBtn = document.getElementById('btn-open-lore-bible');
+        const loreCloseBtn = document.getElementById('btn-close-lore-bible');
+        const loreModal = document.getElementById('ui-lore-bible');
+        if (loreOpenBtn && loreModal) {
+            loreOpenBtn.onclick = () => {
+                loreModal.style.display = 'flex';
+                const loreContainer = document.getElementById('lore-bible-content');
+                if (loreContainer) {
+                    loreContainer.innerHTML = '';
+                    
+                    const loreData = {
+                        willowbrook: {
+                            title: "Kingdom of Willowbrook",
+                            ruling: "The Crown of Willowbrook",
+                            desc: "Nestled within the lush, ancient Whisperwood Forest, Willowbrook is the oldest agricultural and timber hub of the Known World. Its people live in harmony with nature under the benevolent rule of King Aldric. Safe exits and fertile plains protect the town, though dark whispers stir in the neighboring wilderness zones."
+                        },
+                        embercrown: {
+                            title: "Kingdom of Embercrown",
+                            ruling: "The Embercrown Dominion",
+                            desc: "Forged in the heart of the Obsidian Crags, Embercrown is a mighty subterranean industrial empire ruled by the hellfire guild. They mine deep obsidian and master the forge, creating unmatched steel armaments. Their hot-tempered royalty guards their capital fiercely, looking down on the agrarian valleys below."
+                        },
+                        duskveil: {
+                            title: "Kingdom of Duskveil",
+                            ruling: "The Shadow Covenant",
+                            desc: "Shrouded in a perpetual purple twilight and cold gothic mist, Duskveil is the home of spellswords, rogues, and moon worshippers. Under the shadowy rule of Princess Seraphina, the city acts as the gateway to the unseen dimensions. Many fear their dark arts, but their markets trade in rare crescent relics."
+                        },
+                        ashenmoor: {
+                            title: "Kingdom of Ashenmoor",
+                            ruling: "The Mages' Council",
+                            desc: "Sprawled across the vast yellow sands of the Ashen Wasteland, Ashenmoor is a sanctuary of magic, alchemy, and lost secrets. Great floating towers house the Council of Archmages who study the cosmos. Their exports of magical scrolls feed the wizard guilds across all realms."
+                        },
+                        frosthold: {
+                            title: "Kingdom of Frosthold",
+                            ruling: "The Northern Alliance",
+                            desc: "A harsh, frozen fortress kingdom carved into the glacial peaks of the Wyrmtooth Range. Frosthold is inhabited by battle-hardened rangers and high-born knights who have sworn to protect the frontier from wild winter beasts. Their iron axes and cold resistance are legendary."
+                        },
+                        tidereach: {
+                            title: "Kingdom of Tidereach",
+                            ruling: "The Merchant League",
+                            desc: "Perched on the coastal bays of the Emerald Sea, Tidereach is the trading capital of the world. Great wooden galleons bring trade goods and exotic spices from distant pocket realms. The Merchant League governs the docks, keeping pricing fair and taxes high."
+                        },
+                        heaven: {
+                            title: "Pocket Realm of Heaven",
+                            ruling: "The Seraphim Order",
+                            desc: "A celestial dimension hovering high above the clouds, accessible only to adventurers of pure alignment. Glowing halos and white golden wings light up the sky. It is a place of peace, divine spells, and sacred artifacts, guarded by holy guardians."
+                        },
+                        hell: {
+                            title: "Pocket Realm of Hell",
+                            ruling: "The Demon Horde",
+                            desc: "A fiery abyss of torment and hellfire, populated by horned beasts and pentagram sigils. Adventurers of dark alignment are damnably cast here to face challenges or escape. The intense heat tests all armor, and only the strong survive."
+                        }
+                    };
+
+                    for (const kId in loreData) {
+                        const entry = loreData[kId];
+                        const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kId) : `src/assets/emblems/emblem_${kId}.png`;
+                        
+                        const itemHtml = `
+                            <div style="background:#131316; border:1px solid #333; border-radius:6px; padding:16px; display:flex; gap:16px; align-items:flex-start;">
+                                <img src="${emblemSrc}" style="width:48px; height:48px; image-rendering:pixelated; border:1px solid rgba(246,190,59,0.3); padding:3px; background:rgba(0,0,0,0.4); border-radius:4px; flex-shrink:0;" />
+                                <div>
+                                    <h4 style="color:#f6be3b; margin:0 0 4px; font-size:14px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; line-height:1.2;">${entry.title}</h4>
+                                    <div style="font-size:10px; color:#aaa; margin-bottom:8px; text-transform:uppercase;">Ruling Faction: <span style="color:#fff; font-weight:bold;">${entry.ruling}</span></div>
+                                    <p style="color:#ccc; font-size:11px; line-height:1.6; margin:0; font-family:sans-serif;">${entry.desc}</p>
+                                </div>
+                            </div>
+                        `;
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = itemHtml;
+                        loreContainer.appendChild(tempDiv.firstElementChild);
+                    }
+                    
+                    // Add dynamically discovered frontier kingdoms if any exist
+                    if (window.saveData && window.saveData.discoveredKingdoms) {
+                        const keys = Object.keys(window.saveData.discoveredKingdoms);
+                        keys.forEach((kId, idx) => {
+                            const k = window.saveData.discoveredKingdoms[kId];
+                            const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kId) : 'src/assets/emblems/emblem_unknown_1.png';
+                            
+                            const itemHtml = `
+                                <div style="background:#131316; border:1px solid #333; border-radius:6px; padding:16px; display:flex; gap:16px; align-items:flex-start;">
+                                    <img src="${emblemSrc}" style="width:48px; height:48px; image-rendering:pixelated; border:1px solid rgba(246,190,59,0.3); padding:3px; background:rgba(0,0,0,0.4); border-radius:4px; flex-shrink:0;" />
+                                    <div>
+                                        <h4 style="color:#a0832b; margin:0 0 4px; font-size:14px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; line-height:1.2;">${k.name} (Frontier Realm)</h4>
+                                        <div style="font-size:10px; color:#aaa; margin-bottom:8px; text-transform:uppercase;">Ruling Faction: <span style="color:#fff; font-weight:bold;">${k.factionName || k.rulingFaction || 'Local Council'}</span></div>
+                                        <div style="font-size:10px; color:#aaa; margin-bottom:8px; text-transform:uppercase;">Capital: <span style="color:#2ddbde; font-weight:bold;">Zone ${k.capital}</span></div>
+                                        <p style="color:#ccc; font-size:11px; line-height:1.6; margin:0; font-family:sans-serif;">${k.desc || 'An uncharted territory in the frontier, ruled by local factions.'}</p>
+                                    </div>
+                                </div>
+                            `;
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = itemHtml;
+                            loreContainer.appendChild(tempDiv.firstElementChild);
+                        });
+                    }
+                }
+            };
+        }
+        if (loreCloseBtn && loreModal) {
+            loreCloseBtn.onclick = () => {
+                loreModal.style.display = 'none';
             };
         }
     }
@@ -412,7 +684,7 @@ class HUDManager {
         
         document.getElementById('cs-gold').innerText = `${gold} Gold`;
         document.getElementById('cs-xp').innerText = `${xp} / ${nextXp} XP`;
-        document.getElementById('cs-hpmp').innerText = `HP: ${p.hp}/${p.maxHp} | MP: ${p.mp}/${p.maxMp}`;
+        document.getElementById('cs-hpmp').innerText = `HP: ${Math.floor(p.hp)}/${p.maxHp} | MP: ${Math.floor(p.mp)}/${p.maxMp}`;
 
         // Sprite
         const spriteImg = document.getElementById('cs-sprite-img');
@@ -584,10 +856,31 @@ class HUDManager {
                 const isCustom = member.classData.id && member.classData.id.startsWith('custom_npc_');
                 const classLabel = isCustom ? `Companion (${member.classData.weaponType || 'sword'})` : member.classData.id;
                 
+                // Fetch kingdom emblem for the member's faction
+                const factionId = member.faction;
+                let kingdomId = null;
+                if (factionId) {
+                    if (window.WORLD_FACTIONS && window.WORLD_FACTIONS[factionId]) {
+                        kingdomId = window.WORLD_FACTIONS[factionId].kingdom;
+                    } else if (window.saveData && window.saveData.discoveredKingdoms) {
+                        for (const kId in window.saveData.discoveredKingdoms) {
+                            if (window.saveData.discoveredKingdoms[kId].rulingFaction === factionId) {
+                                kingdomId = kId;
+                                break;
+                            }
+                        }
+                    }
+                }
+                const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
+                const emblemImgHtml = emblemSrc ? `<img src="${emblemSrc}" style="width:16px; height:16px; vertical-align:middle; image-rendering:pixelated; border:1px solid rgba(45,219,222,0.2); padding:1px; background:rgba(0,0,0,0.3); border-radius:2px; margin-right:6px;" />` : '';
+
                 return `
                 <div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:8px;border:1px solid #3a3020;box-shadow:inset 0 0 10px rgba(0,0,0,0.5); position:relative;">
                     <button onclick="window._gameScene.dismissPartyMember(${idx})" style="position:absolute; top:8px; right:8px; background:rgba(255,50,50,0.3); border:1px solid #ff6b6b; color:#fff; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:10px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,50,50,0.6)'" onmouseout="this.style.background='rgba(255,50,50,0.3)'">Dismiss</button>
-                    <div style="color:#a0832b;font-weight:bold;margin-bottom:4px;text-transform:capitalize;font-size:16px;">${member.npcName ? member.npcName : (member.classData.id === 'knight' ? 'Warrior' : member.classData.id)}</div>
+                    <div style="display:flex; align-items:center; margin-bottom:4px;">
+                        ${emblemImgHtml}
+                        <div style="color:#a0832b;font-weight:bold;text-transform:capitalize;font-size:16px;line-height:1;">${member.npcName ? member.npcName : (member.classData.id === 'knight' ? 'Warrior' : member.classData.id)}</div>
+                    </div>
                     <div style="color:#888;font-size:11px;margin-bottom:8px;text-transform:uppercase;">${classLabel}</div>
                     <div style="color:#ff6b6b;font-size:14px;margin-bottom:4px;">❤ HP: ${Math.round(member.hp)}/${member.maxHp}</div>
                     <div style="color:#bbb;font-size:13px;margin-bottom:4px;">⚔️ Dmg: ~${mFinalDmg}${mBuffStr}</div>
@@ -601,6 +894,40 @@ class HUDManager {
             partyHtml = `<div class="text-on-surface-variant italic">No active party members</div>`;
         }
         document.getElementById('cs-party').innerHTML = partyHtml;
+
+        // --- Caravan Cargo Hold ---
+        const cargoHold = window.saveData && window.saveData.cargo ? window.saveData.cargo : {};
+        const totalCargoVal = Object.values(cargoHold).reduce((a, b) => a + b, 0);
+        let cargoHtml = `<div class="flex justify-between items-center mb-2"><span class="font-bold text-[#4fc3f7] uppercase tracking-wider">Total Cargo</span><span class="font-bold text-[16px] text-[#4fc3f7]">${totalCargoVal} / 10 units</span></div>`;
+        
+        let cargoItemsHtml = "";
+        for (const itemId in cargoHold) {
+            const qty = cargoHold[itemId] || 0;
+            if (qty > 0) {
+                const itemData = window.TRADE_GOODS && window.TRADE_GOODS[itemId] ? window.TRADE_GOODS[itemId] : { name: itemId, desc: '', basePrice: 0 };
+                cargoItemsHtml += `
+                    <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.08); margin-bottom:6px; display:flex; justify-content:between; align-items:center;">
+                        <div style="flex-grow:1;">
+                            <div style="font-weight:bold; color:#fff; text-transform:uppercase; font-size:12px; margin-bottom:2px;">📦 ${itemData.name}</div>
+                            <div style="color:#888; font-size:10px; line-height:1.2;">${itemData.desc || ''}</div>
+                        </div>
+                        <div style="text-align:right; margin-left:12px; min-w-[70px];">
+                            <div style="font-weight:bold; color:#4fc3f7; font-size:14px;">Qty: ${qty}</div>
+                            <div style="color:#a0832b; font-size:10px; font-family:monospace; margin-top:2px;">Value: ~${itemData.basePrice * qty}g</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        if (cargoItemsHtml === "") {
+            cargoItemsHtml = `<div class="text-on-surface-variant italic text-center py-2" style="color:#888; font-size:12px;">No trade cargo currently in your caravan hold.</div>`;
+        }
+        
+        const cargoDiv = document.getElementById('cs-cargo');
+        if (cargoDiv) {
+            cargoDiv.innerHTML = cargoHtml + `<div style="margin-top:8px;">${cargoItemsHtml}</div>`;
+        }
     }
 
     dismissPartyMember(index) {
@@ -630,11 +957,15 @@ class HUDManager {
 
         const member = this.scene.partyMembers[index];
         
-        // Hide character sheet
+        // Hide character sheet and restore HUD
         const uiCS = document.getElementById('ui-character-sheet');
         if (uiCS) uiCS.style.display = 'none';
         const modal = document.getElementById('char-sheet-modal');
         if (modal) modal.style.display = 'none';
+        
+        const hud = document.getElementById('game-hud');
+        if (hud) hud.style.display = 'flex';
+        
         this.scene.isCharacterSheetOpen = false;
         
         if (member && member.openChat) {
@@ -658,6 +989,14 @@ class HUDManager {
             this.scene.hudElements.nameLevel.childNodes[0].textContent = `${saveName} (Lv.${saveLevel}) `;
         }
         if (this.scene.hudElements.gold) this.scene.hudElements.gold.innerText = `Gold: ${saveGold ?? 0}`;
+        
+        // Update Cargo HUD Indicator
+        const currentCargoHold = window.saveData && window.saveData.cargo ? window.saveData.cargo : {};
+        const totalCargoCount = Object.values(currentCargoHold).reduce((a, b) => a + b, 0);
+        const cargoHUDText = document.getElementById('hud-cargo');
+        if (cargoHUDText) {
+            cargoHUDText.innerText = `Cargo: ${totalCargoCount}/10`;
+        }
 
         // XP bar
         if (this.scene.hudElements.xpFill) this.scene.hudElements.xpFill.style.width = `${xpPercent}%`;
@@ -913,7 +1252,8 @@ class HUDManager {
                      bodyBot > 700 ? '<span style="color:#fa0;font-weight:bold">SINKING</span>' :
                      `<span style="color:#ff0">FALLING vel.y=${Math.round(b.velocity.y)}</span>`);
 
-                return `<span style="color:#0ff;font-weight:bold">NPC[${i}]</span> ${tag} ${c('key', n.spriteKey.substring(0,20), '#8af')} ${c('name', n.npcName, '#fff')} ${floorStatus}<br>` +
+                const factInfo = n.faction ? ` [Faction: ${n.faction} | ${n.politicalTitle || 'Commoner'} (${n.factionRank})]` : '';
+                return `<span style="color:#0ff;font-weight:bold">NPC[${i}]</span> ${tag} ${c('key', n.spriteKey.substring(0,20), '#8af')} ${c('name', n.npcName + factInfo, '#fff')} ${floorStatus}<br>` +
                     `&nbsp;&nbsp;${c('spr.pos', pos, '#0f0')} ${c('origin', origin, '#da0')} ${c('scale', scale, '#da0')} ${c('tex', texKey.substring(0,20), '#888')}<br>` +
                     `&nbsp;&nbsp;${c('active', sprActive, sprActive ? '#0f0' : '#f44')} ${c('visible', sprVisible, sprVisible ? '#0f0' : '#f44')} ${c('depth', depth, '#888')}<br>` +
                     `&nbsp;&nbsp;${c('body.pos', bodyPos, '#ff0')} ${c('body.top', bodyTop, '#fa0')} ${c('body.bot', bodyBot, bodyBot > 700 ? '#f44' : '#0f0')}<br>` +
@@ -931,8 +1271,20 @@ class HUDManager {
             }).join('<br>');
         }
 
+        const isCapital = window.isCapitalCity ? window.isCapitalCity(zoneIdx) : false;
+        const subType = zoneType === 'Safe' ? (isCapital ? 'Capital City' : 'Town') : 'Wilderness';
+
+        const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
+        const faction = window.getFactionForZone ? window.getFactionForZone(zoneIdx) : null;
+        const rep = faction ? (window.getFactionReputation ? window.getFactionReputation(faction.id) : 0) : 0;
+        
+        const polInfo = kingdom ? 
+            (c('Kingdom', kingdom.name, '#da0') + ' │ ' + c('Faction', faction ? faction.name : 'none', '#8af') + ` (${rep} Rep)`) : 
+            '<span style="color:#aaa">Kingdom: None (Frontier)</span>';
+
         el.innerHTML = [
-            c('Zone', `${zoneIdx}`, '#ff0') + ' │ ' + c('Biome', biome, '#0ff') + ' │ ' + c('Type', zoneType, zoneType === 'Safe' ? '#0f0' : '#f88'),
+            c('Zone', `${zoneIdx}`, '#ff0') + ' │ ' + c('Biome', biome, '#0ff') + ' │ ' + c('Type', subType, zoneType === 'Safe' ? '#0f0' : '#f88'),
+            polInfo,
             c('Name', zoneName, '#fff'),
             c('FPS', fps, fps >= 55 ? '#0f0' : fps >= 30 ? '#ff0' : '#f00') + ' │ ' + c('Class', classId, '#da0') + ' │ ' + c('Lv', level, '#ff0'),
             c('Pos', `${px}, ${py}`) + ' │ ' + c('HP', hp, '#f44') + ' │ ' + c('MP', mp, '#48f') + ' │ ' + c('SP', sp, '#4f4'),

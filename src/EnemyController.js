@@ -67,6 +67,10 @@ class EnemyController {
             this.sprite.setScale(1.03 * this.scaleMultiplier);
             this.sprite.setSize(40, 68);
             this.sprite.setOffset(44, 27);
+        } else if (this.type === 'knight_rival') {
+            this.sprite.setScale(1.5 * this.scaleMultiplier);
+            this.sprite.setSize(40, 64);
+            this.sprite.setOffset(25, 0);
         } else if (this.type === 'training_dummy') {
             this.sprite.setScale(0.8 * this.scaleMultiplier);
             this.sprite.setSize(40, 90);
@@ -120,6 +124,21 @@ class EnemyController {
             this.sprite.setScale(1.5 * this.scaleMultiplier);
             this.sprite.setSize(40, 55);
             this.sprite.setOffset(12, 9); // 64x64 frame, center the hitbox
+        } else if (this.type === 'hellhound_1') {
+            this.sprite.setScale(1.0 * this.scaleMultiplier);
+            this.sprite.setSize(84, 48);
+            this.sprite.setOffset(22, 80);
+            this.sprite.setFlipX(true);
+        } else if (this.type === 'hellhound_2') {
+            this.sprite.setScale(1.0 * this.scaleMultiplier);
+            this.sprite.setSize(90, 50);
+            this.sprite.setOffset(14, 78);
+            this.sprite.setFlipX(true);
+        } else if (this.type === 'hellhound_3') {
+            this.sprite.setScale(1.0 * this.scaleMultiplier);
+            this.sprite.setSize(103, 60);
+            this.sprite.setOffset(12, 68);
+            this.sprite.setFlipX(true);
         } else if (this.type === 'willowisp') {
             this.sprite.setScale(1.5 * this.scaleMultiplier);
             this.sprite.setSize(24, 24);
@@ -193,7 +212,22 @@ class EnemyController {
 
         // Stats
         this.speed = 100;
-        if (this.type === 'lich_lord') {
+        if (this.type === 'knight_rival') {
+            this.maxHp = 500;
+            this.speed = 120;
+        } else if (this.type === 'dwarf_warrior_rival') {
+            this.maxHp = 500;
+            this.speed = 100;
+        } else if (this.type === 'dwarf_miner_rival') {
+            this.maxHp = 400;
+            this.speed = 110;
+        } else if (this.type === 'elven_spellblade_rival') {
+            this.maxHp = 450;
+            this.speed = 130;
+        } else if (this.type === 'elven_longbowman_rival') {
+            this.maxHp = 350;
+            this.speed = 120;
+        } else if (this.type === 'lich_lord') {
             this.maxHp = 2000;
         } else if (this.type === 'spider' || this.type === 'the_devil') {
             this.maxHp = this.type === 'the_devil' ? 1500 : 400; // other bosses
@@ -227,6 +261,22 @@ class EnemyController {
         } else {
             this.maxHp = 100;
         }
+
+        // Apply proximity scaling (further from Zone 0/Willowbrook = stronger enemies)
+        const zoneIdx = (this.scene.worldManager && this.scene.worldManager.currentZoneIndex) !== undefined ? this.scene.worldManager.currentZoneIndex : 0;
+        const absIdx = Math.abs(zoneIdx);
+        const guardTypes = ['knight_rival', 'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman_rival', 'dwarf_warrior_rival', 'dwarf_miner_rival'];
+        
+        if (guardTypes.includes(this.type)) {
+            // Guards scale up rapidly near the rifts
+            this.maxHp = Math.round(this.maxHp + (absIdx * 25));
+            this.damageMultiplier = 1.0 + (absIdx * 0.05);
+        } else if (this.type !== 'training_dummy' && !this.isBoss) {
+            // Standard monsters scale moderately
+            this.maxHp = Math.round(this.maxHp + (absIdx * 10));
+            this.damageMultiplier = 1.0 + (absIdx * 0.02);
+        }
+        
         this.hp = this.maxHp;
         if (this.scene.zoneBiome === 'Heaven') {
             this.sprite.setTint(0xfff5cc); // Warm celestial golden tint
@@ -295,6 +345,12 @@ class EnemyController {
     }
 
     _playAnim(animKey) {
+        // Remap from hyphen-separated (enemy format) to underscore-separated (player/class format) if textureKey is knight_rival
+        if (this.textureKey === 'knight_rival') {
+            animKey = animKey.replace('knight_rival-', 'knight_rival_');
+            if (animKey.endsWith('_move')) animKey = animKey.replace('_move', '_walk');
+        }
+
         // Zombie crawling phase: remap idle/move to crawl variants
         if (this.zombieCrawling) {
             if (animKey === `${this.textureKey}-idle`) animKey = `${this.textureKey}-crawl-idle`;
@@ -474,6 +530,10 @@ class EnemyController {
         this._playAnim(`${this.textureKey}-idle`);
     }
 
+    get facesLeftByDefault() {
+        return ['goblin', 'bat', 'mushroom', 'orc', 'plague_flies', 'burning_skull_blue', 'old_demon', 'male_damned', 'female_damned', 'tree_damned', 'twisted_damned', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'mummy', 'zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3', 'dragon', 'willowisp', 'bloated_damned', 'knight_rival'].includes(this.type) || this.type.startsWith('special_enemy_');
+    }
+
     update(time, delta) {
         if (!this.sprite || !this.sprite.active) return;
 
@@ -483,6 +543,51 @@ class EnemyController {
             if (this.aiText && this.aiText.active) this.aiText.destroy();
             this.sprite.destroy();
             return;
+        }
+
+        // Find closest target (player, companion, or other enemies if mind controlled)
+        const isMindControlled = this.statusEffects && this.statusEffects.some(e => e.type === 'mind_control');
+        if (this.scene) {
+            let bestTarget = null;
+            let minDist = Infinity;
+
+            if (isMindControlled) {
+                // Target the closest other active enemy!
+                if (this.scene.enemies) {
+                    this.scene.enemies.getChildren().forEach(e => {
+                        if (e && e.active && e !== this.sprite && e.controller && !e.controller.isDead) {
+                            const d = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, e.x, e.y);
+                            if (d < minDist) {
+                                minDist = d;
+                                bestTarget = e.controller;
+                            }
+                        }
+                    });
+                }
+            } else if (this.scene.player) {
+                // Only target the main player if they are NOT invisible
+                if (!this.scene.player.isInvisible) {
+                    bestTarget = this.scene.player;
+                    minDist = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, this.scene.player.sprite.x, this.scene.player.sprite.y);
+                }
+                
+                // Party members & mules are always targetable (they can't be invisible)
+                if (this.scene.partyMembers) {
+                    this.scene.partyMembers.forEach(m => {
+                        if (m && m.sprite && m.sprite.active && !m.isDead) {
+                            const d = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, m.sprite.x, m.sprite.y);
+                            if (d < minDist) {
+                                minDist = d;
+                                bestTarget = m;
+                            }
+                        }
+                    });
+                }
+            }
+
+            if (bestTarget) {
+                this.player = bestTarget;
+            }
         }
 
         if (!this.player || !this.player.sprite) return;
@@ -659,13 +764,9 @@ class EnemyController {
         const isPlayerLeft = this.player.sprite.x < this.sprite.x;
         const distanceX = Math.abs(this.player.sprite.x - this.sprite.x);
         
-        // GandalfHardcore sprites vary in default facing direction.
-        // Goblin faces left. Slime faces right. Assume others face left.
-        const facesLeftByDefault = ['goblin', 'bat', 'mushroom', 'orc', 'plague_flies', 'burning_skull_blue', 'old_demon', 'male_damned', 'female_damned', 'tree_damned', 'twisted_damned', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'mummy', 'zombie', 'zombie_v1', 'zombie_v2', 'zombie_v3', 'dragon', 'willowisp', 'bloated_damned'].includes(this.type) || this.type.startsWith('special_enemy_');
-        
         let shouldFlip = this.sprite.flipX; // default to current flip to prevent jitter
         if (distanceX > 5) {
-            if (facesLeftByDefault) {
+            if (this.facesLeftByDefault) {
                 shouldFlip = !isPlayerLeft;
             } else {
                 shouldFlip = isPlayerLeft;
@@ -685,6 +786,38 @@ class EnemyController {
                 const enemyOnGround = this.sprite.body.touching.down || this.sprite.body.blocked.down;
                 
                 // Special Boss Attack Logic
+                if (this.type === 'dwarf_king' || this.type === 'dwarf_king_rival') {
+                    if (enemyOnGround) this.sprite.setVelocityX(0);
+                    this.sprite.setFlipX(shouldFlip);
+                    
+                    if (distanceX <= 85) {
+                        // Melee attack up close
+                        this.isAttacking = true;
+                        this._playAnim(`${this.textureKey}-attack`);
+                        this.scene.time.delayedCall(300, () => {
+                            if (!this.sprite || !this.sprite.active || this.isDead) return;
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 95 && this.checkCombatYRange()) {
+                                this.player.takeDamage(20 * (this.damageMultiplier || 1.0));
+                            }
+                        });
+                    } else {
+                        // Summon minions at range on a 4 second cooldown
+                        const now = this.scene.time.now;
+                        if (!this.lastSummonTime || now - this.lastSummonTime > 4000) {
+                            this.lastSummonTime = now;
+                            this.isAttacking = true;
+                            this._playAnim(`${this.textureKey}-attack`);
+                            this.spawnDwarfAlly();
+                        } else {
+                            // Walk towards player
+                            const moveDir = isPlayerLeft ? -1 : 1;
+                            this.sprite.setVelocityX(moveDir * this.speed);
+                            this._playAnim(`${this.textureKey}-walk`);
+                        }
+                    }
+                    break;
+                }
+
                 if (this.type === 'dragon') {
                     if (distanceX <= 170) {
                         if (enemyOnGround) this.sprite.setVelocityX(0);
@@ -929,6 +1062,9 @@ class EnemyController {
                                 else if (this.type === 'female_damned') dmg = 8;
                                 else if (this.type === 'twisted_damned') dmg = 10;
                                 else if (this.type === 'burning_damned') dmg = 8;
+                                else if (this.type === 'hellhound_1') dmg = 8;
+                                else if (this.type === 'hellhound_2') dmg = 14;
+                                else if (this.type === 'hellhound_3') dmg = 22;
                                 this.player.takeDamage(dmg * (this.damageMultiplier || 1.0));
                                 if (this.player.applyStatusEffect) {
                                     if (this.type === 'frost_giant' && Math.random() < 0.40) {
@@ -1054,7 +1190,7 @@ class EnemyController {
                     if (Math.abs(dx) > 20) {
                         const wanderSpeed = this.speed * 0.45;
                         this.sprite.setVelocityX(dx > 0 ? wanderSpeed : -wanderSpeed);
-                        this.sprite.setFlipX(dx < 0 ? !facesLeftByDefault : facesLeftByDefault);
+                        this.sprite.setFlipX(dx < 0 ? !this.facesLeftByDefault : this.facesLeftByDefault);
                         this._playAnim(`${this.textureKey}-move`);
                         // Jump over small obstacles
                         if (onGround && (this.sprite.body.blocked.left || this.sprite.body.blocked.right)) {
@@ -1091,6 +1227,62 @@ class EnemyController {
         }
 
         this.hp -= amount;
+
+        // Apply player status effects on hit
+        if (this.player && this.player.inventory) {
+            const player = this.player;
+            const weapon = player.inventory.weapon;
+            const artifactKey = (player.inventory.artifacts && player.inventory.equippedArtifact >= 0) ? player.inventory.artifacts[player.inventory.equippedArtifact] : null;
+
+            // 1. Artifact Effects
+            if (artifactKey === 'artifact-poison-cask') {
+                if (this.applyStatusEffect) {
+                    this.applyStatusEffect('poison', 5000, 6);
+                }
+            }
+
+            // 2. Weapon Effects
+            if (weapon && weapon.key) {
+                const wKey = weapon.key;
+                if (wKey === 'weapon-poison-stiletto' || wKey === 'weapon-poison-shiv' || wKey === 'weapon-poison-stiletto') {
+                    if (Math.random() < 0.30 && this.applyStatusEffect) {
+                        this.applyStatusEffect('poison', 5000, 5);
+                    }
+                } else if (wKey === 'weapon-serrated-kukri') {
+                    if (Math.random() < 0.35 && this.applyStatusEffect) {
+                        this.applyStatusEffect('bleed', 4500, 8);
+                    }
+                } else if (wKey === 'weapon-flame-zweihander') {
+                    if (Math.random() < 0.30 && this.applyStatusEffect) {
+                        this.applyStatusEffect('burn', 4000, 10);
+                    }
+                } else if (wKey === 'weapon-dwarven-warhammer') {
+                    if (Math.random() < 0.15 && this.applyStatusEffect) {
+                        this.applyStatusEffect('stun', 1500, 0);
+                    }
+                } else if (wKey === 'weapon-frostfire-scepter') {
+                    if (this.applyStatusEffect) {
+                        const rand = Math.random();
+                        if (rand < 0.25) this.applyStatusEffect('freeze', 3000, 40);
+                        else if (rand < 0.50) this.applyStatusEffect('burn', 3000, 12);
+                    }
+                } else if (wKey === 'weapon-dread-scepter') {
+                    const healAmt = Math.max(1, Math.floor(amount * 0.10));
+                    player.hp = Math.min(player.maxHp, player.hp + healAmt);
+                    if (player.scene && player.scene.showFloatingText) {
+                        player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `+${healAmt} HP`, 0x00ff00);
+                    }
+                    if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
+                } else if (wKey === 'weapon-calamity-blade' || wKey === 'weapon-demon-sai') {
+                    const healAmt = Math.max(1, Math.floor(amount * 0.05));
+                    player.hp = Math.min(player.maxHp, player.hp + healAmt);
+                    if (player.scene && player.scene.showFloatingText) {
+                        player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `+${healAmt} HP`, 0x00ff00);
+                    }
+                    if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
+                }
+            }
+        }
 
         if (this.type !== 'training_dummy') {
             this.sprite.setVelocityY(-200);
@@ -1186,22 +1378,26 @@ class EnemyController {
             effect.duration -= delta;
             
             if (!this.isHit) {
-                if (effect.type === 'stun') { this.sprite.setTint(0xffff00); hasTint = true; }
+                if (effect.type === 'mind_control') { this.sprite.setTint(0x32cd32); hasTint = true; }
+                else if (effect.type === 'stun' && !hasTint) { this.sprite.setTint(0xffff00); hasTint = true; }
                 else if (effect.type === 'freeze' && !hasTint) { this.sprite.setTint(0x88ccff); hasTint = true; }
                 else if (effect.type === 'burn' && !hasTint) { this.sprite.setTint(0xff6600); hasTint = true; }
-                else if (effect.type === 'poison' && !hasTint) { this.sprite.setTint(0x00ff00); hasTint = true; }
+                else if (effect.type === 'poison' && !hasTint) { this.sprite.setTint(0xbf00ff); hasTint = true; }
+                else if (effect.type === 'bleed' && !hasTint) { this.sprite.setTint(0xcc0000); hasTint = true; }
             }
 
-            if (effect.type === 'poison' || effect.type === 'burn') {
+            if (effect.type === 'poison' || effect.type === 'burn' || effect.type === 'bleed') {
                 effect.tickTimer += delta;
-                const tickRate = effect.type === 'poison' ? 1000 : 500;
+                const tickRate = effect.type === 'poison' ? 1000 : (effect.type === 'burn' ? 500 : 750);
                 
                 if (effect.tickTimer >= tickRate) {
                     effect.tickTimer -= tickRate;
                     this.hp -= effect.strength;
                     
                     if (this.scene && this.scene.showFloatingText) {
-                        const color = effect.type === 'poison' ? 0x00ff00 : 0xff6600;
+                        let color = 0xbf00ff;
+                        if (effect.type === 'burn') color = 0xff6600;
+                        if (effect.type === 'bleed') color = 0xcc0000;
                         this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, `-${effect.strength}`, color);
                     }
                     if (this.hpText && this.hpText.active) {
@@ -1387,6 +1583,30 @@ class EnemyController {
         });
     }
 
+    spawnDwarfAlly() {
+        if (!this.sprite || !this.sprite.active) return;
+        
+        // Float text showing summoning
+        if (this.scene.showFloatingText) {
+            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, "Rise, shield-brothers!", 0xffd700);
+        }
+        
+        this.scene.time.delayedCall(600, () => {
+            if (!this.sprite || !this.sprite.active) return;
+            
+            // Spawn random dwarf warrior or miner rival
+            const xOffset = Math.random() < 0.5 ? -150 : 150;
+            const dwarfType = Math.random() < 0.6 ? 'dwarf_warrior_rival' : 'dwarf_miner_rival';
+            const scaleMultiplier = this.scene.isIndoors ? (2.5 / 1.5) : 1.0;
+            const spawnY = this.sprite.y + (30 * this.sprite.scaleY) - (40 * scaleMultiplier);
+            
+            const dwarf = new EnemyController(this.scene, this.sprite.x + xOffset, spawnY, this.player, this.geminiService, dwarfType, false, true);
+            if (this.scene.enemies) {
+                this.scene.enemies.add(dwarf.sprite);
+            }
+        });
+    }
+
     explodeBloated(instant = false) {
         if (this.hasExploded) return;
 
@@ -1501,7 +1721,8 @@ class EnemyController {
                     spider: [200, 50], the_devil: [500, 100], lich_lord: [750, 150],
                     frost_giant: [400, 80], training_dummy: [0, 0],
                     zombie: [60, 18], zombie_v1: [60, 18], zombie_v2: [60, 18], zombie_v3: [60, 18],
-                    wolfen: [65, 20], coyle: [65, 20]
+                    wolfen: [65, 20], coyle: [65, 20],
+                    hellhound_1: [65, 20], hellhound_2: [65, 20], hellhound_3: [65, 20]
                 };
                 let rewardKey = this.type;
                 if (rewardKey.startsWith('special_enemy_')) {
@@ -1514,6 +1735,21 @@ class EnemyController {
             if (this.player && this.player.progressQuest) {
                 // All zombie variants count as 'zombie' for quest progress
                 this.player.progressQuest(this.isZombie ? 'zombie' : this.type);
+
+                // Defeating a knight_rival counts as an assassination target and tanks reputation directly (Phase 6)
+                if (this.type === 'knight_rival') {
+                    const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+                    const rulingFaction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
+                    if (rulingFaction) {
+                        if (window.changeFactionReputation) {
+                            window.changeFactionReputation(rulingFaction.id, -5, true);
+                            if (this.scene && this.scene.showFloatingText && this.player && this.player.sprite && this.player.sprite.active) {
+                                this.scene.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, `⚠️ -5 rep with ${rulingFaction.name} (Slain Guard)`, 0xff4444);
+                            }
+                        }
+                        this.player.progressQuest('assassination_complete', rulingFaction.id);
+                    }
+                }
             }
             
             // 15% chance to drop a loot chest

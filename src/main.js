@@ -32,9 +32,9 @@ window.INDOOR_LOCATIONS = {
         icon: 'swords',
         bg: 'bg_colliseum',
         desc: 'Fight infinite waves of enemies',
-        npcSprite: 'king',
-        npcName: 'The King',
-        npcPersona: 'The King who oversees the brutal arena games. He respects strength and rewards those who survive the endless waves.',
+        npcSprite: 'knight',
+        npcName: 'Arena Champion Kael',
+        npcPersona: 'A legendary gladiator scarred from a thousand battles who runs the arena games. He respects only strength and rewards those who survive the endless waves. Once a mere pit fighter, he earned his freedom through sheer brutality.',
         floorTint: 0x666666,
         action: 'arena'
     },
@@ -75,10 +75,10 @@ window.INDOOR_LOCATIONS = {
         name: 'Temple',
         icon: 'church',
         bg: 'bg_temple',
-        desc: 'Pray for blessings',
-        npcSprite: 'npc',
+        desc: 'Pray for blessings & healing',
+        npcSprite: 'priest',
         npcName: 'High Priestess',
-        npcPersona: 'A serene priestess who can bestow divine blessings upon worthy souls.',
+        npcPersona: 'A serene priestess who channels divine power to heal the wounded and bestow holy blessings upon worthy souls. She charges 25 gold for a full divine healing.',
         floorTint: 0x8888AA,
         action: 'pray'
     },
@@ -103,6 +103,18 @@ window.INDOOR_LOCATIONS = {
         npcPersona: 'A disciplined warrior who trains adventurers through combat drills.',
         floorTint: 0xAA9966,
         action: 'train'
+    },
+    throne_room: {
+        name: 'Throne Room',
+        icon: 'castle',
+        bg: 'bg_throne_room',
+        desc: 'Audience with the ruler',
+        npcSprite: 'human_king',
+        npcName: 'The King',
+        npcPersona: 'The ruler of this kingdom.',
+        floorTint: 0x8B0000,
+        action: 'audience',
+        capitalOnly: true  // Only shown in capital cities
     }
 };
 
@@ -139,6 +151,9 @@ const classesData = {
         flipX: true, // Warrior sprite faces left by default
         dashRow: 5,
         animFrames: {
+            idle: { start: 0, end: 4 },
+            walk: { start: 10, end: 17 },
+            attack: { start: 140, end: 145 },
             jump: { start: 40, end: 43 },
             fall: { start: 50, end: 53 },
             hit: { start: 160, end: 164 },
@@ -146,6 +161,8 @@ const classesData = {
             duck: { frames: [100] } // Row 10 col 0 — sword raised guard stance
         },
         comboStartFrame: 120, comboEndFrame: 129, // Row 13 for GandalfHardcore Warrior
+        createPreviewScale: 0.70,
+        previewOffsetY: 35,
         slotPortraitX: -17, slotPortraitY: -18,
         stats: { vit: 15, str: 14, dex: 9, int: 8 }
     },
@@ -157,6 +174,7 @@ const classesData = {
         image: 'src/assets/Heavy Knight/Heavy Knight/Black heavy.png',
         isSheet: true,
         frameWidth: 91, frameHeight: 64,
+        sheetCols: 10,
         idleFrames: 5, idleRow: 0,
         walkRow: 1,
         attackRow: 2,
@@ -195,6 +213,8 @@ const classesData = {
         comboStartFrame: 24, // Row 4 (4 * 6)
         comboEndFrame: 41,   // End of Row 6 ((6 * 6) + 5)
         previewScale: 0.6,
+        createPreviewScale: 0.70,
+        previewOffsetY: 35,
         slotPortraitX: -12, slotPortraitY: -29,
         stats: { vit: 8, str: 6, dex: 10, int: 18 }
     },
@@ -223,6 +243,8 @@ const classesData = {
         flipX: true,
         slotFlipX: true,
         sheetCols: 8,
+        createPreviewScale: 0.70,
+        previewOffsetY: 35,
         slotPortraitX: -27, slotPortraitY: -19,
         stats: { vit: 10, str: 10, dex: 16, int: 10 }
     },
@@ -245,6 +267,8 @@ const classesData = {
             fall: { frames: [0] }
         },
         idleFrames: 5, idleRow: 0,
+        createPreviewScale: 0.70,
+        previewOffsetY: 35,
         slotPortraitX: -6, slotPortraitY: -20,
         stats: { vit: 11, str: 12, dex: 15, int: 9 }
     },
@@ -253,30 +277,367 @@ const classesData = {
         name: 'Spellblade',
         tagline: 'Arcane Blade, Swift as Wind',
         desc: 'A mystical elven warrior who blends physical swordplay with powerful arcane spells. High physical and magical damage.',
-        image: 'src/assets/elven_spellblade.png?v=5',
+        image: 'src/assets/elven_spellblade.png',
         isSheet: true,
         frameWidth: 128, frameHeight: 128,
-        sheetCols: 55,
-        spriteScale: 1.15,
-        previewScale: 1.6,
-        createPreviewScale: 1.6,
-        previewOffsetY: -19,
-        attackDuration: 560,
+        sheetCols: 12,
+        spriteScale: 1.05,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
         animFrames: {
-            idle: { start: 0, end: 8 },
-            walk: { start: 9, end: 17 },
-            attack: { start: 18, end: 26 },
-            combo: { start: 27, end: 35 },
-            hit: { start: 36, end: 40 },
-            die: { start: 41, end: 49 },
-            duck: { start: 53, end: 53 },
+            duck: { frames: [0] },
             jump: { frames: [0] },
-            fall: { frames: [0] }
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
         },
-        idleFrames: 9, idleRow: 0,
-        slotPortraitX: -22, slotPortraitY: -18,
-        stats: { vit: 12, str: 13, dex: 11, int: 14 },
-        attackDuration: 600
+        slotPortraitX: -20, slotPortraitY: -52,
+        previewScale: 1.6,
+        stats: { vit: 12, str: 13, dex: 11, int: 14 }
+    },
+    elven_king: {
+        id: 'elven_king',
+        name: 'Elven King',
+        tagline: 'Sovereign of the Sylvan Canopy',
+        desc: 'A noble elven monarch wielding a royal golden sword.',
+        image: 'src/assets/elven_king.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 12,
+        spriteScale: 1.05,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 7, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 42 },
+            die: { start: 48, end: 54 }
+        },
+        stats: { vit: 300, str: 75, dex: 25, int: 45 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    elven_queen: {
+        id: 'elven_queen',
+        name: 'Elven Queen',
+        tagline: 'Empress of the Whispering Woods',
+        desc: 'A majestic elven queen channeling the forest\'s ancient light.',
+        image: 'src/assets/elven_queen.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 12,
+        spriteScale: 1.05,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        flipX: false,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 41 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 250, str: 65, dex: 20, int: 50 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    human_king: {
+        id: 'human_king',
+        name: 'Human King',
+        tagline: 'Sovereign of the Realm',
+        desc: 'A noble human monarch wielding a regal sword of office.',
+        image: 'src/assets/human_king.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 12,
+        spriteScale: 1.05,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        flipX: false,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 38 },
+            die: { start: 48, end: 58 }
+        },
+        stats: { vit: 300, str: 80, dex: 20, int: 30 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    human_queen: {
+        id: 'human_queen',
+        name: 'Human Queen',
+        tagline: 'Grace and Authority',
+        desc: 'A regal human queen commanding her court with wisdom and poise.',
+        image: 'src/assets/human_queen.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 12,
+        spriteScale: 1.05,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 7, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        flipX: false,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 38 },
+            die: { start: 48, end: 55 }
+        },
+        stats: { vit: 250, str: 65, dex: 25, int: 40 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    elven_longbowman: {
+        id: 'elven_longbowman',
+        name: 'Elven Longbowman',
+        tagline: 'Vanguard of the Woods',
+        desc: 'An elite elven archer guarding the sylvan gates.',
+        image: 'src/assets/elven_longbowman.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 12,
+        spriteScale: 1.05,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
+        },
+        stats: { vit: 20, str: 15, dex: 25, int: 10 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    elven_guard: {
+        id: 'elven_guard',
+        name: 'Elven Guard',
+        tagline: 'Sylvan Shield-Bearer',
+        desc: 'A dedicated elven sentinel trained in heavy defensive warfare.',
+        image: 'src/assets/elven_guard.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 12,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
+        },
+        stats: { vit: 24, str: 16, dex: 12, int: 8 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    dwarf_warrior: {
+        id: 'dwarf_warrior',
+        name: 'Dwarf Warrior',
+        tagline: 'Stalwart Defender of the Deep',
+        desc: 'A heavy-armored dwarven warrior wielding a massive battleaxe.',
+        image: 'src/assets/dwarf_warrior.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 0.9,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 30, end: 33 },
+            die: { start: 40, end: 44 }
+        },
+        stats: { vit: 32, str: 28, dex: 12, int: 8 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    dwarf_miner: {
+        id: 'dwarf_miner',
+        name: 'Dwarf Miner',
+        tagline: 'Delver of the Underrealm',
+        desc: 'A rugged dwarven miner wielding a heavy iron pickaxe.',
+        image: 'src/assets/dwarf_miner.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 0.9,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 30, end: 33 },
+            die: { start: 40, end: 44 }
+        },
+        stats: { vit: 28, str: 22, dex: 15, int: 10 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    dwarf_king: {
+        id: 'dwarf_king',
+        name: 'Dwarf King',
+        tagline: 'Lord of the Stone Throne',
+        desc: 'A majestic dwarven king wearing golden crown and heavy royal plates.',
+        image: 'src/assets/dwarf_king.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 0.9,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 30, end: 33 },
+            die: { start: 40, end: 44 }
+        },
+        stats: { vit: 45, str: 30, dex: 15, int: 15 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    witch: {
+        id: 'witch',
+        name: 'Witch',
+        tagline: 'Mistress of Dark Sorcery',
+        desc: 'A mysterious witch wielding ancient curses and dark magic. Commands powerful spells from the shadows.',
+        image: 'src/assets/witch_2.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 14,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        dashRow: 8,
+        flipX: false,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [60] },
+            dash: { start: 112, end: 119 },
+            jump: { start: 98, end: 110 },
+            fall: { start: 105, end: 110 },
+            attack: { start: 28, end: 32 },
+            combo: { start: 84, end: 91 },
+            hit: { start: 56, end: 60 },
+            die: { start: 70, end: 73 }
+        },
+        attack2Frames: { start: 42, end: 45 },
+        stats: { vit: 18, str: 8, dex: 14, int: 35 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    priest: {
+        id: 'priest',
+        name: 'Priest',
+        tagline: 'Vessel of Divine Light',
+        desc: 'A holy priest who channels divine power to heal allies and smite the wicked with radiant energy.',
+        image: 'src/assets/priest_2.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 16,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        flipX: false,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { start: 16, end: 20 },
+            fall: { start: 21, end: 25 },
+            attack: { start: 32, end: 39 },
+            hit: { start: 48, end: 57 },
+            die: { start: 64, end: 67 },
+            combo: { start: 64, end: 67 }
+        },
+        attackDuration: 500,
+        stats: { vit: 28, str: 10, dex: 12, int: 28 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    pyromancer: {
+        id: 'pyromancer',
+        name: 'Pyromancer',
+        tagline: 'Herald of the Inferno',
+        desc: 'A fearsome pyromancer who commands devastating fire magic, engulfing enemies in arcane flames.',
+        image: 'src/assets/pyromancer_3.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        sheetCols: 16,
+        idleFrames: 7, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        dashRow: 8,
+        flipX: false,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 108, bodyOffsetX: 40, bodyOffsetY: 20,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            idle: { frames: [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23] },
+            jump: { start: 112, end: 123 },
+            fall: { start: 118, end: 123 },
+            attack: { start: 32, end: 37 },
+            combo: { start: 64, end: 74 },
+            hit: { start: 80, end: 84 },
+            die: { start: 96, end: 99 }
+        },
+        attack2Frames: { start: 48, end: 52 },
+        stats: { vit: 20, str: 15, dex: 12, int: 32 },
+        slotPortraitX: -20, slotPortraitY: -52
     }
 };
 
@@ -291,8 +652,119 @@ classesData.ranger_rival = { ...classesData.ranger, id: 'ranger_rival', stats: {
 classesData.ranger_rival.image = 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png';
 classesData.elven_spellblade_rival = { ...classesData.elven_spellblade, id: 'elven_spellblade_rival', stats: { vit: 24, str: 22, dex: 18, int: 26 }, animFrames: JSON.parse(JSON.stringify(classesData.elven_spellblade.animFrames || {})) };
 classesData.elven_spellblade_rival.image = 'src/assets/elven_spellblade.png?v=5';
+classesData.elven_longbowman_rival = { ...classesData.elven_longbowman, id: 'elven_longbowman_rival', stats: { vit: 20, str: 15, dex: 25, int: 10 }, animFrames: JSON.parse(JSON.stringify(classesData.elven_longbowman.animFrames || {})) };
+classesData.elven_longbowman_rival.image = 'src/assets/elven_longbowman.png';
+classesData.elven_guard_rival = { ...classesData.elven_guard, id: 'elven_guard_rival', stats: { vit: 32, str: 20, dex: 14, int: 8 }, animFrames: JSON.parse(JSON.stringify(classesData.elven_guard.animFrames || {})) };
+classesData.elven_guard_rival.image = 'src/assets/elven_guard.png';
+classesData.elven_queen_rival = { ...classesData.elven_queen, id: 'elven_queen_rival', stats: { vit: 35, str: 18, dex: 16, int: 28 }, animFrames: JSON.parse(JSON.stringify(classesData.elven_queen.animFrames || {})) };
+classesData.elven_queen_rival.image = 'src/assets/elven_queen.png';
+classesData.dwarf_warrior_rival = { ...classesData.dwarf_warrior, id: 'dwarf_warrior_rival', stats: { vit: 30, str: 25, dex: 10, int: 8 }, animFrames: JSON.parse(JSON.stringify(classesData.dwarf_warrior.animFrames || {})) };
+classesData.dwarf_warrior_rival.image = 'src/assets/dwarf_warrior.png';
+classesData.dwarf_miner_rival = { ...classesData.dwarf_miner, id: 'dwarf_miner_rival', stats: { vit: 25, str: 20, dex: 12, int: 10 }, animFrames: JSON.parse(JSON.stringify(classesData.dwarf_miner.animFrames || {})) };
+classesData.dwarf_miner_rival.image = 'src/assets/dwarf_miner.png';
+classesData.dwarf_king_rival = { ...classesData.dwarf_king, id: 'dwarf_king_rival', stats: { vit: 100, str: 40, dex: 15, int: 25 }, animFrames: JSON.parse(JSON.stringify(classesData.dwarf_king.animFrames || {})) };
+classesData.dwarf_king_rival.image = 'src/assets/dwarf_king.png';
 classesData.megaboss_rival = { ...classesData.heavy_knight, id: 'megaboss_rival', stats: { vit: 150, str: 50, dex: 20, int: 20 }, animFrames: JSON.parse(JSON.stringify(classesData.heavy_knight.animFrames || {})) };
 classesData.megaboss_rival.image = 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png';
+classesData.witch_1_rival = { ...classesData.witch, id: 'witch_1_rival', image: 'src/assets/witch_1.png', attack2Frames: { start: 42, end: 44 }, stats: { vit: 20, str: 10, dex: 15, int: 30 }, animFrames: JSON.parse(JSON.stringify(classesData.witch.animFrames || {})) };
+classesData.witch_3_rival = { ...classesData.witch, id: 'witch_3_rival', image: 'src/assets/witch_3.png', attack2Frames: { start: 42, end: 44 }, stats: { vit: 22, str: 12, dex: 14, int: 32 }, animFrames: JSON.parse(JSON.stringify(classesData.witch.animFrames || {})) };
+classesData.pyromancer_1_rival = {
+    ...classesData.pyromancer,
+    id: 'pyromancer_1_rival',
+    image: 'src/assets/pyromancer_1.png',
+    stats: { vit: 22, str: 14, dex: 12, int: 28 },
+    attack2Frames: { start: 48, end: 61 },
+    dashRow: 8,
+    animFrames: {
+        duck: { frames: [0] },
+        idle: { start: 0, end: 5 },
+        walk: { start: 16, end: 23 },
+        attack: { start: 64, end: 69 },
+        combo: { start: 32, end: 40 },
+        hit: { start: 80, end: 83 },
+        die: { start: 96, end: 99 },
+        jump: { start: 112, end: 123 },
+        fall: { start: 118, end: 123 }
+    }
+};
+classesData.pyromancer_2_rival = {
+    ...classesData.pyromancer,
+    id: 'pyromancer_2_rival',
+    image: 'src/assets/pyromancer_2.png',
+    stats: { vit: 20, str: 16, dex: 14, int: 30 },
+    attack2Frames: { start: 48, end: 52 },
+    dashRow: 8,
+    animFrames: {
+        duck: { frames: [0] },
+        idle: { start: 0, end: 5 },
+        walk: { start: 16, end: 23 },
+        attack: { start: 32, end: 37 },
+        attack2: { start: 48, end: 52 },
+        combo: { start: 64, end: 69 },
+        hit: { start: 80, end: 83 },
+        die: { start: 96, end: 99 },
+        jump: { start: 112, end: 123 },
+        fall: { start: 118, end: 123 }
+    }
+};
+// Playable subclasses and rival subclasses
+classesData.witch_1 = { ...classesData.witch, id: 'witch_1', name: 'Witch 1', image: 'src/assets/witch_1.png', animFrames: JSON.parse(JSON.stringify(classesData.witch.animFrames || {})) };
+classesData.witch_2 = { ...classesData.witch, id: 'witch_2', name: 'Witch 2', image: 'src/assets/witch_2.png', animFrames: JSON.parse(JSON.stringify(classesData.witch.animFrames || {})) };
+classesData.witch_3 = { ...classesData.witch, id: 'witch_3', name: 'Witch 3', image: 'src/assets/witch_3.png', animFrames: JSON.parse(JSON.stringify(classesData.witch.animFrames || {})) };
+classesData.witch_2_rival = { ...classesData.witch_2, id: 'witch_2_rival', stats: { vit: 20, str: 10, dex: 15, int: 30 } };
+
+classesData.priest_1 = { ...classesData.priest, id: 'priest_1', name: 'Priest 1', image: 'src/assets/priest_1.png', animFrames: JSON.parse(JSON.stringify(classesData.priest.animFrames || {})) };
+classesData.priest_2 = { ...classesData.priest, id: 'priest_2', name: 'Priest 2', image: 'src/assets/priest_2.png', animFrames: JSON.parse(JSON.stringify(classesData.priest.animFrames || {})) };
+classesData.priest_3 = { ...classesData.priest, id: 'priest_3', name: 'Priest 3', image: 'src/assets/priest_3.png', animFrames: JSON.parse(JSON.stringify(classesData.priest.animFrames || {})) };
+classesData.priest_1_rival = { ...classesData.priest_1, id: 'priest_1_rival', stats: { vit: 26, str: 12, dex: 14, int: 26 } };
+classesData.priest_2_rival = { ...classesData.priest_2, id: 'priest_2_rival', stats: { vit: 28, str: 10, dex: 12, int: 28 } };
+classesData.priest_3_rival = { ...classesData.priest_3, id: 'priest_3_rival', stats: { vit: 24, str: 14, dex: 10, int: 30 } };
+
+classesData.pyromancer_1 = {
+    ...classesData.pyromancer,
+    id: 'pyromancer_1',
+    name: 'Pyromancer 1',
+    image: 'src/assets/pyromancer_1.png',
+    stats: { vit: 20, str: 15, dex: 12, int: 32 },
+    attack2Frames: { start: 48, end: 61 },
+    dashRow: 8,
+    animFrames: {
+        duck: { frames: [0] },
+        idle: { start: 0, end: 5 },
+        walk: { start: 16, end: 23 },
+        attack: { start: 64, end: 69 },
+        combo: { start: 32, end: 40 },
+        hit: { start: 80, end: 83 },
+        die: { start: 96, end: 99 },
+        jump: { start: 112, end: 123 },
+        fall: { start: 118, end: 123 }
+    }
+};
+classesData.pyromancer_2 = {
+    ...classesData.pyromancer,
+    id: 'pyromancer_2',
+    name: 'Pyromancer 2',
+    image: 'src/assets/pyromancer_2.png',
+    stats: { vit: 20, str: 15, dex: 12, int: 32 },
+    attack2Frames: { start: 48, end: 52 },
+    dashRow: 8,
+    animFrames: {
+        duck: { frames: [0] },
+        idle: { start: 0, end: 5 },
+        walk: { start: 16, end: 23 },
+        attack: { start: 32, end: 37 },
+        attack2: { start: 48, end: 52 },
+        combo: { start: 64, end: 69 },
+        hit: { start: 80, end: 83 },
+        die: { start: 96, end: 99 },
+        jump: { start: 112, end: 123 },
+        fall: { start: 118, end: 123 }
+    }
+};
+classesData.pyromancer_3 = { ...classesData.pyromancer, id: 'pyromancer_3', name: 'Pyromancer 3', image: 'src/assets/pyromancer_3.png', animFrames: JSON.parse(JSON.stringify(classesData.pyromancer.animFrames || {})) };
+classesData.pyromancer_3_rival = { ...classesData.pyromancer_3, id: 'pyromancer_3_rival', stats: { vit: 18, str: 18, dex: 10, int: 34 } };
+
+window.classesData = classesData;
 
 function showTitleScreen() {
     document.getElementById('ui-create').style.display = 'none';
@@ -326,15 +798,32 @@ function selectClass(classId) {
     }
 
     if (data.isSheet) {
-        // Show only the first frame of the sprite sheet
-        // Base scale entirely on height (64px) so all characters are equally tall
-        const scale = (256 / data.frameHeight) * (data.createPreviewScale || 1);
+        // Base scale entirely on height so all characters are scaled relative to container height (256px)
+        const baseScale = 256 / data.frameHeight;
+        const userScale = data.createPreviewScale || 1;
+        const scale = baseScale * userScale;
+
+        // Size the container element itself to match the frame dimensions exactly, eliminating frame bleed
+        const frameWidthPx = data.frameWidth * scale;
+        const frameHeightPx = data.frameHeight * scale;
+        container.style.width = `${frameWidthPx}px`;
+        container.style.height = `${frameHeightPx}px`;
+
+        // Position the container inside the parent box using absolute layout
+        container.style.position = 'absolute';
+        container.style.left = '50%';
+        container.style.transform = `translateX(-50%) ${data.flipX ? 'scaleX(-1)' : ''}`;
         
+        // Raising the character from the bottom using previewOffsetY
+        // Note: positive raises it above bottom, negative shifts it below.
+        const raiseAmount = (data.previewOffsetY || 0);
+        container.style.bottom = `${raiseAmount}px`;
+        container.style.top = 'auto';
+
         // Hide image until ready to prevent flashing the full sheet
         container.style.backgroundImage = 'none';
         container.style.backgroundRepeat = 'no-repeat';
         container.style.imageRendering = 'pixelated';
-        container.style.transform = data.flipX ? 'scaleX(-1)' : 'none';
         
         // Load image to get actual sheet dimensions for proper scaling
         const tempImg = new Image();
@@ -345,21 +834,12 @@ function selectClass(classId) {
             container.style.backgroundSize = `${tempImg.width * scale}px ${tempImg.height * scale}px`;
             container.style.backgroundImage = `url('${data.image}')`;
             
-            // Calculate dynamic offsets for sprites with different frame widths (e.g. Knight is 80px wide)
-            const frameWidthPx = data.frameWidth * scale;
-            const frameHeightPx = data.frameHeight * scale;
             const rowOffset = (data.idleRow || 0) * frameHeightPx;
             
-            // Center the frame inside the 256px container horizontally
-            const offsetX = (256 - frameWidthPx) / 2;
-            
-            // Allow per-class vertical adjustment for taller sprites
-            const previewYShift = (data.previewOffsetY || 0) * scale;
-            
-            // Animate background-position from initial offset
+            // Animate background-position from initial offset (offsetX is 0 since container is sized to frame)
             window.currentPreviewAnim = container.animate([
-                { backgroundPosition: `${offsetX}px ${-rowOffset + previewYShift}px` },
-                { backgroundPosition: `${offsetX - (data.idleFrames * frameWidthPx)}px ${-rowOffset + previewYShift}px` }
+                { backgroundPosition: `0px ${-rowOffset}px` },
+                { backgroundPosition: `${-(data.idleFrames * frameWidthPx)}px ${-rowOffset}px` }
             ], {
                 duration: data.idleFrames * 150, // 150ms per frame
                 easing: `steps(${data.idleFrames}, end)`,
@@ -369,9 +849,15 @@ function selectClass(classId) {
         container.style.backgroundSize = 'auto';
         container.innerHTML = '';
     } else {
-        // It's a standalone image/gif — use an <img> tag
-        container.style.backgroundImage = 'none';
+        // It's a standalone image/gif — use an <img> tag and reset container sizing styles
+        container.style.position = 'relative';
+        container.style.left = '0';
         container.style.transform = 'none';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.bottom = 'auto';
+        container.style.top = 'auto';
+        container.style.backgroundImage = 'none';
         const flipStyle = data.flipX ? 'transform: scaleX(-1);' : '';
         container.innerHTML = `<img src="${data.image}" alt="${data.name}" style="width:100%;height:100%;object-fit:contain;image-rendering:pixelated;${flipStyle}" />`;
     }
@@ -416,9 +902,348 @@ function startGame(saveData) {
     document.getElementById('ui-title').style.display = 'none';
     // HUD is managed by GameScene now
 
-    // We pass both the base class data and the specific save data
     window.selectedClass = classesData[saveData.classId];
     window.saveData = JSON.parse(JSON.stringify(saveData));
+
+    // Load character-specific autoplay settings or initialize defaults
+    window.autoplayConfig = window.saveData.autoplayConfig || {
+        preset: 'custom',
+        targetZone: 0,
+        coliseumGrind: false,
+        townFocus: 50,
+        partyBuildFocus: 50,
+        questFocus: 70,
+        selfPotionPct: 40,
+        partyPotionPct: 40,
+        spellRate: 50,
+        dashFreq: 30,
+        blockRate: 20,
+        heroPersonality: ''
+    };
+    if (!window.saveData.autoplayConfig) {
+        window.saveData.autoplayConfig = JSON.parse(JSON.stringify(window.autoplayConfig));
+    }
+
+    // Migrate existing saves — add political system fields if missing
+    if (!window.saveData.factionReputation) window.saveData.factionReputation = {};
+    if (!window.saveData.politicalChoices) window.saveData.politicalChoices = [];
+    if (window.saveData.currentTitle === undefined) window.saveData.currentTitle = null;
+    if (!window.saveData.visitedZones) window.saveData.visitedZones = [window.saveData.currentZone || 0];
+    if (!window.saveData.discoveredKingdoms) window.saveData.discoveredKingdoms = {};
+
+    // Deduplicate/rename any duplicate kingdom names in discoveredKingdoms (Phase 21)
+    if (window.saveData && window.saveData.discoveredKingdoms) {
+        const rootKeywords = ["duskveil", "frosthold", "willowbrook", "ashenmoor", "tidereach", "embercrown", "vaelgard", "zanj-abar", "irondeep"];
+        
+        // Helper to normalize names by extracting the root keyword or fallback to lowercase clean string
+        const normalizeName = (name) => {
+            let n = (name || "").toLowerCase().trim();
+            if (n.startsWith("the ")) {
+                n = n.substring(4).trim();
+            }
+            for (const kw of rootKeywords) {
+                if (n.includes(kw)) return kw;
+            }
+            return n;
+        };
+
+        // Collect all names currently in use in the world
+        const knownWorldNames = new Set();
+        for (const key in window.WORLD_KINGDOMS) {
+            knownWorldNames.add(normalizeName(window.WORLD_KINGDOMS[key].name));
+        }
+
+        // We want to detect duplicates within discoveredKingdoms or conflicts with the known world
+        const duplicates = [];
+        const seenNames = new Set(knownWorldNames);
+        
+        // Sort discovered kingdoms by starting zone to ensure deterministic processing
+        const kList = Object.values(window.saveData.discoveredKingdoms);
+        kList.sort((a, b) => a.zoneRange[0] - b.zoneRange[0]);
+
+        kList.forEach(k => {
+            const normalized = normalizeName(k.name);
+            if (seenNames.has(normalized)) {
+                // It is a duplicate or conflicts with the known world!
+                duplicates.push(k);
+            } else {
+                seenNames.add(normalized);
+            }
+        });
+
+        if (duplicates.length > 0) {
+            const templates = [
+                {
+                    name: 'Kingdom of Vaelgard',
+                    desc: 'A rugged outpost kingdom founded by exiled knights seeking freedom in the wild frontier.',
+                    biomes: ['Forest', 'Plains'],
+                    factionName: 'The Iron Vanguard',
+                    factionColor: '#a06040',
+                    leaderTitle: 'Lord Commander',
+                    leaderName: 'Garrick the Stalwart',
+                    leaderPersona: 'A hard-nosed soldier who values strength, directness, and loyalty. Sceptical of outsiders.',
+                    townNames: ["Thornhaven", "Ashenmere", "Goldfall", "Cinderveil"]
+                },
+                {
+                    name: 'Sylvan Sultanate of Zanj-Abar',
+                    desc: 'An exotic oasis kingdom of golden minarets and vast trade networks spanning the arid frontier.',
+                    biomes: ['Desert', 'Coastal'],
+                    factionName: 'The Obsidian Crescent',
+                    factionColor: '#ccaa44',
+                    leaderTitle: 'Grand Sultan',
+                    leaderName: 'Al-Mansur the Wise',
+                    leaderPersona: 'A cunning, polite ruler who cares deeply about commerce, wealth, and diplomacy.',
+                    townNames: ["Qasira", "Shadzar", "Tidepool", "Seawind"]
+                },
+                {
+                    name: 'Stronghold of Irondeep',
+                    desc: 'A colossal subterranean kingdom carved into the roots of the world, rich with metal and gem mines.',
+                    biomes: ['Cave', 'Dungeon'],
+                    factionName: 'The Stoneforge Clan',
+                    factionColor: '#777788',
+                    leaderTitle: 'High Thane',
+                    leaderName: 'Thorgar Bronzebeard',
+                    leaderPersona: 'A stubborn, traditionalist dwarf ruler who trusts only steel, stone, and strong ale.',
+                    townNames: ["Deephearth", "Stonebridge", "Glimmerlode", "Anvilgard"]
+                },
+                {
+                    name: 'Duskveil Dominion',
+                    desc: 'A mysterious, fog-shrouded realm of darkwoods where shadow magic and ancient curses linger.',
+                    biomes: ['Deadwoods', 'Cave'],
+                    factionName: 'The Nightshade Coven',
+                    factionColor: '#663399',
+                    leaderTitle: 'Dread Lord',
+                    leaderName: 'Malakor the Silent',
+                    leaderPersona: 'A cold, calculating spellcaster who rarely speaks but rules with absolute authority.',
+                    townNames: ["Shadowfen", "Gravewood", "Mistweaver", "Whisperwind"]
+                },
+                {
+                    name: 'Frosthold Realm',
+                    desc: 'A freezing northern tundra of snow-covered peaks, ruled by proud giant-slaying clans.',
+                    biomes: ['Winter', 'Plains'],
+                    factionName: 'The Winter Vanguard',
+                    factionColor: '#88ccff',
+                    leaderTitle: 'Jarl',
+                    leaderName: 'Bjorn Icebreaker',
+                    leaderPersona: 'A boisterous warrior king who respects physical might, hospitality, and tales of glory.',
+                    townNames: ["Snowdrift", "Glacierpoint", "Coldstone", "Frostkeep"]
+                },
+                {
+                    name: 'Lost Archipelago of Aethelgard',
+                    desc: 'A sun-drenched network of tropical islands and coral reefs, ruled by a coalition of free corsairs.',
+                    biomes: ['Coastal', 'Forest'],
+                    factionName: 'The Tideborn Alliance',
+                    factionColor: '#11aa99',
+                    leaderTitle: 'High Admiral',
+                    leaderName: 'Kaelen Vance',
+                    leaderPersona: 'A charismatic sea captain who believes in individual liberty, fair trade, and naval superiority.',
+                    townNames: ["Tidewatch", "Coralhaven", "Sirenspire", "Windward"]
+                },
+                {
+                    name: 'Volcanic Sultanate of Khar-Dunes',
+                    desc: 'A majestic desert emirate built around geothermal geysers and rich basalt deposits.',
+                    biomes: ['Desert', 'Hell'],
+                    factionName: 'The Firebrand Cartel',
+                    factionColor: '#dd5522',
+                    leaderTitle: 'Grand Emir',
+                    leaderName: 'Sargon the Golden',
+                    leaderPersona: 'A proud, mercantile ruler who controls the obsidian trade in the burning waste.',
+                    townNames: ["Khor-Brimstone", "Basaltgate", "Oasis-of-Ash", "Geyserkeep"]
+                },
+                {
+                    name: 'Undercity of Underrealm',
+                    desc: 'A deep subterranean labyrinth of bioluminescent mushrooms and ancient dwarven ruins.',
+                    biomes: ['Cave', 'Dungeon'],
+                    factionName: 'The Myconid Council',
+                    factionColor: '#55bb66',
+                    leaderTitle: 'High Archon',
+                    leaderName: 'Galanoth the Deepwood',
+                    leaderPersona: 'A reclusive spellcaster who seeks to preserve the deep caverns from surface invaders.',
+                    townNames: ["Sporefall", "Fungusglen", "Glowshroom", "Mycosect"]
+                }
+            ];
+
+            let templateIdx = 0;
+            duplicates.forEach(k => {
+                // Find the next template that is not currently in seenNames
+                let template = null;
+                let isModified = false;
+                while (templateIdx < templates.length) {
+                    const temp = templates[templateIdx];
+                    templateIdx++;
+                    if (!seenNames.has(normalizeName(temp.name))) {
+                        template = temp;
+                        break;
+                    }
+                }
+
+                // Fallback to original index if we somehow exhaust templates, but mutate it to guarantee uniqueness!
+                if (!template) {
+                    template = templates[Math.floor(Math.abs(k.zoneRange[0]) / 16) % templates.length];
+                    isModified = true;
+                }
+
+                const baseName = template.name;
+                const finalizedName = isModified ? `New ${baseName}` : baseName;
+                
+                // Keep checking if the name is already in seenNames, if so, append range start to be safe
+                let uniqueName = finalizedName;
+                if (seenNames.has(normalizeName(uniqueName))) {
+                    uniqueName = `${baseName} Frontier`;
+                }
+                if (seenNames.has(normalizeName(uniqueName))) {
+                    uniqueName = `${baseName} of Zone ${k.zoneRange[0]}`;
+                }
+
+                k.name = uniqueName;
+                k.desc = template.desc;
+                k.biomes = template.biomes;
+                k.factionName = template.factionName;
+                k.factionColor = template.factionColor;
+                k.leaderTitle = template.leaderTitle;
+                k.leaderName = template.leaderName;
+                k.leaderPersona = template.leaderPersona;
+
+                let fid = template.factionName.toLowerCase().trim();
+                if (fid.startsWith("the ")) {
+                    fid = fid.substring(4);
+                }
+                fid = fid.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                k.rulingFaction = fid;
+
+                // Re-populate townNames
+                const fallbackTownNames = {};
+                const startZone = k.zoneRange[0];
+                const endZone = k.zoneRange[1];
+                const townZones = [];
+                for (let z = startZone; z <= endZone; z++) {
+                    if (z === 0 || (Math.abs(z) > 0 && Math.abs(z) % 4 === 0)) {
+                        townZones.push(z);
+                    }
+                }
+                townZones.forEach((z, i) => {
+                    const name = (z === k.capital) ? `${template.name} Capital` : template.townNames[i % template.townNames.length];
+                    fallbackTownNames[z] = name;
+                    if (window.saveData.zones && window.saveData.zones[z]) {
+                        window.saveData.zones[z].name = name;
+                    }
+                });
+                k.townNames = fallbackTownNames;
+                seenNames.add(template.name.toLowerCase().trim());
+                console.log(`Migrated duplicate kingdom to ${template.name} for range [${startZone}, ${endZone}]`);
+            });
+
+            // Persist the changes to localStorage!
+            try {
+                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
+                const idx = saves.findIndex(s => s.id === window.saveData.id);
+                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+                if (idx > -1) {
+                    saves[idx] = clonedSave;
+                } else {
+                    saves.push(clonedSave);
+                }
+                localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                console.log("Successfully persisted migrated duplicate kingdoms to localStorage!");
+            } catch (e) {
+                console.error("Failed to persist migrated save data:", e);
+            }
+        }
+    }
+
+    // Ensure all discovered kingdoms have their rulingFaction ID follow the correct faction naming convention (Phase 21)
+    let saveNeededForHeal = false;
+    if (window.saveData && window.saveData.discoveredKingdoms) {
+        for (const kId in window.saveData.discoveredKingdoms) {
+            const k = window.saveData.discoveredKingdoms[kId];
+            if (k.factionName) {
+                let fid = k.factionName.toLowerCase().trim();
+                if (fid.startsWith("the ")) {
+                    fid = fid.substring(4);
+                }
+                fid = fid.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                
+                // If it changed, update it!
+                if (k.rulingFaction !== fid) {
+                    console.log(`Healing rulingFaction ID for ${k.name}: ${k.rulingFaction} -> ${fid}`);
+                    
+                    // Migrate faction reputation to the new ID if it exists under the old ID
+                    const oldFid = k.rulingFaction;
+                    if (window.saveData.factionReputation && window.saveData.factionReputation[oldFid] !== undefined) {
+                        window.saveData.factionReputation[fid] = window.saveData.factionReputation[oldFid];
+                        delete window.saveData.factionReputation[oldFid];
+                    }
+                    
+                    k.rulingFaction = fid;
+                    saveNeededForHeal = true;
+                }
+            }
+        }
+    }
+
+    if (saveNeededForHeal) {
+        try {
+            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
+            const idx = saves.findIndex(s => s.id === window.saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            if (idx > -1) {
+                saves[idx] = clonedSave;
+            } else {
+                saves.push(clonedSave);
+            }
+            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+            console.log("Successfully persisted healed rulingFaction IDs to localStorage!");
+        } catch (e) {
+            console.error("Failed to persist healed save data:", e);
+        }
+    }
+
+    if (!window.saveData.revealedIntel) window.saveData.revealedIntel = {};
+    if (!window.saveData.knownLanguages) {
+        const cls = window.saveData.class || 'adventurer';
+        const startLangs = ['common'];
+        if (cls === 'wizard') startLangs.push('celestial');
+        else if (cls === 'ranger') startLangs.push('elvish');
+        else if (cls === 'knight') startLangs.push('dwarvish');
+        window.saveData.knownLanguages = startLangs;
+    }
+
+    // Re-register discovered frontier factions (Phase 10) and populate townNames
+    if (window.registerFrontierKingdomFaction) {
+        for (const kId in window.saveData.discoveredKingdoms) {
+            const kingdom = window.saveData.discoveredKingdoms[kId];
+            window.registerFrontierKingdomFaction(kingdom);
+            
+            // Pop townNames into saveData.zones if missing
+            if (kingdom.townNames) {
+                if (!window.saveData.zones) window.saveData.zones = {};
+                for (const zIdx in kingdom.townNames) {
+                    if (!window.saveData.zones[zIdx]) {
+                        window.saveData.zones[zIdx] = {
+                            name: kingdom.townNames[zIdx],
+                            biome: (parseInt(zIdx) === kingdom.capital) ? 'Capital' : 'Town'
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    // Heal/migrate town names in existing save data (bugfix)
+    if (window.getTownNameForZone && window.saveData.zones) {
+        for (const zoneIdxStr in window.saveData.zones) {
+            const zIdx = parseInt(zoneIdxStr);
+            const isTownIndex = zIdx === 0 || (Math.abs(zIdx) > 0 && Math.abs(zIdx) % 4 === 0);
+            if (isTownIndex && zIdx !== 777 && zIdx !== -666) {
+                const correctName = window.getTownNameForZone(zIdx);
+                const zone = window.saveData.zones[zoneIdxStr];
+                if (zone && zone.name !== correctName) {
+                    console.log(`[Migration] Correcting town name for zone ${zIdx}: "${zone.name}" -> "${correctName}"`);
+                    zone.name = correctName;
+                }
+            }
+        }
+    }
 
     const config = {
         type: Phaser.AUTO,
@@ -426,6 +1251,7 @@ function startGame(saveData) {
         height: 720,
         parent: 'game-container',
         pixelArt: true,
+        pauseOnBlur: false,
         scale: {
             mode: Phaser.Scale.FIT,
             autoCenter: Phaser.Scale.CENTER_BOTH
@@ -478,10 +1304,59 @@ window.returnToMainMenu = function() {
 
 // Attach event listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Progress loading bar
+    const bar = document.getElementById('loading-bar-fill');
+    const status = document.getElementById('loading-status');
+    if (bar) bar.style.width = '60%';
+    if (status) status.innerText = 'Initializing Phaser Engine...';
+
     // Boot the title screen Phaser canvas
     initTitleScreen();
 
     document.getElementById('btn-new-game').addEventListener('click', showCreateScreen);
+    
+    // Help Modal Logic
+    const helpModal = document.getElementById('ui-menu-help');
+    if (helpModal) {
+        document.getElementById('btn-menu-help').addEventListener('click', () => {
+            helpModal.style.display = 'flex';
+        });
+        document.getElementById('btn-close-menu-help').addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+
+        // Tab Switching
+        const tabBtns = document.querySelectorAll('.help-tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Reset buttons
+                tabBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.color = '#aaa';
+                    b.style.borderBottomColor = 'transparent';
+                });
+                // Activate clicked button
+                btn.classList.add('active');
+                btn.style.color = '#2ddbde';
+                btn.style.borderBottomColor = '#2ddbde';
+
+                // Hide all panels
+                const panels = document.querySelectorAll('.help-tab-panel');
+                panels.forEach(p => p.style.display = 'none');
+
+                // Show selected panel
+                const targetTab = btn.getAttribute('data-tab');
+                const targetPanel = document.getElementById(`help-content-${targetTab}`);
+                if (targetPanel) {
+                    if (targetTab === 'controls' || targetTab === 'combat' || targetTab === 'factions') {
+                        targetPanel.style.display = 'flex';
+                    } else {
+                        targetPanel.style.display = 'block';
+                    }
+                }
+            });
+        });
+    }
     
     // Continue Screen Logic
     const btnContinue = document.getElementById('btn-continue');
@@ -491,7 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('save-slots-container');
         container.innerHTML = '';
         
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 8; i++) {
             if (i < saves.length) {
                 const save = saves[i];
                 // Migrate old 'assassin' saves to 'samurai'
@@ -609,8 +1484,8 @@ document.addEventListener('DOMContentLoaded', () => {
         nameInput.classList.remove('border-error');
         
         const saves = getSaves();
-        if (saves.length >= 4) {
-            alert('No empty save slots available! Please overwrite a save (feature coming soon).');
+        if (saves.length >= 8) {
+            alert('No empty save slots available! Delete a save to make room.');
             return;
         }
         
@@ -621,7 +1496,17 @@ document.addEventListener('DOMContentLoaded', () => {
             level: 1,
             playTime: 0,
             lastSaved: Date.now(),
-            isNewGame: true
+            isNewGame: true,
+            // Political system
+            factionReputation: {},
+            politicalChoices: [],
+            currentTitle: null,
+            visitedZones: [0],  // Start with zone 0 (Willowbrook capital) discovered
+            discoveredKingdoms: {},
+            revealedIntel: {},
+            knownLanguages: (selectedClassData.id === 'wizard' ? ['common', 'celestial'] :
+                             selectedClassData.id === 'ranger' ? ['common', 'elvish'] :
+                             selectedClassData.id === 'knight' ? ['common', 'dwarvish'] : ['common'])
         };
         
         saves.push(newSave);
@@ -759,6 +1644,76 @@ function setupFighterHTMLHandlers() {
         ]
     };
     FIGHTER_WEAPONS.knight_rival = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.witch = [
+        { key: 'weapon-gnarled-root-wand', name: 'Gnarled Root Wand', damageBonus: 15 },
+        { key: 'weapon-blightwood-staff', name: 'Blightwood Staff', damageBonus: 22 },
+        { key: 'weapon-voodoo-doll-effigy', name: 'Cursed Effigy', damageBonus: 28 },
+        { key: 'weapon-hex-tome', name: 'Grimoire of Hexes', damageBonus: 36 },
+        { key: 'weapon-censer-of-shadows', name: 'Shadow Censer', damageBonus: 45 }
+    ];
+    FIGHTER_WEAPONS.priest = [
+        { key: 'weapon-radiant-crosier', name: 'Radiant Crosier', damageBonus: 16 },
+        { key: 'weapon-divine-mace', name: 'Divine War Mace', damageBonus: 24 },
+        { key: 'weapon-reliquary-of-light', name: 'Reliquary of Light', damageBonus: 32 },
+        { key: 'weapon-blessed-chalice', name: 'Blessed Chalice', damageBonus: 38 },
+        { key: 'weapon-censer-of-holiness', name: 'Sanctified Censer', damageBonus: 48 }
+    ];
+    FIGHTER_WEAPONS.pyromancer = [
+        { key: 'weapon-ember-scepter', name: 'Ember Scepter', damageBonus: 14 },
+        { key: 'weapon-flame-brand-staff', name: 'Hellfire Brand', damageBonus: 25 },
+        { key: 'weapon-phoenix-focus', name: 'Phoenix Fire Focus', damageBonus: 30 },
+        { key: 'weapon-hellfire-tome', name: 'Pyronomicon', damageBonus: 40 },
+        { key: 'weapon-lava-spit-wand', name: 'Magma core Wand', damageBonus: 50 }
+    ];
+    // Map rival and alternative classes to equivalent weapon tables
+    FIGHTER_WEAPONS.wizard_rival = FIGHTER_WEAPONS.wizard;
+    FIGHTER_WEAPONS.samurai_rival = FIGHTER_WEAPONS.samurai;
+    FIGHTER_WEAPONS.ranger_rival = FIGHTER_WEAPONS.ranger;
+    FIGHTER_WEAPONS.elven_spellblade_rival = FIGHTER_WEAPONS.elven_spellblade;
+    
+    FIGHTER_WEAPONS.elven_longbowman = [
+        { key: 'weapon-windrunner-recurve', name: 'Windrunner Bow', damageBonus: 24 },
+        { key: 'weapon-sylvan-greatbow', name: 'Sylvan Greatbow', damageBonus: 35 }
+    ];
+    FIGHTER_WEAPONS.elven_longbowman_rival = FIGHTER_WEAPONS.elven_longbowman;
+    
+    FIGHTER_WEAPONS.elven_guard = [
+        { key: 'weapon-sylvan-glaive', name: 'Sylvan Glaive', damageBonus: 22 },
+        { key: 'weapon-forest-halberd', name: 'Forest Halberd', damageBonus: 30 }
+    ];
+    FIGHTER_WEAPONS.elven_guard_rival = FIGHTER_WEAPONS.elven_guard;
+
+    FIGHTER_WEAPONS.witch_1 = FIGHTER_WEAPONS.witch;
+    FIGHTER_WEAPONS.witch_2 = FIGHTER_WEAPONS.witch;
+    FIGHTER_WEAPONS.witch_3 = FIGHTER_WEAPONS.witch;
+    FIGHTER_WEAPONS.witch_1_rival = FIGHTER_WEAPONS.witch;
+    FIGHTER_WEAPONS.witch_2_rival = FIGHTER_WEAPONS.witch;
+    FIGHTER_WEAPONS.witch_3_rival = FIGHTER_WEAPONS.witch;
+    
+    FIGHTER_WEAPONS.priest_1 = FIGHTER_WEAPONS.priest;
+    FIGHTER_WEAPONS.priest_2 = FIGHTER_WEAPONS.priest;
+    FIGHTER_WEAPONS.priest_3 = FIGHTER_WEAPONS.priest;
+    FIGHTER_WEAPONS.priest_1_rival = FIGHTER_WEAPONS.priest;
+    FIGHTER_WEAPONS.priest_2_rival = FIGHTER_WEAPONS.priest;
+    FIGHTER_WEAPONS.priest_3_rival = FIGHTER_WEAPONS.priest;
+    
+    FIGHTER_WEAPONS.pyromancer_1 = FIGHTER_WEAPONS.pyromancer;
+    FIGHTER_WEAPONS.pyromancer_2 = FIGHTER_WEAPONS.pyromancer;
+    FIGHTER_WEAPONS.pyromancer_3 = FIGHTER_WEAPONS.pyromancer;
+    FIGHTER_WEAPONS.pyromancer_1_rival = FIGHTER_WEAPONS.pyromancer;
+    FIGHTER_WEAPONS.pyromancer_2_rival = FIGHTER_WEAPONS.pyromancer;
+    FIGHTER_WEAPONS.pyromancer_3_rival = FIGHTER_WEAPONS.pyromancer;
+    FIGHTER_WEAPONS.dwarf_warrior_rival = FIGHTER_WEAPONS.samurai;
+    FIGHTER_WEAPONS.dwarf_warrior = FIGHTER_WEAPONS.samurai;
+    FIGHTER_WEAPONS.dwarf_miner_rival = FIGHTER_WEAPONS.samurai;
+    FIGHTER_WEAPONS.dwarf_miner = FIGHTER_WEAPONS.samurai;
+    FIGHTER_WEAPONS.dwarf_king_rival = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.dwarf_king = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.human_king = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.human_queen = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.elven_king = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.elven_queen = FIGHTER_WEAPONS.knight;
+    FIGHTER_WEAPONS.elven_queen_rival = FIGHTER_WEAPONS.knight;
 
     const FIGHTER_ARTIFACTS = window.ARTIFACTS_DATA ? Object.values(window.ARTIFACTS_DATA) : [
         { key: 'artifact-strength', name: 'Ring of Strength' },
@@ -781,7 +1736,15 @@ function setupFighterHTMLHandlers() {
         { key: 'artifact-crystal-aegis', name: 'Crystal Aegis' }
     ];
 
-    const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
+    const heroClasses = [
+        'knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'witch', 'priest', 'pyromancer', 
+        'custom_npc_male', 'custom_npc_female', 'knight_rival', 'wizard_rival', 'samurai_rival', 
+        'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman', 'elven_longbowman_rival', 'elven_guard', 'elven_guard_rival', 
+        'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
+        'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
+        'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
+        'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+    ];
 
     function populateWeaponDropdown(selectId, classId) {
         const select = document.getElementById(selectId);
@@ -920,7 +1883,15 @@ function setupFighterHTMLHandlers() {
             btnHuman.classList.add('active');
             btnAI.classList.remove('active');
             p1Enemies.classList.add('hidden');
-            const heroClasses = ['knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'custom_npc_male', 'custom_npc_female', 'knight_rival'];
+            const heroClasses = [
+                'knight', 'wizard', 'samurai', 'ranger', 'elven_spellblade', 'witch', 'priest', 'pyromancer', 
+                'custom_npc_male', 'custom_npc_female', 'knight_rival', 'wizard_rival', 'samurai_rival', 
+                'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman', 'elven_longbowman_rival', 'elven_guard', 'elven_guard_rival', 
+                'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
+                'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
+                'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
+                'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+            ];
             const isCustom = window.fighterState.p1Class && window.fighterState.p1Class.startsWith('custom_npc');
             if (!heroClasses.includes(window.fighterState.p1Class) && !isCustom) {
                 window.fighterState.p1Class = 'knight';
@@ -1114,8 +2085,16 @@ function saveSaves(saves) {
     localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
 }
 
-// Initial Autoplay Config Defaults
-window.autoplayConfig = {
+// Initial Autoplay Config Defaults (persisted in localStorage)
+let loadedApConfig = null;
+try {
+    const savedAp = localStorage.getItem('elden_soul_autoplay_config');
+    if (savedAp) loadedApConfig = JSON.parse(savedAp);
+} catch (e) {
+    console.error('Failed to load autoplay config', e);
+}
+
+window.autoplayConfig = loadedApConfig || {
     preset: 'custom',
     targetZone: 0,
     coliseumGrind: false,
@@ -1128,5 +2107,60 @@ window.autoplayConfig = {
     dashFreq: 30,
     blockRate: 20,
     heroPersonality: ''
+};
+
+// Dismiss loading screen when all resources (fonts, icons, styles) have finished loading
+window.addEventListener('load', () => {
+    const bar = document.getElementById('loading-bar-fill');
+    const status = document.getElementById('loading-status');
+    if (bar) bar.style.width = '100%';
+    if (status) status.innerText = 'Awakening...';
+    
+    setTimeout(() => {
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+            loader.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            loader.style.opacity = '0';
+            loader.style.transform = 'scale(1.05)';
+            setTimeout(() => loader.remove(), 600);
+        }
+    }, 400);
+});
+
+// Lore logging and exporting utility
+window.logGeneratedName = function(category, details) {
+    let dict = {};
+    try {
+        dict = JSON.parse(localStorage.getItem("generated_lore_dictionary") || "{}");
+    } catch (e) {
+        dict = {};
+    }
+    
+    if (!dict[category]) {
+        dict[category] = [];
+    }
+    
+    const exists = dict[category].some(item => item.name === details.name);
+    if (!exists) {
+        dict[category].push({
+            ...details,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem("generated_lore_dictionary", JSON.stringify(dict, null, 2));
+        console.log(`[LORE_LOG] Logged new ${category}:`, details);
+    }
+};
+
+window.exportLoreDictionary = function() {
+    const dataStr = localStorage.getItem("generated_lore_dictionary") || "{}";
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = 'generated_lore_dictionary.json';
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    console.log("Lore dictionary exported successfully!");
 };
 

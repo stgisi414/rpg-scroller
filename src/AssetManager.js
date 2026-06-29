@@ -47,7 +47,55 @@ class AssetManager {
         this.scene.load.spritesheet('samurai_rival', 'src/assets/GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet red.png', { frameWidth: 96, frameHeight: 64 });
         this.scene.load.spritesheet('ranger_rival', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer red sheet.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('elven_spellblade_rival', 'src/assets/elven_spellblade.png?v=4', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_king', 'src/assets/elven_king.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_king_rival', 'src/assets/elven_king.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_queen', 'src/assets/elven_queen.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_queen_rival', 'src/assets/elven_queen.png', { frameWidth: 128, frameHeight: 128 });
+        // Human King & Queen (Craftpix 830108)
+        this.scene.load.spritesheet('human_king', 'src/assets/human_king.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('human_queen', 'src/assets/human_queen.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_longbowman', 'src/assets/elven_longbowman.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_longbowman_rival', 'src/assets/elven_longbowman.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_guard', 'src/assets/elven_guard.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('elven_guard_rival', 'src/assets/elven_guard.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dwarf_warrior', 'src/assets/dwarf_warrior.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dwarf_miner', 'src/assets/dwarf_miner.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dwarf_king', 'src/assets/dwarf_king.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dwarf_warrior_rival', 'src/assets/dwarf_warrior.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dwarf_miner_rival', 'src/assets/dwarf_miner.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dwarf_king_rival', 'src/assets/dwarf_king.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('megaboss_rival', 'src/assets/Heavy Knight/Heavy Knight/Red heavy.png', { frameWidth: 91, frameHeight: 64 });
+        // Witch sprites
+        this.scene.load.spritesheet('witch', 'src/assets/witch_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('witch_1', 'src/assets/witch_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('witch_2', 'src/assets/witch_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('witch_3', 'src/assets/witch_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('witch_1_rival', 'src/assets/witch_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('witch_3_rival', 'src/assets/witch_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('witch_spear', 'src/assets/craftpix-net-470871-witch-pixel-character-sprite-sheets-pack/Witch_2/Spear.png', { frameWidth: 128, frameHeight: 128 });
+        // Priest sprites
+        this.scene.load.spritesheet('priest', 'src/assets/priest_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('priest_1', 'src/assets/priest_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('priest_2', 'src/assets/priest_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('priest_3', 'src/assets/priest_3.png', { frameWidth: 128, frameHeight: 128 });
+        // Pyromancer sprites
+        this.scene.load.spritesheet('pyromancer', 'src/assets/pyromancer_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('pyromancer_1', 'src/assets/pyromancer_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('pyromancer_2', 'src/assets/pyromancer_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('pyromancer_3', 'src/assets/pyromancer_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('pyromancer_1_rival', 'src/assets/pyromancer_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('pyromancer_2_rival', 'src/assets/pyromancer_2.png', { frameWidth: 128, frameHeight: 128 });
+        // Hellhound sprites
+        this.scene.load.spritesheet('hellhound_1', 'src/assets/hellhound_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('hellhound_2', 'src/assets/hellhound_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('hellhound_3', 'src/assets/hellhound_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('heal_animation', 'src/assets/heal_animation.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('witch_debuff', 'src/assets/witch_debuff.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('witch_3_charge', 'src/assets/craftpix-net-470871-witch-pixel-character-sprite-sheets-pack/Witch_3/Charge.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('mind_control_debuff', 'src/assets/mind_control_debuff.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('elven_queen_buff', 'src/assets/elven_queen_buff.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('human_queen_buff', 'src/assets/human_queen_buff.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('pyromancer_1_charge', 'src/assets/craftpix-net-317603-pyromancer-character-sprite-sheets-pixel-art/Pyromancer_1/Charge.png', { frameWidth: 64, frameHeight: 64 });
         
         // Damned Enemies
         const damnedPath = 'src/assets/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore Hell Asset Pack 32x32/GandalfHardcore The Damned Enemies and NPCs/';
@@ -112,7 +160,7 @@ class AssetManager {
         this.scene.load.image('cloud5', 'src/assets/GandalfHardcore FREE Platformer Assets/GandalfHardcore FREE Platformer Assets/cloud5.png');
         this.scene.load.image('cloud6', 'src/assets/GandalfHardcore FREE Platformer Assets/GandalfHardcore FREE Platformer Assets/cloud6.png');
 
-        // Town Assets
+        // Town Assets (Base)
         this.scene.load.image('house', 'src/assets/GandalfHardcore Pixel Art Village Houses tiles/GandalfHardcore Pixel Art Village Houses tiles/House.png');
         this.scene.load.image('house2', 'src/assets/GandalfHardcore Pixel Art Village Houses tiles/GandalfHardcore Pixel Art Village Houses tiles/House2.png');
         this.scene.load.image('house3', 'src/assets/GandalfHardcore Pixel Art Village Houses tiles/GandalfHardcore Pixel Art Village Houses tiles/House3.png');
@@ -124,6 +172,53 @@ class AssetManager {
         this.scene.load.image('stall', 'src/assets/GandalfHardcore Pixel Art Village Houses tiles/GandalfHardcore Pixel Art Village Houses tiles/market stall1.png');
         this.scene.load.image('stable', 'src/assets/GandalfHardcore Pixel Art Village Houses tiles/GandalfHardcore Pixel Art Village Houses tiles/Stable or Storage.png');
         this.scene.load.image('tavernGreen', 'src/assets/GandalfHardcore Pixel Art Village Houses tiles/GandalfHardcore Pixel Art Village Houses tiles/Tavern green roof.png');
+
+        // Medieval Town Buildings (Capitals Only)
+        const capPath = 'src/assets/Medieval Town Buildings/Medieval Town Buildings/';
+        this.scene.load.image('cap_bakery', capPath + 'Bakery.png');
+        this.scene.load.image('cap_blacksmith', capPath + 'Blacksmith.png');
+        this.scene.load.image('cap_carpenter', capPath + 'Carpenter_Workshop.png');
+        this.scene.load.image('cap_church', capPath + 'Church.png');
+        this.scene.load.image('cap_farmhouse', capPath + 'Farmhouse.png');
+        this.scene.load.image('cap_store', capPath + 'General_Store.png');
+        this.scene.load.image('cap_guardhouse', capPath + 'Guard_House.png');
+        this.scene.load.image('cap_inn', capPath + 'Inn.png');
+        this.scene.load.image('cap_markethall', capPath + 'Market_Hall.png');
+        this.scene.load.image('cap_merchanthouse', capPath + 'Merchant_House.png');
+        this.scene.load.image('cap_cottage', capPath + 'Small_Cottage.png');
+        this.scene.load.image('cap_stonehouse', capPath + 'Stone_House.png');
+        this.scene.load.image('cap_tailor', capPath + 'Tailor_Shop.png');
+        this.scene.load.image('cap_tavern', capPath + 'Tavern.png');
+        this.scene.load.image('cap_townhall', capPath + 'town_hall.png');
+        this.scene.load.image('cap_watchtower', capPath + 'watch_towner.png');
+
+        // Cozy Village Buildings (Towns Expansion)
+        const cozyPath = 'src/assets/Cozy Village World Builder Kit – Towns & Farms/Cozy Village World Builder Kit – Towns & Farms/buildings/';
+        this.scene.load.image('cozy_barn', cozyPath + 'Village Houses/spr_cozy_barn.png');
+        this.scene.load.image('cozy_house_big', cozyPath + 'Village Houses/spr_cozy_village_house_big.png');
+        this.scene.load.image('cozy_water_building', cozyPath + 'Village Houses/spr_water_building.png');
+        for (let i = 1; i <= 10; i++) {
+            this.scene.load.image(`cozy_house${i}`, cozyPath + `Village Houses/spr_cozy_village_house_${i}.png`);
+        }
+        
+        // Shop Buildings
+        this.scene.load.image('cozy_bakery', cozyPath + 'Cozy Village Shop Buildings (Animated)/spr_village_bakery_shop_1.png');
+        this.scene.load.image('cozy_blacksmith', cozyPath + 'Cozy Village Shop Buildings (Animated)/spr_village_blacksmith_shop.png');
+        this.scene.load.image('cozy_fish', cozyPath + 'Cozy Village Shop Buildings (Animated)/spr_village_fish_shop.png');
+        this.scene.load.image('cozy_inn', cozyPath + 'Cozy Village Shop Buildings (Animated)/spr_village_inn.png');
+        this.scene.load.image('cozy_shop1', cozyPath + 'Cozy Village Shop Buildings (Animated)/spr_village_shop_1.png');
+        this.scene.load.image('cozy_shop2', cozyPath + 'Cozy Village Shop Buildings (Animated)/spr_village_shop_2.png');
+
+        // Cozy Market Stalls
+        for (let i = 1; i <= 10; i++) {
+            this.scene.load.image(`cozy_stall${i}`, cozyPath + `Cozy Market Stalls/spr_stall_${i}.png`);
+        }
+
+        // Workshops
+        this.scene.load.image('cozy_woodcutting', cozyPath + 'Workshops/spr_woodcutting_station.png');
+        this.scene.load.image('cozy_distillery', cozyPath + 'Workshops/spr_distillery.png');
+        this.scene.load.image('cozy_masonry', cozyPath + 'Workshops/spr_masonry.png');
+        this.scene.load.image('cozy_pottery', cozyPath + 'Workshops/spr_pottery.png');
 
         // Background Layers
         this.scene.load.image('bg1', 'src/assets/GandalfHardcore FREE Platformer Assets/GandalfHardcore FREE Platformer Assets/GandalfHardcore Background layers/Normal BG/GandalfHardcore Background layers_layer 1.png');
@@ -161,6 +256,9 @@ class AssetManager {
         this.scene.load.image('bg_temple', 'src/assets/bg_temple.jpg');
         this.scene.load.image('bg_library', 'src/assets/bg_library.jpg');
         this.scene.load.image('bg_training', 'src/assets/bg_training_grounds.jpg');
+        this.scene.load.image('bg_throne_room', 'src/assets/bg_throne_room.png');
+        this.scene.load.image('bg_heaven_throne', 'src/assets/bg_heaven_throne.png');
+        this.scene.load.image('bg_heaven', 'src/assets/bg_heaven.png');
         
         // Desert Backgrounds
         this.scene.load.image('bg_desert_1', 'src/assets/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Background/Background layer.png');
@@ -184,6 +282,8 @@ class AssetManager {
         // Load Enemy Assets
         this.scene.load.spritesheet('training_dummy', 'src/assets/training_dummy.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('summon_angel', 'src/assets/GandalfHardcore Angel/GandalfHardcore Angel/GandalfHardcore Angel.png', { frameWidth: 96, frameHeight: 64 });
+        this.scene.load.spritesheet('pack_mule', 'src/assets/pack_mule.png', { frameWidth: 120, frameHeight: 120 });
+        this.scene.load.spritesheet('mule_cart', 'src/assets/mule_cart.png', { frameWidth: 96, frameHeight: 64 });
         
         // Heavenly Entities (PixelLab generated)
         this.scene.load.spritesheet('heavenly_valkyrie', 'src/assets/heavenly_valkyrie.png', { frameWidth: 128, frameHeight: 128 });
@@ -347,7 +447,7 @@ class AssetManager {
         this.scene.load.spritesheet('mod_female_orange_cap_f', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Female Hat/Female Orange cap.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_female_purple_cap_f', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Female Hat/Female Purple cap.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_female_red_cap_f', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Female Hat/Female Red cap.png', { frameWidth: 100, frameHeight: 64 });
-        this.scene.load.spritesheet('mod_female_santa_hat_f', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Female Hat/Female Santa hat.png', { frameWidth: 100, frameHeight: 64 });
+        this.scene.load.spritesheet('mod_female_santa_hat_f', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Female Hat/Female Santa hat.png?v=2', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_witch_hat_f', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Female Hat/Witch hat.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_farming_hat_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Farming Hat M.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_guard_helmet_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Guard Helmet.png', { frameWidth: 100, frameHeight: 64 });
@@ -367,7 +467,7 @@ class AssetManager {
         this.scene.load.spritesheet('mod_male_orange_cap_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Male Orange cap.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_male_purple_cap_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Male Purple cap.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_male_red_cap_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Male Red cap.png', { frameWidth: 100, frameHeight: 64 });
-        this.scene.load.spritesheet('mod_male_santa_hat_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Male Santa hat.png', { frameWidth: 100, frameHeight: 64 });
+        this.scene.load.spritesheet('mod_male_santa_hat_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Male Santa hat.png?v=2', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_pumpkin_hat_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Pumpkin hat.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_viking_helmet_with_horns_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Viking Helmet with horns.png', { frameWidth: 100, frameHeight: 64 });
         this.scene.load.spritesheet('mod_viking_helmet_m', 'src/assets/GandalfHardcore 39x Hats/GandalfHardcore 39x Hats/Male Hat/Viking Helmet.png', { frameWidth: 100, frameHeight: 64 });
@@ -518,6 +618,7 @@ class AssetManager {
         // Projectiles and Effects
         this.scene.load.spritesheet('projectile_blue', 'src/assets/GandalfHardcore Projectiles and effects/GandalfHardcore Projectiles and effects/GandalfHardcore 64x64 Projectiles1.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.image('arrow', 'src/assets/GandalfHardcore Archer/GandalfHardcore Archer/arrow.png');
+        this.scene.load.image('elf_arrow', 'src/assets/craftpix-net-546731-elf-warrior-sprite-sheet-pixel-art-pack/Elf_3/Charge.png');
 
         // Weather Sprites
         this.scene.load.image('weather_rain', 'src/assets/Weather Sprites/Sprites/Sprites/rain1.png');

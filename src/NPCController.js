@@ -33,6 +33,19 @@ class NPCController {
             window.saveData.npcAlignments[this.npcId] = alignment;
         }
         this.alignment = window.saveData.npcAlignments[this.npcId];
+        
+        // Load or assign persistent NPC personality
+        if (!window.saveData.npcPersonalities) window.saveData.npcPersonalities = {};
+        if (!window.saveData.npcPersonalities[this.npcId]) {
+            const choices = ['chatty', 'wise', 'gruff', 'greedy', 'timid'];
+            window.saveData.npcPersonalities[this.npcId] = choices[Math.floor(Math.random() * choices.length)];
+        }
+        this.personality = window.saveData.npcPersonalities[this.npcId];
+        
+        // Faction awareness fields (Phase 5)
+        this.faction = null;
+        this.factionRank = 'commoner';
+        this.politicalTitle = null;
 
         // Define emoji animations if they don't exist
         if (this.scene.anims && !this.scene.anims.exists('emoji_happy')) {
@@ -60,19 +73,50 @@ class NPCController {
 
         // Create the physics sprite using the appropriate sprite key
         this.sprite = this.scene.physics.add.sprite(x, y, spriteKey, 0);
-        let baseScale = 1.5;
-        if (spriteKey === 'elven_spellblade' || spriteKey === 'elven_spellblade_rival') {
-            baseScale = 1.15;
+        const baseKey = spriteKey.replace('_rival', '');
+        const classData = (window.classesData && window.classesData[baseKey]) ? window.classesData[baseKey] : null;
+
+        let baseScale = classData ? (classData.spriteScale || 1.5) : 1.5;
+        if (!classData) {
+            if (spriteKey === 'heavenly_cherub') {
+                baseScale = 0.7;
+            } else if (spriteKey === 'heavenly_seraph') {
+                baseScale = 1.45;
+            } else if (spriteKey === 'heavenly_valkyrie') {
+                baseScale = 1.45;
+            } else if (spriteKey === 'heavenly_archangel') {
+                baseScale = 1.6;
+            }
         }
         this.baseScale = baseScale;
         this.sprite.setScale(baseScale);
+
+        if (spriteKey.startsWith('heavenly_')) {
+            // Apply a subtle celestial tint/glow to differentiate them
+            const tints = [
+                0xffffff, // Pure celestial white
+                0xfff3cc, // Soft golden glow
+                0xe0f2fe, // Soft blue glow
+                0xfae8ff  // Soft magenta/purple glow
+            ];
+            let nameHash = 0;
+            const seedString = this.npcName || spriteKey;
+            for (let i = 0; i < seedString.length; i++) {
+                nameHash += seedString.charCodeAt(i);
+            }
+            const randomTint = tints[nameHash % tints.length];
+            this.sprite.setTint(randomTint);
+        }
         this.sprite.setDepth(1);
         this.sprite.setCollideWorldBounds(true);
         this.sprite.body.immovable = false;
         this.sprite.body.setAllowGravity(true);
         // Frame size can be dynamic. Use custom dynamic dimensions for modular NPCs.
-        const standardKeys = ['npc', 'wizard', 'ranger', 'knight', 'samurai', 'blacksmith', 'alchemist', 'sage', 'king', 'heavy_knight', 'knight_rival', 'megaboss_rival', 'elven_spellblade', 'elven_spellblade_rival'];
-        const isCustom = !standardKeys.includes(spriteKey);
+        const standardKeys = [
+            'npc', 'wizard', 'ranger', 'knight', 'samurai', 'blacksmith', 'alchemist', 'sage', 'king', 'human_king', 'human_queen', 'priest_1', 'priest_3', 'heavy_knight', 'knight_rival', 'megaboss_rival', 'elven_spellblade', 'elven_spellblade_rival',
+            'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub'
+        ];
+        const isCustom = !standardKeys.includes(spriteKey) && !classData;
         this.isCustom = isCustom;
 
         if (isCustom) {
@@ -139,6 +183,14 @@ class NPCController {
                 const initIdx = (typeof initFrame.name === 'number') ? initFrame.name : parseInt(initFrame.name, 10);
                 this._anchorBodyOnFrameChange(initFrame.height, initIdx, initFrame, initIdx);
             }
+        } else if (classData) {
+            const bodyW = classData.bodyWidth || (classData.frameWidth * 0.38);
+            const bodyH = classData.bodyHeight || (classData.frameHeight * 0.85);
+            const offX = classData.bodyOffsetX !== undefined ? classData.bodyOffsetX : (classData.frameWidth * 0.31);
+            const offY = classData.bodyOffsetY !== undefined ? classData.bodyOffsetY : (classData.frameHeight * 0.15);
+            this.sprite.body.setSize(bodyW, bodyH);
+            this.sprite.body.setOffset(offX, offY);
+            this.sprite.refreshBody();
         } else if (spriteKey === 'knight') {
             this.sprite.body.setSize(36, 48);
             this.sprite.body.setOffset(22, 16);
@@ -147,15 +199,40 @@ class NPCController {
             this.sprite.body.setSize(47, 63);
             this.sprite.body.setOffset(40, 31);
             this.sprite.refreshBody();
+        } else if (spriteKey === 'heavenly_archangel') {
+            this.sprite.body.setSize(40, 63);
+            this.sprite.body.setOffset(44, 32);
+            this.sprite.refreshBody();
+        } else if (spriteKey === 'heavenly_valkyrie') {
+            this.sprite.body.setSize(40, 70);
+            this.sprite.body.setOffset(44, 25);
+            this.sprite.refreshBody();
+        } else if (spriteKey === 'heavenly_seraph') {
+            this.sprite.body.setSize(50, 70);
+            this.sprite.body.setOffset(39, 25);
+            this.sprite.refreshBody();
+        } else if (spriteKey === 'heavenly_cherub') {
+            this.sprite.body.setSize(30, 40);
+            this.sprite.body.setOffset(49, 40);
+            this.sprite.refreshBody();
         } else {
             this.sprite.body.setSize(36, 48);
             this.sprite.body.setOffset(30, 16);
             this.sprite.refreshBody();
         }
         
-        // Play idle animation for this sprite
-        const idleKey = spriteKey + '_idle';
-        if (!this.scene.anims.exists(idleKey)) {
+        // Safety net: check if the bottom of the physics body is below the default platform floor height (672)
+        // If so, adjust the sprite's Y coordinate upward so it spawns safely resting on the platform.
+        if (this.sprite.body && this.sprite.body.bottom > 672 && this.sprite.y <= 624) {
+            const diff = this.sprite.body.bottom - 672;
+            this.sprite.y -= diff;
+            this.sprite.refreshBody();
+        }
+        
+        let idleKey = spriteKey + '_idle';
+        if (this.scene.anims.exists(spriteKey + '-idle')) {
+            idleKey = spriteKey + '-idle';
+        } else if (!this.scene.anims.exists(idleKey)) {
             // Each sheet has different layouts. Heroes must match their main.js config:
             // npc (goddess): row 0, 6 frames
             // wizard: row 1, 6 frames (cols = 6 -> starts at 6)
@@ -190,7 +267,32 @@ class NPCController {
                     repeat: -1
                 };
             } else {
-                const config = idleConfig[spriteKey] || { start: 0, end: 4 };
+                let config;
+                if (idleConfig[spriteKey]) {
+                    config = idleConfig[spriteKey];
+                } else if (classData) {
+                    let cols = classData.sheetCols;
+                    if (!cols) {
+                        try {
+                            const tex = this.scene.textures.get(spriteKey);
+                            const img = tex ? tex.getSourceImage() : null;
+                            if (img && img.width) {
+                                cols = Math.floor(img.width / classData.frameWidth);
+                            }
+                        } catch (e) {
+                            console.warn("Failed to get texture dimensions for cols in NPCController:", e);
+                        }
+                    }
+                    if (!cols) {
+                        cols = classData.frameWidth === 80 ? 10 : 12;
+                    }
+                    const startIdle = (classData.idleRow || 0) * cols;
+                    const endIdle = startIdle + (classData.idleFrames || 6) - 1;
+                    config = { start: startIdle, end: endIdle };
+                } else {
+                    config = { start: 0, end: 4 };
+                }
+                
                 animConfig = {
                     key: idleKey,
                     frames: this.scene.anims.generateFrameNumbers(spriteKey, config),
@@ -202,8 +304,10 @@ class NPCController {
             this.scene.anims.create(animConfig);
         }
 
-        const walkKey = spriteKey + '_walk';
-        if (!this.scene.anims.exists(walkKey)) {
+        let walkKey = spriteKey + '_walk';
+        if (this.scene.anims.exists(spriteKey + '-move')) {
+            walkKey = spriteKey + '-move';
+        } else if (!this.scene.anims.exists(walkKey)) {
             const walkConfig = {
                 npc: { start: 6, end: 11 }, // Goddess NPC walk frames
                 wizard: { start: 0, end: 5 }, // Row 0 (6 cols) -> starts at 0
@@ -229,7 +333,32 @@ class NPCController {
                     repeat: -1
                 });
             } else {
-                const config = walkConfig[spriteKey] || { start: 0, end: 4 };
+                let config;
+                if (walkConfig[spriteKey]) {
+                    config = walkConfig[spriteKey];
+                } else if (classData) {
+                    let cols = classData.sheetCols;
+                    if (!cols) {
+                        try {
+                            const tex = this.scene.textures.get(spriteKey);
+                            const img = tex ? tex.getSourceImage() : null;
+                            if (img && img.width) {
+                                cols = Math.floor(img.width / classData.frameWidth);
+                            }
+                        } catch (e) {
+                            console.warn("Failed to get texture dimensions for cols in NPCController:", e);
+                        }
+                    }
+                    if (!cols) {
+                        cols = classData.frameWidth === 80 ? 10 : 12;
+                    }
+                    const startWalk = (classData.walkRow !== undefined ? classData.walkRow : 1) * cols;
+                    const endWalk = startWalk + cols - 1;
+                    config = { start: startWalk, end: endWalk };
+                } else {
+                    config = { start: 0, end: 4 };
+                }
+                
                 this.scene.anims.create({
                     key: walkKey,
                     frames: this.scene.anims.generateFrameNumbers(spriteKey, config),
@@ -333,9 +462,35 @@ class NPCController {
         }
     }
 
+    playEmoji(key) {
+        if (!this.emojiSprite || !key) return;
+        if (this.emojiSprite.anims && this.emojiSprite.anims.currentAnim?.key !== key) {
+            this.emojiSprite.play(key);
+            this.emojiSprite.setVisible(true);
+            
+            if (this.emojiTimer) {
+                this.emojiTimer.remove();
+            }
+            this.emojiTimer = this.scene.time.delayedCall(2000, () => {
+                this.updateEmojiDisplay();
+            });
+        }
+    }
+
     setScaleWithPhysics(scale) {
         this.sprite.setScale(scale);
-        if (this.isCustom) {
+        
+        const baseKey = this.spriteKey.replace('_rival', '');
+        const classData = (window.classesData && window.classesData[baseKey]) ? window.classesData[baseKey] : null;
+        
+        if (classData) {
+            const bodyW = classData.bodyWidth || (classData.frameWidth * 0.38);
+            const bodyH = classData.bodyHeight || (classData.frameHeight * 0.85);
+            const offX = classData.bodyOffsetX !== undefined ? classData.bodyOffsetX : (classData.frameWidth * 0.31);
+            const offY = classData.bodyOffsetY !== undefined ? classData.bodyOffsetY : (classData.frameHeight * 0.15);
+            this.sprite.body.setSize(bodyW, bodyH);
+            this.sprite.body.setOffset(offX, offY);
+        } else if (this.isCustom) {
             const bodyW = 36;
             const bodyH = 48;
             let footY = 56; // Fallback
@@ -435,7 +590,10 @@ class NPCController {
 
         // Face the player. Modular (composite) NPCs use the GandalfHardcore Character Asset
         // Pack, whose sprites face LEFT by default — same as the fixed left-facing keys below.
-        const isLeftFacing = this.isCustom || ['knight', 'samurai', 'blacksmith', 'alchemist', 'npc', 'king'].includes(this.spriteKey);
+        const baseKey = this.spriteKey.replace('_rival', '');
+        const classData = (window.classesData && window.classesData[baseKey]) ? window.classesData[baseKey] : null;
+        const isLeftFacing = this.isCustom || 
+                             (classData ? !!classData.flipX : ['knight', 'samurai', 'blacksmith', 'alchemist', 'npc', 'king', 'heavy_knight', 'knight_rival'].includes(this.spriteKey));
 
         if (this.player.sprite.x < this.sprite.x) {
             // Player is to the left
@@ -472,7 +630,8 @@ class NPCController {
 
                 // Check if player presses F to interact
                 const isColiseumActive = this.scene.currentIndoorLocation === 'coliseum' && this.scene.arenaManager && this.scene.arenaManager.isActive;
-                if (this.player.isInteractDown() && !this.isChatOpen && !this.isShopOpen && !isColiseumActive) {
+                const isAnyOtherChatActive = this.scene.npcs && this.scene.npcs.some(n => n !== this && (n.isChatOpen || n.isShopOpen));
+                if (this.player.isInteractDown() && !this.isChatOpen && !this.isShopOpen && !isColiseumActive && !isAnyOtherChatActive && !this.player.isTalking) {
                     if (time - (this.lastInteractTime || 0) > 500) {
                         // Check for delivery quest completion before opening chat
                         this._checkDeliveryQuestCompletion();
@@ -512,9 +671,14 @@ class NPCController {
                 if (this.sprite.x > 1700) this.wanderState = 1;
             }
 
-            const runAnim = this.spriteKey + '_run';
-            const walkAnim = this.spriteKey + '_walk';
-            const idleAnim = this.spriteKey + '_idle';
+            let idleAnim = this.spriteKey + '_idle';
+            let walkAnim = this.spriteKey + '_walk';
+            let runAnim = this.spriteKey + '_run';
+            
+            if (this.scene.anims.exists(this.spriteKey + '-idle')) idleAnim = this.spriteKey + '-idle';
+            if (this.scene.anims.exists(this.spriteKey + '-move')) walkAnim = this.spriteKey + '-move';
+            if (this.scene.anims.exists(this.spriteKey + '-run')) runAnim = this.spriteKey + '-run';
+
             const activeAnim = this.scene.anims.exists(runAnim) ? runAnim : (this.scene.anims.exists(walkAnim) ? walkAnim : idleAnim);
 
             if (this.wanderState === 1) {
@@ -534,8 +698,8 @@ class NPCController {
                 if (this.sprite.anims.currentAnim?.key !== idleAnim) this.sprite.play(idleAnim, true);
             }
         } else {
-            this.sprite.setVelocityX(0);
-            const idleAnim = this.spriteKey + '_idle';
+            let idleAnim = this.spriteKey + '_idle';
+            if (this.scene.anims.exists(this.spriteKey + '-idle')) idleAnim = this.spriteKey + '-idle';
             if (this.sprite.anims.currentAnim?.key !== idleAnim) this.sprite.play(idleAnim, true);
         }
     }
@@ -614,8 +778,23 @@ class NPCController {
         this.isIntroCutscene = isIntro;
         this.player.isTalking = true;
         this.uiContainer.style.display = 'block';
-        this.npcNameDiv.innerText = this.npcName;
         this.registerChatListeners();
+
+        // Show faction emblem (both absolute top-right and inline next to the name)
+        const emblemImg = document.getElementById('chat-faction-emblem');
+        const emblemSrc = this.getFactionEmblemSrc();
+        if (emblemSrc) {
+            if (emblemImg) {
+                emblemImg.src = emblemSrc;
+                emblemImg.style.display = 'block';
+            }
+            this.npcNameDiv.innerHTML = `<img src="${emblemSrc}" style="width:22px; height:22px; vertical-align:middle; image-rendering:pixelated; margin-right:8px; display:inline-block; border:1px solid rgba(45,219,222,0.2); padding:1px; background:rgba(0,0,0,0.3); border-radius:2px;" /><span>${this.npcName}</span>`;
+        } else {
+            if (emblemImg) {
+                emblemImg.style.display = 'none';
+            }
+            this.npcNameDiv.innerText = this.npcName;
+        }
 
         // Release Phaser's key capture so ALL keys flow through to the HTML input
         if (this.player.inputManager) {
@@ -652,7 +831,7 @@ class NPCController {
                     'forge': 'Forge (+5 Dmg)',
                     'brew': 'Brew Potion',
                     'contracts': 'Bounty Board',
-                    'pray': 'Pray (+1 Stat)',
+                    'pray': 'Pray (Heal + Bless)',
                     'study': 'Study Riddles',
                     'train': 'Train (Fight)',
                     'arena': 'Fight in Arena'
@@ -661,6 +840,17 @@ class NPCController {
                 this.chatActivityBtn.style.display = 'inline-block';
             } else {
                 this.chatActivityBtn.style.display = 'none';
+            }
+        }
+        
+        // Add Sell Frontier Intel button if talking to a ruler and player has unsold kingdoms (Phase 10)
+        if (this.factionRank === 'leader' && window.saveData && window.saveData.discoveredKingdoms) {
+            const hasUnsoldIntel = Object.keys(window.saveData.discoveredKingdoms).some(kId => {
+                const soldList = (window.saveData.soldIntel && window.saveData.soldIntel[this.faction]) || [];
+                return !soldList.includes(kId);
+            });
+            if (hasUnsoldIntel) {
+                this._addIntelButton();
             }
         }
 
@@ -675,11 +865,38 @@ class NPCController {
         this.uiContainer.style.display = 'none';
         this.chatInput.blur();
 
+        // Hide faction emblem
+        const emblemImg = document.getElementById('chat-faction-emblem');
+        if (emblemImg) {
+            emblemImg.style.display = 'none';
+        }
+
         // Re-enable Phaser key capture for game input
         if (this.player.inputManager) {
             this.player.inputManager.enableForInput();
             this.scene.input.keyboard.addCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT');
         }
+    }
+
+    getFactionEmblemSrc() {
+        if (!this.faction) return null;
+        
+        // Find ruling kingdom for this faction
+        let kingdomId = null;
+        if (window.WORLD_FACTIONS && window.WORLD_FACTIONS[this.faction]) {
+            kingdomId = window.WORLD_FACTIONS[this.faction].kingdom;
+        } else if (window.saveData && window.saveData.discoveredKingdoms) {
+            // Check dynamic kingdoms
+            for (const kId in window.saveData.discoveredKingdoms) {
+                const k = window.saveData.discoveredKingdoms[kId];
+                if (k.rulingFaction === this.faction) {
+                    kingdomId = kId;
+                    break;
+                }
+            }
+        }
+
+        return window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
     }
 
     startActivity() {
@@ -876,6 +1093,8 @@ class NPCController {
                 break;
             case 'contracts':
                 const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+                const localFaction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
+                const factionId = localFaction ? localFaction.id : null;
 
                 if (this.pendingQuestType === 'kill' && this.pendingQuestTarget) {
                     // KILL QUEST
@@ -888,7 +1107,8 @@ class NPCController {
                         targetCount: 3,
                         currentCount: 0,
                         rewardGold: 100,
-                        rewardXP: 75
+                        rewardXP: 75,
+                        factionId: factionId
                     };
                     this.player.addQuest(quest);
                     rewardText = `Quest Accepted: Hunt 3 ${this.pendingQuestTarget}s!`;
@@ -906,7 +1126,8 @@ class NPCController {
                         rescueeZone: this.pendingQuestZone,
                         rescueState: 'captive',
                         rewardGold: 150,
-                        rewardXP: 120
+                        rewardXP: 120,
+                        factionId: factionId
                     };
                     this.player.addQuest(quest);
                     rewardText = `Rescue Quest: Save ${this.pendingQuestName} in Zone ${this.pendingQuestZone}!`;
@@ -924,13 +1145,24 @@ class NPCController {
                         deliveryTargetNPC: this.pendingQuestTargetNPC,
                         deliveryPickedUp: true,
                         rewardGold: 120,
-                        rewardXP: 80
+                        rewardXP: 80,
+                        factionId: factionId
                     };
                     this.player.addQuest(quest);
                     rewardText = `Delivery Quest: Bring ${this.pendingQuestItem} to zone ${this.pendingQuestZone}!`;
                 }
                 break;
             case 'pray':
+                // Heal to full HP for 25 gold
+                const healCost = 25;
+                let didHeal = false;
+                if (this.player.gold >= healCost) {
+                    this.player.gold -= healCost;
+                    this.player.hp = this.player.maxHp;
+                    this.player.mp = this.player.maxMp;
+                    didHeal = true;
+                }
+                // Also give +1 to a random stat as a blessing
                 const stats = ['vit', 'str', 'dex', 'int'];
                 const randomStat = stats[Math.floor(Math.random() * stats.length)];
                 if (this.player.classData && this.player.classData.stats) {
@@ -938,7 +1170,11 @@ class NPCController {
                     this.player.recalculateStats();
                 }
                 if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
-                rewardText = `Blessing Received (+1 ${randomStat.toUpperCase()})!`;
+                if (didHeal) {
+                    rewardText = `Healed & Blessed (+1 ${randomStat.toUpperCase()})! -${healCost}g`;
+                } else {
+                    rewardText = `Blessing (+1 ${randomStat.toUpperCase()})! Need ${healCost}g for healing`;
+                }
                 break;
             case 'study':
                 if (this.player.tempStats) {
@@ -958,6 +1194,73 @@ class NPCController {
     async handlePlayerMessage() {
         const text = this.chatInput.value.trim();
         if (!text) return;
+
+        // Personality behavior overrides (Phase 13)
+        const hasActiveQuests = this.player.quests && this.player.quests.length > 0;
+        if (hasActiveQuests && this.personality !== 'chatty' && Math.random() < 0.35) {
+            let scoldReply = "";
+            let emojiKey = "emoji_neutral";
+            if (this.personality === 'wise') {
+                scoldReply = "Why are you standing here speaking loosely, youngster? You have duties to fulfill! Go tend to your active quests and return when they are done.";
+                emojiKey = "emoji_angry";
+                this.socialScore = Math.max(-100, this.socialScore - 1);
+            } else if (this.personality === 'gruff') {
+                scoldReply = "Stop wasting breath. Get back to your task.";
+                emojiKey = "emoji_neutral";
+            } else if (this.personality === 'greedy') {
+                scoldReply = "Time is gold, wanderer. Unless you have completed your task or seek to pay me, move along.";
+                emojiKey = "emoji_sad";
+            } else if (this.personality === 'timid') {
+                scoldReply = "Oh! P-please... shouldn't you be focusing on your active quest? It sounds so frightfully dangerous...";
+                emojiKey = "emoji_sad";
+            }
+
+            if (scoldReply) {
+                this.addMessageToUI("Player", text);
+                this.chatInput.value = "";
+                const loadingId = "loading-" + Date.now();
+                this.addMessageToUI(this.npcName, "...", loadingId);
+                
+                this.scene.time.delayedCall(600, () => {
+                    const loadingElement = document.getElementById(loadingId);
+                    if (loadingElement) loadingElement.remove();
+                    this.addMessageToUI(this.npcName, scoldReply);
+                    this.chatHistory.push({ sender: "Player", text: text });
+                    this.chatHistory.push({ sender: this.npcName, text: scoldReply });
+                    this.playEmoji(emojiKey);
+                    
+                    this.chatInput.disabled = false;
+                    this.chatSubmitBtn.disabled = false;
+                    if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
+                    if (this.chatInput) this.chatInput.focus();
+                });
+                return;
+            }
+        }
+
+        if (this.personality === 'wise' && text.length < 12 && !text.includes('*')) {
+            const scoldReply = "Watch your manner of speech, child! Speak with proper gravity and respect, or do not speak to me at all.";
+            this.addMessageToUI("Player", text);
+            this.chatInput.value = "";
+            const loadingId = "loading-" + Date.now();
+            this.addMessageToUI(this.npcName, "...", loadingId);
+            
+            this.scene.time.delayedCall(600, () => {
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) loadingElement.remove();
+                this.addMessageToUI(this.npcName, scoldReply);
+                this.chatHistory.push({ sender: "Player", text: text });
+                this.chatHistory.push({ sender: this.npcName, text: scoldReply });
+                this.playEmoji("emoji_angry");
+                this.socialScore = Math.max(-100, this.socialScore - 1);
+                
+                this.chatInput.disabled = false;
+                this.chatSubmitBtn.disabled = false;
+                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
+                if (this.chatInput) this.chatInput.focus();
+            });
+            return;
+        }
 
         // Parse and execute *roleplay actions* typed with asterisks e.g. *give 500 gold*
         const roleplayResult = this._parseAndExecuteRoleplayAction(text);
@@ -1039,9 +1342,25 @@ class NPCController {
             const color = response.socialShift > 0 ? "#ff69b4" : "#8b0000";
             this.addMessageToUI("System", `<span style="color:${color}">Social Score ${sign}${response.socialShift} (Total: ${this.socialScore})</span>`);
             
-            // Trigger marriage button if >= 100
-            if (this.socialScore >= 100 && !document.getElementById('chat-propose')) {
-                this._addMarriageButton();
+            // Phase 6: Propagate a portion of socialShift to faction standing
+            if (this.faction && window.changeFactionReputation) {
+                const repShift = Math.round(response.socialShift * 0.5);
+                if (repShift !== 0) {
+                    window.changeFactionReputation(this.faction, repShift, true);
+                    const factionName = window.WORLD_FACTIONS[this.faction] ? window.WORLD_FACTIONS[this.faction].name : this.faction;
+                    const repColor = repShift > 0 ? "#88aaff" : "#ff4444";
+                    const repSign = repShift > 0 ? "+" : "";
+                    this.addMessageToUI("System", `<span style="color:${repColor}">Standing with ${factionName} changed: ${repSign}${repShift}</span>`);
+                }
+            }
+            
+            // Trigger marriage button if >= 100 (Phase 9)
+            if (this.socialScore >= 100 && !document.getElementById('chat-propose') && (!window.saveData || !window.saveData.spouseData)) {
+                const isLeader = this.factionRank === 'leader';
+                const rep = this.faction && window.getFactionReputation ? window.getFactionReputation(this.faction) : 0;
+                if (!isLeader || rep >= 75) {
+                    this._addMarriageButton();
+                }
             }
         }
 
@@ -1049,6 +1368,7 @@ class NPCController {
         if (response.quest && this.player.addQuest) {
             response.quest.giverName = this.npcName;
             response.quest.giverAlignment = this.alignment;
+            response.quest.factionId = this.faction || null;
             this.player.addQuest(response.quest);
             this.addMessageToUI("System", `<span style="color:#f6be3b">Quest Added: ${response.quest.title}</span>`);
         }
@@ -1184,11 +1504,166 @@ class NPCController {
         
         const senderColor = sender === "Player" ? "#66aaff" : (sender === "System" ? "#aaaaaa" : "#ffaa00");
         
-        msgDiv.innerHTML = `<span style="color: ${senderColor}; font-weight: bold;">${sender}:</span> <span>${text}</span>`;
+        let displayText = text;
+        if (sender === this.npcName && text !== "..." && text !== "Greetings.") {
+            const understanding = this.checkPlayerUnderstanding();
+            if (!understanding.understands) {
+                displayText = `<span style="font-style: italic; color: #d18fd6; font-size: 11px; display: block; margin-bottom: 2px;">(${understanding.dialect} - Unknown)</span> <span style="font-family: 'Courier New', monospace; font-size: 13px; color: #e8c0ed;">"${text}"</span>`;
+            } else if (understanding.translator) {
+                displayText = `<span style="font-style: italic; color: #4fa3a5; font-size: 11px; display: block; margin-bottom: 2px;">*Translated by ${understanding.translator}*</span> "${text}"`;
+            } else if (understanding.language !== 'common') {
+                displayText = `<span style="font-style: italic; color: #8a8ab5; font-size: 11px; display: block; margin-bottom: 2px;">*Translated from ${understanding.dialect}*</span> "${text}"`;
+            }
+        }
+        
+        msgDiv.innerHTML = `<span style="color: ${senderColor}; font-weight: bold;">${sender}:</span> <span>${displayText}</span>`;
         this.chatHistoryDiv.appendChild(msgDiv);
         
         this.chatHistoryDiv.scrollTop = this.chatHistoryDiv.scrollHeight;
     }
+
+    getLanguageInfo() {
+        const zoneIdx = (window.saveData && window.saveData.currentZone) || 0;
+        const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
+        
+        let language = 'common';
+        let dialect = 'Frontier Jargon';
+
+        // Check if Celestial or Infernal zone
+        if (zoneIdx === 777) {
+            return { language: 'celestial', dialect: 'Seraphic Enochian' };
+        } else if (zoneIdx === -666) {
+            return { language: 'infernal', dialect: 'Abyssal Whispers' };
+        }
+
+        // Map known kingdoms
+        if (kingdom) {
+            if (kingdom.id === 'willowbrook') {
+                language = 'common';
+                dialect = 'West Elden';
+            } else if (kingdom.id === 'embercrown') {
+                language = 'dwarvish';
+                dialect = 'High Volcanic';
+            } else if (kingdom.id === 'duskveil') {
+                language = 'elvish';
+                dialect = 'Dune Elven';
+            } else if (kingdom.id === 'ashenmoor') {
+                language = 'elvish';
+                dialect = 'Old Spell Sylvan';
+            } else if (kingdom.id === 'frosthold') {
+                language = 'dwarvish';
+                dialect = 'High Northern';
+            } else if (kingdom.id === 'tidereach') {
+                language = 'common';
+                dialect = 'Coastal Cant';
+            } else if (kingdom.id.startsWith('frontier_kingdom')) {
+                const isElven = kingdom.biomes && (
+                    kingdom.biomes.includes('Deadwoods') || 
+                    (kingdom.name && kingdom.name.toLowerCase().includes('elven')) || 
+                    (kingdom.factionName && kingdom.factionName.toLowerCase().includes('elven')) ||
+                    (kingdom.factionName && kingdom.factionName.toLowerCase().includes('sylvan'))
+                );
+                const isDwarven = kingdom.biomes && (
+                    kingdom.biomes.includes('Cave') || 
+                    (kingdom.name && kingdom.name.toLowerCase().includes('dwarf')) || 
+                    (kingdom.name && kingdom.name.toLowerCase().includes('dwarven')) || 
+                    (kingdom.name && kingdom.name.toLowerCase().includes('underrealm')) || 
+                    (kingdom.name && kingdom.name.toLowerCase().includes('stronghold')) || 
+                    (kingdom.factionName && kingdom.factionName.toLowerCase().includes('dwarf')) ||
+                    (kingdom.factionName && kingdom.factionName.toLowerCase().includes('dwarven'))
+                );
+
+                if (isElven) {
+                    language = 'elvish';
+                    dialect = 'Sylvan Dialect';
+                } else if (isDwarven) {
+                    language = 'dwarvish';
+                    dialect = 'Khuzdul Runic';
+                } else {
+                    const firstBiome = (kingdom.biomes && kingdom.biomes[0]) || 'Forest';
+                    if (firstBiome === 'Hell') {
+                        language = 'infernal';
+                        dialect = 'Abyssal Whispers';
+                    } else if (firstBiome === 'Dungeon' || firstBiome === 'Cave') {
+                        language = 'dwarvish';
+                        dialect = 'Khuzdul Runic';
+                    } else if (firstBiome === 'Deadwoods') {
+                        language = 'elvish';
+                        dialect = 'Deepwood Elven';
+                    } else if (firstBiome === 'Desert') {
+                        language = 'common';
+                        dialect = 'Desert Oasis Cant';
+                    } else if (firstBiome === 'Winter') {
+                        language = 'dwarvish';
+                        dialect = 'Runic Mountain';
+                    } else {
+                        language = 'common';
+                        dialect = 'Frontier Jargon';
+                    }
+                }
+            }
+        }
+        
+        // Faction-based overrides
+        if (this.faction) {
+            if (this.faction.toLowerCase().includes('angel') || this.faction.toLowerCase().includes('seraph')) {
+                language = 'celestial';
+                dialect = 'Seraphic Enochian';
+            } else if (this.faction.toLowerCase().includes('demon') || this.faction.toLowerCase().includes('infernal')) {
+                language = 'infernal';
+                dialect = 'Abyssal Whispers';
+            } else if (this.faction.toLowerCase().includes('elven') || this.faction.toLowerCase().includes('sylvan')) {
+                language = 'elvish';
+                dialect = 'Celestial Sylvan';
+            }
+        }
+
+        return { language, dialect };
+    }
+
+    checkPlayerUnderstanding() {
+        const langInfo = this.getLanguageInfo();
+        const known = (window.saveData && window.saveData.knownLanguages) || ['common'];
+        
+        if (known.includes(langInfo.language)) {
+            return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
+        }
+
+        // Check if player themselves can translate/understand it based on their class
+        const player = this.player;
+        if (player && player.classData) {
+            const pClass = player.classData.id;
+            if (langInfo.language === 'elvish' && (pClass === 'ranger' || pClass === 'elven_spellblade' || pClass === 'elven_spellblade_rival')) {
+                return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
+            }
+            if (langInfo.language === 'celestial' && pClass === 'wizard') {
+                return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
+            }
+            if (langInfo.language === 'dwarvish' && pClass === 'knight') {
+                return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
+            }
+        }
+
+        // Active party companion translation check
+        if (this.scene && this.scene.partyMembers) {
+            for (const member of this.scene.partyMembers) {
+                const companionClass = member.classId || member.spriteKey;
+                const name = member.npcName || 'your Companion';
+                if (langInfo.language === 'elvish' && companionClass === 'ranger') {
+                    return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
+                }
+                if (langInfo.language === 'celestial' && companionClass === 'wizard') {
+                    return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
+                }
+                if (langInfo.language === 'dwarvish' && companionClass === 'knight') {
+                    return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
+                }
+            }
+        }
+
+        return { understands: false, translator: null, language: langInfo.language, dialect: langInfo.dialect };
+    }
+
     getGameState() {
         const wm = this.scene.worldManager;
         const p = this.player;
@@ -1209,8 +1684,61 @@ class NPCController {
             npc: {
                 alignment: this.alignment,
                 socialScore: this.socialScore,
-                isMismatched: (this.alignment === 'Good' && p.alignment <= -40) || (this.alignment === 'Evil' && p.alignment >= 40)
+                isMismatched: (this.alignment === 'Good' && p.alignment <= -40) || (this.alignment === 'Evil' && p.alignment >= 40),
+                faction: this.faction,
+                factionRank: this.factionRank,
+                politicalTitle: this.politicalTitle,
+                personality: this.personality,
+                languageInfo: this.getLanguageInfo(),
+                playerUnderstandsLanguage: this.checkPlayerUnderstanding().understands
+            },
+            politicalContext: this.getPoliticalContext()
+        };
+    }
+
+    getPoliticalContext() {
+        const zoneIdx = (window.saveData && window.saveData.currentZone) || 0;
+        const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
+        const rulingFaction = window.getFactionForZone ? window.getFactionForZone(zoneIdx) : null;
+        
+        let npcFactionData = null;
+        let npcFactionRep = 0;
+        if (this.faction && window.WORLD_FACTIONS && window.WORLD_FACTIONS[this.faction]) {
+            npcFactionData = window.WORLD_FACTIONS[this.faction];
+            npcFactionRep = window.getFactionReputation ? window.getFactionReputation(this.faction) : 0;
+        }
+
+        let rulingFactionRep = 0;
+        if (rulingFaction) {
+            rulingFactionRep = window.getFactionReputation ? window.getFactionReputation(rulingFaction.id) : 0;
+        }
+
+        // Gather ruling faction relations
+        const relations = {};
+        if (rulingFaction && rulingFaction.relations) {
+            for (const fId in rulingFaction.relations) {
+                const score = rulingFaction.relations[fId];
+                const otherFactionName = window.WORLD_FACTIONS[fId] ? window.WORLD_FACTIONS[fId].name : fId;
+                relations[otherFactionName] = score;
             }
+        }
+
+        // Discovered frontier kingdoms
+        const discovered = [];
+        if (window.saveData && window.saveData.discoveredKingdoms) {
+            for (const kId in window.saveData.discoveredKingdoms) {
+                discovered.push(window.saveData.discoveredKingdoms[kId].name);
+            }
+        }
+
+        return {
+            kingdom: kingdom ? kingdom.name : "Frontier",
+            rulingFaction: rulingFaction ? { name: rulingFaction.name, alignment: rulingFaction.alignment } : null,
+            rulingFactionReputation: rulingFactionRep,
+            npcFaction: npcFactionData ? { name: npcFactionData.name, alignment: npcFactionData.alignment } : null,
+            npcFactionReputation: npcFactionRep,
+            rulingFactionRelations: relations,
+            discoveredFrontierKingdoms: discovered
         };
     }
 
@@ -1253,10 +1781,10 @@ class NPCController {
         const currentZone = (window.saveData && window.saveData.currentZone) || 0;
         
         for (const quest of this.player.quests) {
+            // Standard Delivery
             if (quest.type === 'delivery' && 
                 quest.deliveryPickedUp === true && 
                 quest.deliveryTargetZone === currentZone) {
-                // Complete the delivery quest!
                 if (this.player.progressQuest) {
                     this.player.progressQuest('delivery_complete', quest.id);
                 }
@@ -1266,10 +1794,217 @@ class NPCController {
                         `📦 ${quest.deliveryItem} Delivered!`, 0x44ff44
                     );
                 }
-                break; // Only complete one delivery at a time
+                break;
+            }
+            
+            // Diplomacy Treaty Delivery
+            if (quest.type === 'diplomacy' && quest.targetRuler === this.npcName) {
+                if (this.player.progressQuest) {
+                    this.player.progressQuest('diplomacy_complete', quest.id);
+                }
+                if (this.scene && this.scene.showFloatingText) {
+                    this.scene.showFloatingText(
+                        this.sprite.x, this.sprite.y - 60,
+                        `📜 Treaty Delivered to ${this.npcName}!`, 0x44ff44
+                    );
+                }
+                break;
+            }
+            
+            // Intel Report Delivery
+            if (quest.type === 'intel_report') {
+                const isLeaderOrOfficer = this.factionRank === 'leader' || this.factionRank === 'officer';
+                if (isLeaderOrOfficer) {
+                    if (this.player.progressQuest) {
+                        this.player.progressQuest('intel_report_complete', quest.id);
+                    }
+                    if (this.scene && this.scene.showFloatingText) {
+                        this.scene.showFloatingText(
+                            this.sprite.x, this.sprite.y - 60,
+                            `🗺️ Frontier Intel Delivered!`, 0x44ff44
+                        );
+                    }
+                    break;
+                }
             }
         }
     }
+
+    _addMarriageButton() {
+        if (document.getElementById('chat-propose')) return;
+        
+        const container = document.getElementById('chat-input-container');
+        if (!container) return;
+        
+        const button = document.createElement('button');
+        button.id = 'chat-propose';
+        button.innerText = '💍 Propose Marriage';
+        button.style.backgroundColor = '#ec4899';
+        button.style.color = '#ffffff';
+        button.style.marginLeft = '5px';
+        button.style.fontWeight = 'bold';
+        button.style.border = '1px solid #db2777';
+        button.style.borderRadius = '4px';
+        button.style.padding = '0 12px';
+        button.style.cursor = 'pointer';
+        
+        container.appendChild(button);
+        
+        button.onclick = () => {
+            this.handleProposal();
+        };
+    }
+
+    handleProposal() {
+        if (window.saveData && window.saveData.spouseData) {
+            this.addMessageToUI("System", `<span style="color:#ff4444">You are already married to ${window.saveData.spouseData.name}!</span>`);
+            return;
+        }
+
+        const isLeader = this.factionRank === 'leader';
+        const rep = this.faction && window.getFactionReputation ? window.getFactionReputation(this.faction) : 0;
+        
+        if (isLeader && rep < 75) {
+            this.addMessageToUI(this.npcName, "A member of the royalty cannot marry outside their rank without high political standing. Earn the trust of my kingdom first.");
+            return;
+        }
+
+        // Close proposal button immediately
+        const btn = document.getElementById('chat-propose');
+        if (btn) btn.remove();
+
+        this.closeChat();
+
+        // Wedding cutscene lines
+        const dialogue = [
+            {
+                speaker: "Narrator",
+                text: `The grand cathedral bells begin to ring, echoing across the land in celebration of a historic union.`
+            },
+            {
+                speaker: this.npcName,
+                portrait: this.spriteKey,
+                side: 'right',
+                text: `I do. In times of battle and peace, I bind my soul to yours. Together, we shall face whatever comes next.`
+            },
+            {
+                speaker: "Narrator",
+                text: `The priest raises his hands, blessing the bond. With vows sealed and rings exchanged, the ceremony concludes.`
+            }
+        ];
+
+        if (this.scene.cutsceneController) {
+            this.scene.cutsceneController.playCutscene(dialogue, () => {
+                // Save spouse data
+                window.saveData.spouseData = {
+                    name: this.npcName,
+                    spriteKey: this.spriteKey,
+                    faction: this.faction || null
+                };
+                
+                // Persist
+                if (this.player && this.player._persistToLocalStorage) {
+                    this.player._persistToLocalStorage();
+                }
+
+                // Visual celebrations
+                if (this.scene.showFloatingText && this.player && this.player.sprite && this.player.sprite.active) {
+                    this.scene.showFloatingText(
+                        this.player.sprite.x, this.player.sprite.y - 80,
+                        `💍 Married to ${this.npcName}!`, 0xec4899
+                    );
+                }
+            });
+        }
+    }
+
+    _addIntelButton() {
+        if (document.getElementById('chat-sell-intel')) return;
+        
+        const container = document.getElementById('chat-input-container');
+        if (!container) return;
+        
+        const button = document.createElement('button');
+        button.id = 'chat-sell-intel';
+        button.innerText = '🗺️ Sell Frontier Intel';
+        button.style.backgroundColor = '#10b981';
+        button.style.color = '#ffffff';
+        button.style.marginLeft = '5px';
+        button.style.fontWeight = 'bold';
+        button.style.border = '1px solid #059669';
+        button.style.borderRadius = '4px';
+        button.style.padding = '0 12px';
+        button.style.cursor = 'pointer';
+        
+        container.appendChild(button);
+        
+        button.onclick = () => {
+            this.handleSellIntel();
+        };
+    }
+
+    handleSellIntel() {
+        if (!window.saveData || !window.saveData.discoveredKingdoms) return;
+        
+        const unsoldKingdom = Object.values(window.saveData.discoveredKingdoms).find(k => {
+            const soldList = (window.saveData.soldIntel && window.saveData.soldIntel[this.faction]) || [];
+            return !soldList.includes(k.id);
+        });
+        
+        if (!unsoldKingdom) return;
+        
+        // Save sold state
+        window.saveData.soldIntel = window.saveData.soldIntel || {};
+        window.saveData.soldIntel[this.faction] = window.saveData.soldIntel[this.faction] || [];
+        window.saveData.soldIntel[this.faction].push(unsoldKingdom.id);
+        
+        // Reward
+        const rewardGold = 250;
+        const rewardRep = 15;
+        window.saveData.gold += rewardGold;
+        
+        const goldDisplay = document.getElementById('hud-gold');
+        if (goldDisplay) goldDisplay.innerText = `Gold: ${window.saveData.gold}`;
+        
+        if (window.changeFactionReputation) {
+            window.changeFactionReputation(this.faction, rewardRep, true);
+        }
+        
+        // Persist
+        if (this.player && this.player._persistToLocalStorage) {
+            this.player._persistToLocalStorage();
+        }
+        
+        const btn = document.getElementById('chat-sell-intel');
+        if (btn) btn.remove();
+        
+        this.closeChat();
+        
+        const dialogue = [
+            {
+                speaker: "Narrator",
+                text: `You present the map and findings of the procedural frontier kingdom of ${unsoldKingdom.name} to the court.`
+            },
+            {
+                speaker: `${this.politicalTitle} ${this.npcName}`,
+                portrait: this.spriteKey,
+                side: 'right',
+                text: `This map is of incredible importance to the ${window.WORLD_FACTIONS[this.faction].name}. Knowing who holds the lands beyond is a massive advantage. Take this gold reward for your discovery.`
+            }
+        ];
+        
+        if (this.scene.cutsceneController) {
+            this.scene.cutsceneController.playCutscene(dialogue, () => {
+                if (this.scene.showFloatingText && this.player && this.player.sprite && this.player.sprite.active) {
+                    this.scene.showFloatingText(
+                        this.player.sprite.x, this.player.sprite.y - 80,
+                        `🗺️ Intel Sold: +250g, +15 rep!`, 0x10b981
+                    );
+                }
+            });
+        }
+    }
+
 
     destroy() {
         if (this.isChatOpen) this.closeChat();

@@ -91,6 +91,38 @@ class QuestAlignmentManager {
                     this._completeQuest(q, i);
                 }
             }
+            // Diplomacy quests (Phase 6)
+            else if (questType === 'diplomacy') {
+                if (questIdOrEnemyType === 'diplomacy_complete' && q.id === (objectiveIndex || q.id)) {
+                    q.currentCount = q.targetCount;
+                    questUpdated = true;
+                    this._completeQuest(q, i);
+                }
+            }
+            // Espionage quests (Phase 6)
+            else if (questType === 'espionage') {
+                if (questIdOrEnemyType === 'espionage_complete' && q.targetKingdom === objectiveIndex) {
+                    q.currentCount = q.targetCount;
+                    questUpdated = true;
+                    this._completeQuest(q, i);
+                }
+            }
+            // Assassination quests (Phase 6)
+            else if (questType === 'assassination') {
+                if (questIdOrEnemyType === 'assassination_complete' && q.targetFaction === objectiveIndex) {
+                    q.currentCount = q.targetCount;
+                    questUpdated = true;
+                    this._completeQuest(q, i);
+                }
+            }
+            // Intel Report quests (Phase 6)
+            else if (questType === 'intel_report') {
+                if (questIdOrEnemyType === 'intel_report_complete' && q.id === (objectiveIndex || q.id)) {
+                    q.currentCount = q.targetCount;
+                    questUpdated = true;
+                    this._completeQuest(q, i);
+                }
+            }
         }
         if (questUpdated) {
             window.saveData.quests = player.quests;
@@ -140,6 +172,35 @@ class QuestAlignmentManager {
         // Grant alignment for rescue quests
         if (quest.type === 'rescue') {
             this.updateAlignment(5);
+        }
+
+        // Grant faction reputation (Phase 6)
+        const rewardRep = quest.rewardReputation || 15;
+        if (quest.factionId && window.changeFactionReputation) {
+            window.changeFactionReputation(quest.factionId, rewardRep, true);
+            
+            const factionName = window.WORLD_FACTIONS[quest.factionId] ? window.WORLD_FACTIONS[quest.factionId].name : quest.factionId;
+            if (player.scene && player.scene.showFloatingText) {
+                player.scene.time.delayedCall(1000, () => {
+                    if (player.sprite && player.sprite.active) {
+                        player.scene.showFloatingText(player.sprite.x, player.sprite.y - 120, `🤝 +${rewardRep} reputation with ${factionName}`, 0x88aaff);
+                    }
+                });
+            }
+        }
+
+        // Faction reputation penalties for specific quest completions
+        if (quest.type === 'assassination' && quest.targetFaction && window.changeFactionReputation) {
+            window.changeFactionReputation(quest.targetFaction, -35, true);
+            
+            const targetFactName = window.WORLD_FACTIONS[quest.targetFaction] ? window.WORLD_FACTIONS[quest.targetFaction].name : quest.targetFaction;
+            if (player.scene && player.scene.showFloatingText) {
+                player.scene.time.delayedCall(2000, () => {
+                    if (player.sprite && player.sprite.active) {
+                        player.scene.showFloatingText(player.sprite.x, player.sprite.y - 140, `⚠️ -35 reputation with ${targetFactName} (Assassination)`, 0xff4444);
+                    }
+                });
+            }
         }
 
         // Show completion floating text
