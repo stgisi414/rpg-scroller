@@ -11,10 +11,20 @@ class GeminiService {
         }
         this.apiKey = key || "";
 
-        // Seed user's Chartopia API Key if not already present
+        // Seed user's Chartopia API Key if not already present from local untracked config
         let chartopiaKey = localStorage.getItem("chartopia_api_key");
         if (!chartopiaKey) {
-            localStorage.setItem("chartopia_api_key", "0xsvZGh2.PJQSDv3nV3FQ7n2kyJZatHv4KpTmm3fw");
+            fetch('src/assets/chartopia_config.json')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.chartopia_api_key) {
+                        localStorage.setItem("chartopia_api_key", data.chartopia_api_key);
+                        console.log("Seeded Chartopia API key from local config.");
+                    }
+                })
+                .catch(err => {
+                    // Fail silently if config is missing or unreadable
+                });
         }
 
         this.ai = null;
@@ -299,7 +309,9 @@ Return ONLY a valid JSON object:
                 contextText += `\nYour Profile (NPC):\n`;
                 contextText += `- Alignment: ${state.npc.alignment} (Good, Neutral, or Evil)\n`;
                 contextText += `- Relation/Social Score with Player: ${state.npc.socialScore} (Negative means they dislike you, positive means they like you)\n`;
-                if (state.npc.isMismatched) {
+                if (state.luckOverride) {
+                    contextText += `- SPECIAL: Due to a massive stroke of player luck, you feel unexplainably warm, cooperative, and incredibly friendly toward the player, completely overlooking alignment mismatches or bad reputation!\n`;
+                } else if (state.npc.isMismatched) {
                     contextText += `- CRITICAL: There is a severe alignment mismatch! You find this player's karma repulsive. Refuse to help them, trade with them, or cooperate in any way. Keep your response cold, hostile, or dismissive.\n`;
                 }
             }
@@ -459,14 +471,15 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
         const biomeEnemies = {
             'Forest': ['slime', 'goblin', 'mushroom', 'spider', 'bat', 'bandit', 'wolfen', 'coyle', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_orc_male', 'special_enemy_orc_female', 'troll', 'ogre', 'willowisp'],
             'Plains': ['slime', 'goblin', 'orc', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'ogre', 'willowisp'],
-            'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'troll', 'willowisp'],
-            'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp'],
+            'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'troll', 'willowisp', 'stone_golem', 'mimic_1', 'mimic_2', 'mimic_3'],
+            'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp', 'copper_golem', 'gorgon_1', 'gorgon_2', 'gorgon_3'],
             'Coastal': ['slime', 'bat', 'plague_flies', 'bandit', 'willowisp'],
             'Winter': ['slime', 'orc', 'burning_skull_blue', 'frost_giant', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp'],
-            'Dungeon': ['slime', 'bat', 'spider', 'old_demon', 'male_damned', 'female_damned', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'willowisp'],
-            'Deadwoods': ['slime', 'bat', 'spider', 'tree_damned', 'twisted_damned', 'plague_flies', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'troll', 'ogre', 'willowisp'],
-            'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'the_devil', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'willowisp', 'bloated_damned'],
-            'Heaven': ['heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub', 'special_enemy_ghost_male', 'special_enemy_ghost_female']
+            'Dungeon': ['slime', 'bat', 'spider', 'old_demon', 'male_damned', 'female_damned', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'willowisp', 'mimic_1', 'mimic_2', 'mimic_3'],
+            'Deadwoods': ['slime', 'bat', 'spider', 'tree_damned', 'twisted_damned', 'plague_flies', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'troll', 'ogre', 'willowisp', 'mimic_1', 'mimic_2', 'mimic_3'],
+            'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'the_devil', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'willowisp', 'bloated_damned', 'lava_golem'],
+            'Heaven': ['heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub', 'special_enemy_ghost_male', 'special_enemy_ghost_female'],
+            'Dark Elf Outpost': ['dark_elf_guard', 'dark_elf_spellblade', 'dark_elf_longbowman', 'dark_elf_queen', 'mimic_1', 'mimic_2', 'mimic_3', 'gorgon_1', 'gorgon_2', 'gorgon_3', 'stone_golem', 'lava_golem', 'copper_golem']
         };
         const validEnemies = biomeEnemies[targetBiome] || ['slime'];
 
@@ -632,6 +645,7 @@ ${forceTown ?
 `2. CRITICAL: This zone MUST be a wilderness area. "type" MUST be "Dangerous".
 3. Wilderness zones MUST generate between ${minEnemies} and ${maxEnemies} enemies.
    - Enemy "type" MUST be strictly chosen from this exact array: ${JSON.stringify(validEnemies)}. You are allowed and encouraged to spawn multiple enemies of the SAME type!
+   - If the biome is "Dark Elf Outpost", you MUST spawn exactly one "dark_elf_queen" (typically positioned around x = 1800) as the commander of the outpost, and fill the rest of the slots with dark_elf_guard, dark_elf_spellblade, dark_elf_longbowman, mimics, gorgons, or golems.
    ${absIdx >= 81 ? "- CRITICAL: Since the player is in zone 81+, you MUST incrementally prioritize spawning the HIGHEST level, most dangerous enemy types in the array. Overwhelm them with elites!" : "- As the zone index gets higher, heavily favor spawning the harder, more dangerous enemies from the array over weak ones like slimes!"}
    - Enemy HP and speed should scale with Player Level ${playerLevel} AND Zone Index ${Math.abs(zoneIndex)}. Base Slime HP is 100. Base Speed is 100. Each zone index should add about +10 HP and +5 Speed.
    - Spread enemy x positions out (don't cluster them together).
@@ -660,9 +674,10 @@ ${forceTown ?
    - Deadwoods: "The Ashen Grove", "Withered Thicket", "Blighted Woods", "The Silent Copse"
    - Hell: "The Obsidian Crags", "Brimstone Wastes", "The Demon's Maw", "Lake of Fire"
    - Heaven: "The Golden Gates", "Elisean Fields", "Aetherial Ascent", "The Cloudtop Sanctum", "Gates of Paradise"
+   - Dark Elf Outpost: "Dark Elf Outpost of Vael-Anar", "Nightfall Sentinel Outpost", "Shadowspire Outpost", "Obsidian Blade Garrison"
    - Town: "Willowbrook", "Thornhaven", "Ashenmere", "Goldfall", "Cinderveil"
    Do NOT reuse "Whispering Thicket" or any name you have used before.
-11. Add a "lore" property. This should be 1-2 sentences of dark fantasy background lore about this specific zone.
+ 11. Add a "lore" property. This should be 1-2 sentences of dark fantasy background lore about this specific zone. For Dark Elf Outposts, the lore MUST mention that these entities and outposts emerged from the rifts.
 
 Return ONLY a valid JSON object in this exact format:
 {

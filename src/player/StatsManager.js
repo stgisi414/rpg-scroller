@@ -5,27 +5,68 @@ class StatsManager {
 
     recalculateStats() {
         const player = this.player;
-        const baseStats = player.classData.stats || { vit: 10, str: 10, dex: 10, int: 10 };
+        const baseStats = player.classData.stats || { vit: 10, str: 10, dex: 10, int: 10, luck: 10 };
         // Sanitize stats against NaN corruption from older saves
         if (typeof baseStats.dex !== 'number' || isNaN(baseStats.dex)) baseStats.dex = 10;
         if (typeof baseStats.str !== 'number' || isNaN(baseStats.str)) baseStats.str = 10;
         if (typeof baseStats.vit !== 'number' || isNaN(baseStats.vit)) baseStats.vit = 10;
         if (typeof baseStats.int !== 'number' || isNaN(baseStats.int)) baseStats.int = 10;
+        if (typeof baseStats.luck !== 'number' || isNaN(baseStats.luck)) baseStats.luck = 10;
 
-        const temp = player.tempStats || { vit: 0, str: 0, dex: 0, int: 0 };
+        const temp = player.tempStats || { vit: 0, str: 0, dex: 0, int: 0, luck: 0 };
         const stats = {
             vit: baseStats.vit + (temp.vit || 0),
             str: baseStats.str + (temp.str || 0),
             dex: baseStats.dex + (temp.dex || 0),
-            int: baseStats.int + (temp.int || 0)
+            int: baseStats.int + (temp.int || 0),
+            luck: baseStats.luck + (temp.luck || 0)
         };
 
+        // --- Apply Passive Skills Modifiers ---
+        const passives = player.passiveSkills || ( (!player.isAI && window.saveData) ? (window.saveData.passiveSkills || {}) : {} );
+        const activeModifiers = {};
+        for (const skillId in passives) {
+            const rank = passives[skillId] || 0;
+            if (rank > 0 && window.PASSIVE_SKILLS_DATA) {
+                const skillDef = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+                if (skillDef && skillDef.statsModifiers) {
+                    for (const statKey in skillDef.statsModifiers) {
+                        const val = skillDef.statsModifiers[statKey];
+                        if (statKey.toLowerCase().includes('multiplier')) {
+                            // Multipliers (like 1.15 or 0.9) represent (1 + delta).
+                            // We aggregate the delta: (val - 1) * rank.
+                            const delta = val - 1;
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + delta * rank;
+                        } else {
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + val * rank;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Apply attribute bonuses from skills
+        stats.vit += (activeModifiers.vit || 0);
+        stats.str += (activeModifiers.str || 0);
+        stats.dex += (activeModifiers.dex || 0);
+        stats.int += (activeModifiers.int || 0);
+        stats.luck += (activeModifiers.luck || 0);
+
+        player.luck = stats.luck;
+
+        // Apply base calculations
         player.speed = 200 + (stats.dex * 5);          // DEX → movement speed
         player.jumpVelocity = -400 - (stats.str * 10);  // STR → jump height
         player.dashSpeed = 400 + (stats.dex * 15);       // DEX → dash speed & distance
         player.maxHp = stats.vit * 10;                   // VIT → max HP
-        player.critChance = stats.dex * 0.5;             // DEX → crit % (e.g. 16 DEX = 8%)
-        
+        player.critChance = stats.dex * 0.5;             // DEX → crit %
+
+        // Apply percentage multipliers from skills
+        if (activeModifiers.move_speed_multiplier) player.speed *= (1 + activeModifiers.move_speed_multiplier);
+        if (activeModifiers.speedMultiplier) player.speed *= (1 + activeModifiers.speedMultiplier);
+        if (activeModifiers.max_hp_multiplier) player.maxHp = Math.floor(player.maxHp * (1 + activeModifiers.max_hp_multiplier));
+        if (activeModifiers.crit_chance) player.critChance += (activeModifiers.crit_chance * 100);
+
         // MP system (wizard primary, others get small pool)
         const classId = player.classData.id;
         if (classId === 'wizard') {
@@ -33,9 +74,11 @@ class StatsManager {
         } else {
             player.maxMp = 20 + (stats.int * 2);
         }
+        if (activeModifiers.max_mp_multiplier) player.maxMp = Math.floor(player.maxMp * (1 + activeModifiers.max_mp_multiplier));
         
         // SP (Stamina) system - used for dashing
         player.maxSp = 50 + (stats.dex * 3);
+        if (activeModifiers.max_sp_multiplier) player.maxSp = Math.floor(player.maxSp * (1 + activeModifiers.max_sp_multiplier));
 
         // --- Apply Artifact Boosts ---
         let partyBoosts = { maxHp: 0, maxMp: 0, maxSp: 0, speedMultiplier: 1.0 };
@@ -82,6 +125,9 @@ class StatsManager {
                     if (artifactDef.statBoosts.maxMp) player.maxMp += artifactDef.statBoosts.maxMp;
                     if (artifactDef.statBoosts.maxSp) player.maxSp += artifactDef.statBoosts.maxSp;
                     if (artifactDef.statBoosts.speedMultiplier) player.speed *= artifactDef.statBoosts.speedMultiplier;
+                    if (artifactDef.statBoosts.luck) {
+                        player.luck += artifactDef.statBoosts.luck;
+                    }
                 }
             }
         }

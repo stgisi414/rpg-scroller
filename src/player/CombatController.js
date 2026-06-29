@@ -284,7 +284,10 @@ class CombatController {
             });
         } else {
             // Melee Attack (Warrior, Samurai uses melee for now)
-            const attackRange = player.isAI ? 120 : 80;
+            let attackRange = player.isAI ? 120 : 80;
+            if (cd.id && cd.id.includes('dark_elf_guard')) {
+                attackRange = 180;
+            }
             const attackHeight = 55;
             const offset = (attackRange / 2) - 10;
             const hitboxX = player.sprite.x + (offset * player.facingDirection);
@@ -1809,39 +1812,61 @@ class CombatController {
         if (player.hp <= 0) return; // Already dead
         if (player.invulnerable) return; // Immune to damage (e.g. Witch fade)
 
-        // Evasion check from Ring of Evasion
-        if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
-            const artifactKey = player.inventory.artifacts[player.inventory.equippedArtifact];
-            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
-            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.evasion) {
-                if (Math.random() < artifactDef.statBoosts.evasion) {
-                    if (player.scene && player.scene.showFloatingText) {
-                        player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, "Evaded!", 0x88ff88);
+        // Evasion check (including passive skills)
+        const passives = player.passiveSkills || ( (!player.isAI && window.saveData) ? (window.saveData.passiveSkills || {}) : {} );
+        const activeModifiers = {};
+        for (const skillId in passives) {
+            const rank = passives[skillId] || 0;
+            if (rank > 0 && window.PASSIVE_SKILLS_DATA) {
+                const skillDef = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+                if (skillDef && skillDef.statsModifiers) {
+                    for (const statKey in skillDef.statsModifiers) {
+                        const val = skillDef.statsModifiers[statKey];
+                        if (statKey.toLowerCase().includes('multiplier')) {
+                            const delta = val - 1;
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + delta * rank;
+                        } else {
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + val * rank;
+                        }
                     }
-                    return;
                 }
             }
+        }
+
+        let evasionChance = (activeModifiers.evasion || 0);
+        let artifactDef = null;
+        if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
+            const artifactKey = player.inventory.artifacts[player.inventory.equippedArtifact];
+            artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.evasion) {
+                evasionChance += artifactDef.statBoosts.evasion;
+            }
+        }
+
+        if (evasionChance > 0 && Math.random() < evasionChance) {
+            if (player.scene && player.scene.showFloatingText) {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, "Evaded!", 0x88ff88);
+            }
+            return;
         }
 
         // Block / Parry check — any class can block when ducking
         const isBlocking = player.wasDucking;
 
-        // Apply damage reduction if shield artifact is equipped
+        // Apply damage reduction
         let finalAmount = amount;
-        if (player.inventory && player.inventory.artifacts && player.inventory.equippedArtifact >= 0) {
-            const artifactKey = player.inventory.artifacts[player.inventory.equippedArtifact];
-            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
-            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.damageReduction) {
-                let alignmentValid = true;
-                if (artifactDef.alignmentReq) {
-                    const align = player.alignment || 0;
-                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
-                }
-                if (alignmentValid) {
-                    finalAmount = Math.max(1, Math.floor(amount * (1 - artifactDef.statBoosts.damageReduction)));
-                }
+        let dr = (activeModifiers.damage_reduction || 0) + (activeModifiers.damageReduction || 0);
+        if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.damageReduction) {
+            let alignmentValid = true;
+            if (artifactDef.alignmentReq) {
+                const align = player.alignment || 0;
+                if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
+            }
+            if (alignmentValid) {
+                dr += artifactDef.statBoosts.damageReduction;
             }
         }
+        finalAmount = Math.max(1, Math.floor(amount * (1 - dr)));
 
         // Spiked Collar companion defense boost
         if (player.isAI && player.scene && player.scene.player) {

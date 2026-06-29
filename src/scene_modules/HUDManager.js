@@ -119,6 +119,10 @@ class HUDManager {
         
         this.scene.renderRoomTracker();
         try { this.updateHUD(); } catch(e) { console.error('updateHUD error:', e); }
+
+        if (window.saveData && window.saveData.skillPoints > 0) {
+            this.showUnspentSkillPointsBanner();
+        }
     }
 
     _createCharacterSheetModal() {
@@ -143,7 +147,7 @@ class HUDManager {
                 <button id="cs-close" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[14px] font-bold" style="position:absolute; top:24px; right:24px; z-index:50;">Close (ESC)</button>
 
                 <!-- Header Panel -->
-                <div class="flex items-center gap-6 mb-8 border-b border-outline-variant pb-6 relative z-10">
+                <div class="flex items-center gap-6 mb-4 border-b border-outline-variant pb-4 relative z-10">
                     <div id="cs-sprite-container" class="w-24 h-24 bg-surface-container-lowest border-2 border-primary rounded-lg flex items-center justify-center shadow-inner relative overflow-hidden" style="image-rendering: pixelated;">
                         <div id="cs-sprite-img" style="transform: scale(3);"></div>
                     </div>
@@ -159,8 +163,14 @@ class HUDManager {
                     </div>
                 </div>
 
-                <!-- 3-Column Layout -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 font-body-md text-on-surface relative z-10 overflow-y-auto pr-2" style="max-height: 50vh;">
+                <!-- Tab Navigation Bar -->
+                <div class="flex gap-4 border-b border-outline-variant mb-6 relative z-10">
+                    <button id="cs-tab-stats" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-primary text-primary transition-colors cursor-pointer focus:outline-none">Attributes & Gear</button>
+                    <button id="cs-tab-skills" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer focus:outline-none">Passive Skills</button>
+                </div>
+
+                <!-- Tab 1 Panel: Attributes & Gear -->
+                <div id="cs-panel-stats" class="grid grid-cols-1 lg:grid-cols-3 gap-8 font-body-md text-on-surface relative z-10 overflow-y-auto pr-2" style="max-height: 50vh;">
                     
                     <!-- Left Col: Core Stats & Exploration -->
                     <div class="space-y-8">
@@ -222,9 +232,52 @@ class HUDManager {
                         </div>
                     </div>
                 </div>
+
+                <!-- Tab 2 Panel: Passive Skills -->
+                <div id="cs-panel-skills" style="display: none; max-height: 50vh;" class="flex flex-col gap-4 relative z-10 overflow-y-auto pr-2">
+                    <div class="flex justify-between items-center bg-surface-container-highest/60 p-4 rounded border border-outline-variant/60 shadow shrink-0">
+                        <div>
+                            <h4 class="font-headline-sm text-secondary uppercase text-[15px] font-bold tracking-widest">Available Skill Points</h4>
+                            <p class="font-body-sm text-[11px] text-on-surface-variant mt-1">Spend points to unlock or upgrade passive skills matching your class archetype.</p>
+                        </div>
+                        <div id="cs-unspent-points-display" class="bg-primary text-background font-bold text-[28px] px-6 py-2 rounded-lg border-2 border-primary shadow-[0_0_15px_rgba(45,219,222,0.4)]">0</div>
+                    </div>
+                    
+                    <div id="cs-skills-list-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                        <!-- Javascript will inject passive skills cards here -->
+                    </div>
+                </div>
+
             </div>
         `;
         document.body.appendChild(modal);
+
+        // Tab Switching Event Bindings
+        const tabStats = document.getElementById('cs-tab-stats');
+        const tabSkills = document.getElementById('cs-tab-skills');
+        const panelStats = document.getElementById('cs-panel-stats');
+        const panelSkills = document.getElementById('cs-panel-skills');
+
+        if (tabStats && tabSkills) {
+            tabStats.addEventListener('click', () => {
+                tabStats.classList.add('border-primary', 'text-primary');
+                tabStats.classList.remove('border-transparent', 'text-on-surface-variant');
+                tabSkills.classList.remove('border-primary', 'text-primary');
+                tabSkills.classList.add('border-transparent', 'text-on-surface-variant');
+                panelStats.style.display = 'grid';
+                panelSkills.style.display = 'none';
+            });
+            tabSkills.addEventListener('click', () => {
+                tabSkills.classList.add('border-primary', 'text-primary');
+                tabSkills.classList.remove('border-transparent', 'text-on-surface-variant');
+                tabStats.classList.remove('border-primary', 'text-primary');
+                tabStats.classList.add('border-transparent', 'text-on-surface-variant');
+                panelStats.style.display = 'none';
+                panelSkills.style.display = 'flex';
+                this._renderPassiveSkillsTab();
+            });
+        }
+
         document.getElementById('cs-close').addEventListener('click', () => {
             modal.style.display = 'none';
             const hud = document.getElementById('game-hud');
@@ -250,7 +303,7 @@ class HUDManager {
         window.addEventListener('keydown', this.scene._csEscListener);
     }
 
-    toggleCharacterSheet() {
+    toggleCharacterSheet(initialTab = 'stats') {
         const modal = document.getElementById('char-sheet-modal');
         const hud = document.getElementById('game-hud');
         if (!modal) return;
@@ -258,6 +311,13 @@ class HUDManager {
             this._updateCharacterSheet();
             modal.style.display = '';
             if (hud) hud.style.display = 'none';
+            if (initialTab === 'skills') {
+                const tabSkills = document.getElementById('cs-tab-skills');
+                if (tabSkills) tabSkills.click();
+            } else {
+                const tabStats = document.getElementById('cs-tab-stats');
+                if (tabStats) tabStats.click();
+            }
         } else {
             modal.style.display = 'none';
             if (hud) hud.style.display = 'flex';
@@ -704,7 +764,7 @@ class HUDManager {
         spriteImg.style.backgroundRepeat = 'no-repeat';
         
         // --- Core Stats ---
-        const statColors = { vit: '#ff6b6b', str: '#ff9f43', dex: '#54a0ff', int: '#c471ed' };
+        const statColors = { vit: '#ff6b6b', str: '#ff9f43', dex: '#54a0ff', int: '#c471ed', luck: '#ffd700' };
         document.getElementById('cs-core-stats').innerHTML = `
             <div class="flex justify-between items-center"><span style="color:${statColors.vit}" class="font-bold tracking-wider">❤ VITALITY</span><span class="font-bold text-[18px]">${stats.vit}</span></div>
             <div class="text-[12px] text-on-surface-variant mb-2">Increases Max HP.</div>
@@ -713,7 +773,9 @@ class HUDManager {
             <div class="flex justify-between items-center"><span style="color:${statColors.dex}" class="font-bold tracking-wider">💨 DEXTERITY</span><span class="font-bold text-[18px]">${stats.dex}</span></div>
             <div class="text-[12px] text-on-surface-variant mb-2">Increases Speed, Crit Chance & Dash.</div>
             <div class="flex justify-between items-center"><span style="color:${statColors.int}" class="font-bold tracking-wider">✨ INTELLIGENCE</span><span class="font-bold text-[18px]">${stats.int}</span></div>
-            <div class="text-[12px] text-on-surface-variant">Increases Max MP & Magic Damage.</div>
+            <div class="text-[12px] text-on-surface-variant mb-2">Increases Max MP & Magic Damage.</div>
+            <div class="flex justify-between items-center"><span style="color:${statColors.luck}" class="font-bold tracking-wider">🍀 LUCK</span><span class="font-bold text-[18px]">${p.luck || 10}</span></div>
+            <div class="text-[12px] text-on-surface-variant">Improves chest loot & NPC reaction chances.</div>
         `;
         
         // --- Combat Math ---
@@ -1299,4 +1361,136 @@ class HUDManager {
             allNpcDebug
         ].filter(s => s !== '').join('<br>');
     }
+
+    _renderPassiveSkillsTab() {
+        const grid = document.getElementById('cs-skills-list-grid');
+        const pointsDisplay = document.getElementById('cs-unspent-points-display');
+        if (!grid || !window.PASSIVE_SKILLS_DATA || !window.saveData) return;
+
+        const classId = window.saveData.classId || 'knight';
+        const unspentPoints = window.saveData.skillPoints || 0;
+        if (pointsDisplay) pointsDisplay.innerText = unspentPoints;
+
+        // Filter skills for this class
+        const classSkills = window.PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
+        
+        // Render each skill card
+        grid.innerHTML = classSkills.map(skill => {
+            const currentRank = (window.saveData.passiveSkills && window.saveData.passiveSkills[skill.id]) || 0;
+            const maxRank = skill.maxRank || 5;
+            const isMax = currentRank >= maxRank;
+            
+            // Build indicators for rank
+            let rankDots = '';
+            for (let r = 1; r <= maxRank; r++) {
+                const filled = r <= currentRank;
+                rankDots += `<span class="inline-block w-2.5 h-2.5 rounded-full border border-primary/40 mr-1" style="background-color: ${filled ? '#2ddbde' : 'transparent'}; box-shadow: ${filled ? '0 0 6px #2ddbde' : 'none'};"></span>`;
+            }
+
+            const buttonHtml = isMax
+                ? `<span class="px-3 py-1 bg-outline-variant/30 text-outline-variant font-bold text-[11px] uppercase tracking-wider rounded border border-outline-variant/30">MAX RANK</span>`
+                : (unspentPoints > 0 
+                    ? `<button data-skill-id="${skill.id}" class="btn-upgrade-skill px-4 py-1.5 bg-primary text-background font-bold text-[11px] uppercase tracking-wider rounded hover:bg-primary/80 transition-all cursor-pointer">Upgrade</button>`
+                    : `<button class="px-4 py-1.5 bg-outline-variant/30 text-on-surface-variant font-bold text-[11px] uppercase tracking-wider rounded cursor-not-allowed" disabled>Locked</button>`
+                  );
+
+            const iconUrl = `src/assets/skills/${skill.id}.png`;
+            const iconHtml = `<div class="w-12 h-12 bg-surface-container-lowest rounded border border-outline-variant flex items-center justify-center overflow-hidden shrink-0"><img src="${iconUrl}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2FhYSI+PHBhdGggZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMxMCAxMCAxMCAxMCAxMC0xMCAxMC0xMFMyIDEyIDEyIDJ6Ii8+PC9zdmc+'" style="width:100%; height:100%; image-rendering:pixelated;" /></div>`;
+
+            return `
+                <div class="bg-surface-container-highest/40 p-4 rounded border border-outline-variant/40 flex flex-col justify-between gap-3 shadow hover:border-primary/40 transition-colors">
+                    <div class="flex gap-3">
+                        ${iconHtml}
+                        <div class="flex-grow min-w-0">
+                            <div class="flex justify-between items-start gap-1">
+                                <h4 class="font-bold text-[14px] text-on-surface truncate">${skill.name}</h4>
+                                <span class="bg-surface-container px-2 py-0.5 rounded text-[9px] uppercase tracking-widest font-bold text-secondary border border-outline-variant">${skill.aspect || skill.type}</span>
+                            </div>
+                            <p class="text-[11px] text-on-surface-variant leading-snug mt-1">${skill.description}</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center border-t border-outline-variant/30 pt-3 mt-1">
+                        <div class="flex items-center">
+                            ${rankDots}
+                        </div>
+                        <div>
+                            ${buttonHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Register upgrade button click listeners
+        grid.querySelectorAll('.btn-upgrade-skill').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const skillId = e.currentTarget.dataset.skillId;
+                this._upgradeSkill(skillId);
+            });
+        });
+    }
+
+    _upgradeSkill(skillId) {
+        if (!window.saveData || (window.saveData.skillPoints || 0) <= 0) return;
+        
+        window.saveData.passiveSkills = window.saveData.passiveSkills || {};
+        const skill = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+        if (!skill) return;
+
+        const currentRank = window.saveData.passiveSkills[skillId] || 0;
+        const maxRank = skill.maxRank || 5;
+        if (currentRank >= maxRank) return;
+
+        // Spend point
+        window.saveData.skillPoints--;
+        window.saveData.passiveSkills[skillId] = currentRank + 1;
+
+        // Recalculate stats immediately
+        if (this.scene.player) {
+            if (typeof this.scene.player.recalculateStats === 'function') {
+                this.scene.player.recalculateStats();
+            } else if (this.scene.player.statsManager) {
+                this.scene.player.statsManager.recalculateStats();
+            }
+        }
+        
+        // Save game state
+        if (this.scene.player && typeof this.scene.player.saveGame === 'function') {
+            this.scene.player.saveGame();
+        }
+
+        // Refresh UI tabs
+        this._updateCharacterSheet();
+        this._renderPassiveSkillsTab();
+    }
+
+    showUnspentSkillPointsBanner() {
+        if (document.getElementById('skill-points-banner')) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'skill-points-banner';
+        // Beautiful and highly polished M3 layout styling
+        banner.style.cssText = 'position:fixed; top:72px; left:50%; transform:translateX(-50%); z-index:90; background-color:rgba(18,18,18,0.95); border:2px solid #2ddbde; border-radius:8px; padding:16px; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.6), 0 0 15px rgba(45,219,222,0.25); width:320px; pointer-events:auto; display:flex; flex-direction:column; gap:8px; align-items:center; font-family: "Space Grotesk", sans-serif; color:#e0e0e0;';
+
+        banner.innerHTML = `
+            <h4 style="color:#2ddbde; margin:0; text-transform:uppercase; font-size:14px; font-weight:bold; letter-spacing:1.5px;">Unspent Skill Points!</h4>
+            <p style="margin:0; font-size:11px; line-height:1.4; color:#aaa;">A new passive skills system is active! You have <span style="color:#f6be3b; font-weight:bold;">${window.saveData.skillPoints}</span> unallocated skill points.</p>
+            <div style="display:flex; gap:8px; width:100%; margin-top:8px; justify-content:center;">
+                <button id="btn-banner-open-skills" style="padding:6px 16px; background-color:#2ddbde; color:#121212; border:none; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; border-radius:4px; cursor:pointer;">Allocate</button>
+                <button id="btn-banner-close-skills" style="padding:6px 16px; background-color:#333; color:#ccc; border:none; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; border-radius:4px; cursor:pointer;">Dismiss</button>
+            </div>
+        `;
+
+        document.body.appendChild(banner);
+
+        document.getElementById('btn-banner-open-skills').addEventListener('click', () => {
+            banner.remove();
+            this.toggleCharacterSheet('skills');
+        });
+
+        document.getElementById('btn-banner-close-skills').addEventListener('click', () => {
+            banner.remove();
+        });
+    }
 }
+

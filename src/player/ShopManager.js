@@ -871,7 +871,34 @@ class ShopManager {
         if (!window.saveData) {
             window.saveData = {};
         }
-        const roll = Math.random();
+
+        // Calculate passive skill modifiers
+        const passives = player.passiveSkills || ( (!player.isAI && window.saveData) ? (window.saveData.passiveSkills || {}) : {} );
+        const activeModifiers = {};
+        for (const skillId in passives) {
+            const rank = passives[skillId] || 0;
+            if (rank > 0 && window.PASSIVE_SKILLS_DATA) {
+                const skillDef = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+                if (skillDef && skillDef.statsModifiers) {
+                    for (const statKey in skillDef.statsModifiers) {
+                        const val = skillDef.statsModifiers[statKey];
+                        if (statKey.toLowerCase().includes('multiplier')) {
+                            const delta = val - 1;
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + delta * rank;
+                        } else {
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + val * rank;
+                        }
+                    }
+                }
+            }
+        }
+
+        const rawRoll = Math.random();
+        // Shift roll upward based on Luck & magic find to favor rare artifacts (0.70-0.80) & weapons (0.80-1.0)
+        const luckValue = player.luck !== undefined ? player.luck : 10;
+        const magicFindBoost = ((luckValue - 10) * 0.005) + (activeModifiers.magic_find_mult_per_rank || 0);
+        const roll = Math.min(0.99, rawRoll + magicFindBoost);
+
         let message = '';
         let color = '#ffffff';
 
@@ -880,7 +907,12 @@ class ShopManager {
             window.saveData = JSON.parse(JSON.stringify(window.saveData));
             const playerLevel = window.saveData ? window.saveData.level : 1;
             const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
-            const amount = 20 + Math.floor(Math.random() * 60) + (playerLevel * 5) + (zoneIdx * 15);
+            const baseAmount = 20 + Math.floor(Math.random() * 60) + (playerLevel * 5) + (zoneIdx * 15);
+            
+            // Scale gold with Luck and Hoarder's Instinct
+            const goldMult = 1.0 + ((luckValue - 10) * 0.02) + (activeModifiers.gold_gain_mult_per_rank || 0);
+            const amount = Math.floor(baseAmount * goldMult);
+
             window.saveData.gold = (window.saveData.gold || 0) + amount;
             document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
             message = `+${amount} Gold`;

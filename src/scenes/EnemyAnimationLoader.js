@@ -330,6 +330,61 @@ class EnemyAnimationLoader {
             }
         });
 
+        // Stitched 12-column 5-row Enemies (Dark Elves, Mimics, Gorgons, Golems)
+        const stitchedTypes = [
+            'dark_elf_guard', 'dark_elf_guard_rival',
+            'dark_elf_spellblade', 'dark_elf_spellblade_rival',
+            'dark_elf_longbowman', 'dark_elf_longbowman_rival',
+            'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
+            'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
+            'stone_golem', 'stone_golem_rival',
+            'lava_golem', 'lava_golem_rival',
+            'copper_golem', 'copper_golem_rival'
+        ];
+        stitchedTypes.forEach(hKey => {
+            if (scene.textures.exists(hKey) && !scene.anims.exists(`${hKey}-idle`)) {
+                // Mimic Idle should lock to frame 0 (chest closed) so it looks like a treasure chest!
+                const isMimic = hKey.startsWith('mimic');
+                const idleEnd = isMimic ? 0 : 5;
+                
+                scene.anims.create({ key: `${hKey}-idle`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 0, end: idleEnd }),   frameRate: isMimic ? 1 : 8, repeat: -1 });
+                scene.anims.create({ key: `${hKey}-move`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 12, end: 17 }),  frameRate: 10, repeat: -1 });
+                scene.anims.create({ key: `${hKey}-attack`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }), frameRate: 12, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-attack2`, frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }), frameRate: 12, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-hit`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 36, end: 39 }), frameRate: 10, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-die`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 48, end: 53 }), frameRate: 10, repeat: 0 });
+            }
+        });
+
+        // Dark Elf Queen custom animations (9-row extended sheet)
+        const queenKeys = ['dark_elf_queen', 'dark_elf_queen_rival'];
+        queenKeys.forEach(hKey => {
+            if (scene.textures.exists(hKey) && !scene.anims.exists(`${hKey}-idle`)) {
+                scene.anims.create({ key: `${hKey}-idle`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 0, end: 5 }),    frameRate: 8, repeat: -1 });
+                scene.anims.create({ key: `${hKey}-move`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 12, end: 17 }),  frameRate: 10, repeat: -1 });
+                scene.anims.create({ key: `${hKey}-attack`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }),  frameRate: 12, repeat: 0 }); // Blade 1
+                scene.anims.create({ key: `${hKey}-attack2`, frames: scene.anims.generateFrameNumbers(hKey, { start: 36, end: 41 }),  frameRate: 12, repeat: 0 }); // Blade 2
+                scene.anims.create({ key: `${hKey}-attack3`, frames: scene.anims.generateFrameNumbers(hKey, { start: 48, end: 53 }),  frameRate: 12, repeat: 0 }); // Blade 3
+                scene.anims.create({ key: `${hKey}-dash`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 60, end: 65 }),  frameRate: 12, repeat: 0 }); // Step Back
+                scene.anims.create({ key: `${hKey}-summon`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 72, end: 81 }),  frameRate: 10, repeat: 0 }); // Summoning
+                scene.anims.create({ key: `${hKey}-hit`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 84, end: 87 }),  frameRate: 10, repeat: 0 }); // Hurt
+                scene.anims.create({ key: `${hKey}-die`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 96, end: 101 }), frameRate: 10, repeat: 0 }); // Dead
+            }
+        });
+
+        // Dark Elf Minion custom animations (6-row extended sheet)
+        const minionKeys = ['dark_elf_minion', 'dark_elf_minion_rival'];
+        minionKeys.forEach(hKey => {
+            if (scene.textures.exists(hKey) && !scene.anims.exists(`${hKey}-idle`)) {
+                scene.anims.create({ key: `${hKey}-idle`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 0, end: 5 }),   frameRate: 8, repeat: -1 });
+                scene.anims.create({ key: `${hKey}-move`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 12, end: 17 }),  frameRate: 10, repeat: -1 });
+                scene.anims.create({ key: `${hKey}-attack`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }),  frameRate: 12, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-hit`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 36, end: 39 }),  frameRate: 10, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-die`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 48, end: 53 }),  frameRate: 10, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-spawn`,   frames: scene.anims.generateFrameNumbers(hKey, { start: 60, end: 71 }),  frameRate: 12, repeat: 0 }); // Summonally
+            }
+        });
+
         // The Devil (boss) - Custom flight animations and higher frame rate for wings
         if (scene.textures.exists('the_devil') && !scene.anims.exists('the_devil-idle')) {
             scene.anims.create({ key: 'the_devil-idle',    frames: scene.anims.generateFrameNumbers('the_devil', { start: 0, end: 8 }),   frameRate: 16, repeat: -1 });

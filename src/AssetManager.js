@@ -89,6 +89,43 @@ class AssetManager {
         this.scene.load.spritesheet('hellhound_1', 'src/assets/hellhound_1.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('hellhound_2', 'src/assets/hellhound_2.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('hellhound_3', 'src/assets/hellhound_3.png', { frameWidth: 128, frameHeight: 128 });
+
+        // Dark Elves (stitched)
+        this.scene.load.spritesheet('dark_elf_guard', 'src/assets/dark_elf_guard.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_guard_rival', 'src/assets/dark_elf_guard.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_spellblade', 'src/assets/dark_elf_spellblade.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_spellblade_rival', 'src/assets/dark_elf_spellblade.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_longbowman', 'src/assets/dark_elf_longbowman.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_longbowman_rival', 'src/assets/dark_elf_longbowman.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_queen', 'src/assets/dark_elf_queen.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_queen_rival', 'src/assets/dark_elf_queen.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_minion', 'src/assets/dark_elf_minion.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('dark_elf_minion_rival', 'src/assets/dark_elf_minion.png', { frameWidth: 128, frameHeight: 128 });
+
+        // Mimics (stitched)
+        this.scene.load.spritesheet('mimic_1', 'src/assets/mimic_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('mimic_2', 'src/assets/mimic_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('mimic_3', 'src/assets/mimic_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('mimic_1_rival', 'src/assets/mimic_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('mimic_2_rival', 'src/assets/mimic_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('mimic_3_rival', 'src/assets/mimic_3.png', { frameWidth: 128, frameHeight: 128 });
+
+        // Gorgons (stitched)
+        this.scene.load.spritesheet('gorgon_1', 'src/assets/gorgon_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('gorgon_2', 'src/assets/gorgon_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('gorgon_3', 'src/assets/gorgon_3.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('gorgon_1_rival', 'src/assets/gorgon_1.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('gorgon_2_rival', 'src/assets/gorgon_2.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('gorgon_3_rival', 'src/assets/gorgon_3.png', { frameWidth: 128, frameHeight: 128 });
+
+        // Golems (stitched)
+        this.scene.load.spritesheet('stone_golem', 'src/assets/stone_golem.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('lava_golem', 'src/assets/lava_golem.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('copper_golem', 'src/assets/copper_golem.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('stone_golem_rival', 'src/assets/stone_golem.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('lava_golem_rival', 'src/assets/lava_golem.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.spritesheet('copper_golem_rival', 'src/assets/copper_golem.png', { frameWidth: 128, frameHeight: 128 });
+
         this.scene.load.spritesheet('heal_animation', 'src/assets/heal_animation.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('witch_debuff', 'src/assets/witch_debuff.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('witch_3_charge', 'src/assets/craftpix-net-470871-witch-pixel-character-sprite-sheets-pack/Witch_3/Charge.png', { frameWidth: 64, frameHeight: 64 });

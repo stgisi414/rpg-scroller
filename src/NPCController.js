@@ -816,8 +816,9 @@ class NPCController {
             }
         }
 
-        const isMismatched = (this.alignment === 'Good' && this.player.alignment <= -40) ||
-                             (this.alignment === 'Evil' && this.player.alignment >= 40);
+        const luckOverride = this.checkLuckOverride();
+        const isMismatched = !luckOverride && ((this.alignment === 'Good' && this.player.alignment <= -40) ||
+                             (this.alignment === 'Evil' && this.player.alignment >= 40));
 
         if (this.chatTradeBtn) {
             const isMerchant = ['blacksmith', 'alchemist', 'ranger', 'wizard', 'samurai', 'knight'].includes(this.spriteKey);
@@ -864,6 +865,7 @@ class NPCController {
         this.unregisterChatListeners();
         this.uiContainer.style.display = 'none';
         this.chatInput.blur();
+        this._luckOverride = undefined;
 
         // Hide faction emblem
         const emblemImg = document.getElementById('chat-faction-emblem');
@@ -1664,12 +1666,33 @@ class NPCController {
         return { understands: false, translator: null, language: langInfo.language, dialect: langInfo.dialect };
     }
 
+    checkLuckOverride() {
+        if (!this.player || this.player.luck === undefined) return false;
+        if (this._luckOverride !== undefined) {
+            return this._luckOverride;
+        }
+        this._luckOverride = Math.random() * 100 < this.player.luck;
+        if (this._luckOverride) {
+            console.log(`[Luck Override] Player luck of ${this.player.luck} successfully bypassed NPC barriers!`);
+        }
+        return this._luckOverride;
+    }
+
     getGameState() {
         const wm = this.scene.worldManager;
         const p = this.player;
+        const luckOverride = this.checkLuckOverride();
+        
+        let pc = this.getPoliticalContext();
+        if (luckOverride) {
+            if (pc.npcFactionReputation < 0) pc.npcFactionReputation = 0;
+            if (pc.rulingFactionReputation < 0) pc.rulingFactionReputation = 0;
+        }
+
         return {
             zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
             weather: this.scene.weatherManager ? this.scene.weatherManager.currentWeather : 'clear',
+            luckOverride: luckOverride,
             player: {
                 level: p.level || (window.saveData && window.saveData.level) || 1,
                 class: p.classData ? p.classData.id : "adventurer",
@@ -1683,8 +1706,8 @@ class NPCController {
             },
             npc: {
                 alignment: this.alignment,
-                socialScore: this.socialScore,
-                isMismatched: (this.alignment === 'Good' && p.alignment <= -40) || (this.alignment === 'Evil' && p.alignment >= 40),
+                socialScore: luckOverride ? Math.max(20, this.socialScore) : this.socialScore,
+                isMismatched: !luckOverride && ((this.alignment === 'Good' && p.alignment <= -40) || (this.alignment === 'Evil' && p.alignment >= 40)),
                 faction: this.faction,
                 factionRank: this.factionRank,
                 politicalTitle: this.politicalTitle,
@@ -1692,7 +1715,7 @@ class NPCController {
                 languageInfo: this.getLanguageInfo(),
                 playerUnderstandsLanguage: this.checkPlayerUnderstanding().understands
             },
-            politicalContext: this.getPoliticalContext()
+            politicalContext: pc
         };
     }
 

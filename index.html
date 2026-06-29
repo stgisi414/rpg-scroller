@@ -556,6 +556,18 @@
                         </div>
                     </div>
 
+                    <!-- Starting Skills Allocation Area -->
+                    <div id="create-skills-area" class="mt-4 border-t border-outline-variant/40 pt-4 shrink-0 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-headline-sm text-secondary uppercase text-[12px] font-bold tracking-widest">Select Starting Passives</h4>
+                            <span class="text-[11px] text-on-surface-variant">Allocated: <span id="create-skill-points-counter" class="text-primary font-bold">0 / 3</span></span>
+                        </div>
+                        <div id="create-skills-grid" class="p-1 bg-surface-container-lowest/30 rounded border border-outline-variant/30 grid grid-cols-5 gap-2 max-h-[120px] overflow-y-auto">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                        <div id="create-skills-tooltip" class="text-[10px] text-on-surface-variant italic leading-tight min-h-[28px] p-1 bg-surface-container/40 rounded border border-outline-variant/10">Hover or click a skill to allocate points.</div>
+                    </div>
+
                     <!-- Footer Actions -->
                     <div class="mt-auto pt-4 flex justify-between items-center">
                         <button id="btn-create-back" class="group relative px-6 py-3 bg-surface-container border-2 border-outline-variant hover:border-on-surface-variant transition-all duration-150 cursor-pointer">
@@ -1387,9 +1399,14 @@
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="cheeky_devil"><div class="text-[16px]">😈</div><div class="text-[8px] text-white">Cheeky</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="bloated_damned"><div class="text-[16px]">🤢</div><div class="text-[8px] text-white">Bloated</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_1_rival"><div class="text-[16px]">🧙‍♀️🔴</div><div class="text-[8px] text-white">Witch 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_2_rival"><div class="text-[16px]">🧙‍♀️🟢</div><div class="text-[8px] text-white">Witch 2</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="witch_3_rival"><div class="text-[16px]">🧙‍♀️🟣</div><div class="text-[8px] text-white">Witch 3</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="priest_1_rival"><div class="text-[16px]">⛪🔴</div><div class="text-[8px] text-white">Priest 1</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="priest_2_rival"><div class="text-[16px]">⛪🟢</div><div class="text-[8px] text-white">Priest 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="priest_3_rival"><div class="text-[16px]">⛪🟣</div><div class="text-[8px] text-white">Priest 3</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_1_rival"><div class="text-[16px]">🔥🔴</div><div class="text-[8px] text-white">Pyro 1</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_2_rival"><div class="text-[16px]">🔥🟠</div><div class="text-[8px] text-white">Pyro 2</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="pyromancer_3_rival"><div class="text-[16px]">🔥💀</div><div class="text-[8px] text-white">Pyro 3</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_1"><div class="text-[16px]">🐕‍🦺🔥</div><div class="text-[8px] text-white">Hellhound 1</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_2"><div class="text-[16px]">🐕‍🦺💀</div><div class="text-[8px] text-white">Hellhound 2</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="hellhound_3"><div class="text-[16px]">🐕‍🦺⚡</div><div class="text-[8px] text-white">Hellhound 3</div></div>
@@ -1410,6 +1427,23 @@
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_king"><div class="text-[16px]">👑🧝‍♂️</div><div class="text-[8px] text-white">Elven King</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen"><div class="text-[16px]">👑🧝‍♀️</div><div class="text-[8px] text-white">Elven Queen</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen_rival"><div class="text-[16px]">👑🔴</div><div class="text-[8px] text-white">Rival El Queen</div></div>
+                        <!-- Dark Elves -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_guard"><div class="text-[16px]">🧝‍♀️🔮</div><div class="text-[8px] text-white">DE Sorceress</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_spellblade"><div class="text-[16px]">🧝‍♂️✨</div><div class="text-[8px] text-white">DE Spellblade</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_longbowman"><div class="text-[16px]">🧝‍♂️🗡️</div><div class="text-[8px] text-white">DE Assassin</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_queen"><div class="text-[16px]">🧝‍♀️👑</div><div class="text-[8px] text-white">Dark Elf Queen</div></div>
+                        <!-- Mimics -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mimic_1"><div class="text-[16px]">📦🟫</div><div class="text-[8px] text-white">Bronze Mimic</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mimic_2"><div class="text-[16px]">📦⬜</div><div class="text-[8px] text-white">Silver Mimic</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mimic_3"><div class="text-[16px]">📦🟨</div><div class="text-[8px] text-white">Gold Mimic</div></div>
+                        <!-- Gorgons -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="gorgon_1"><div class="text-[16px]">🐍🟢</div><div class="text-[8px] text-white">Gorgon Sent</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="gorgon_2"><div class="text-[16px]">🐍🔵</div><div class="text-[8px] text-white">Gorgon Stalk</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="gorgon_3"><div class="text-[16px]">🐍🟣</div><div class="text-[8px] text-white">Gorgon Queen</div></div>
+                        <!-- Golems -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="stone_golem"><div class="text-[16px]">🪨🗿</div><div class="text-[8px] text-white">Stone Golem</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="lava_golem"><div class="text-[16px]">🔥🗿</div><div class="text-[8px] text-white">Lava Golem</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="copper_golem"><div class="text-[16px]">⚙️🗿</div><div class="text-[8px] text-white">Copper Golem</div></div>
                     </div>
                 </div>
             </div>
@@ -1629,6 +1663,23 @@
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_king"><div class="text-[16px]">👑🧝‍♂️</div><div class="text-[8px] text-white">Elven King</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen"><div class="text-[16px]">👑🧝‍♀️</div><div class="text-[8px] text-white">Elven Queen</div></div>
                         <div class="fighter-grid-item py-1.5 px-0.5" data-class="elven_queen_rival"><div class="text-[16px]">👑🔴</div><div class="text-[8px] text-white">Rival El Queen</div></div>
+                        <!-- Dark Elves -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_guard"><div class="text-[16px]">🧝‍♀️🔮</div><div class="text-[8px] text-white">DE Sorceress</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_spellblade"><div class="text-[16px]">🧝‍♂️✨</div><div class="text-[8px] text-white">DE Spellblade</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_longbowman"><div class="text-[16px]">🧝‍♂️🗡️</div><div class="text-[8px] text-white">DE Assassin</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="dark_elf_queen"><div class="text-[16px]">🧝‍♀️👑</div><div class="text-[8px] text-white">Dark Elf Queen</div></div>
+                        <!-- Mimics -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mimic_1"><div class="text-[16px]">📦🟫</div><div class="text-[8px] text-white">Bronze Mimic</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mimic_2"><div class="text-[16px]">📦⬜</div><div class="text-[8px] text-white">Silver Mimic</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="mimic_3"><div class="text-[16px]">📦🟨</div><div class="text-[8px] text-white">Gold Mimic</div></div>
+                        <!-- Gorgons -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="gorgon_1"><div class="text-[16px]">🐍🟢</div><div class="text-[8px] text-white">Gorgon Sent</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="gorgon_2"><div class="text-[16px]">🐍🔵</div><div class="text-[8px] text-white">Gorgon Stalk</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="gorgon_3"><div class="text-[16px]">🐍🟣</div><div class="text-[8px] text-white">Gorgon Queen</div></div>
+                        <!-- Golems -->
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="stone_golem"><div class="text-[16px]">🪨🗿</div><div class="text-[8px] text-white">Stone Golem</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="lava_golem"><div class="text-[16px]">🔥🗿</div><div class="text-[8px] text-white">Lava Golem</div></div>
+                        <div class="fighter-grid-item py-1.5 px-0.5" data-class="copper_golem"><div class="text-[16px]">⚙️🗿</div><div class="text-[8px] text-white">Copper Golem</div></div>
                     </div>
                 </div>
             </div>

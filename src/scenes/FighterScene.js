@@ -29,13 +29,22 @@ class FighterScene extends Phaser.Scene {
             'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
             'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
             'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
-            'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+            'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3',
+            'dark_elf_guard', 'dark_elf_guard_rival', 'dark_elf_spellblade', 'dark_elf_spellblade_rival',
+            'dark_elf_longbowman', 'dark_elf_longbowman_rival', 'dark_elf_queen', 'dark_elf_queen_rival',
+            'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
+            'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
+            'stone_golem', 'stone_golem_rival', 'lava_golem', 'lava_golem_rival', 'copper_golem', 'copper_golem_rival'
         ];
         this.p2IsHero = heroClasses.includes(this.p2Class) || (this.p2Class && (
             this.p2Class.startsWith('custom_npc_') || 
             this.p2Class.startsWith('witch_') || 
             this.p2Class.startsWith('priest_') || 
-            this.p2Class.startsWith('pyromancer_')
+            this.p2Class.startsWith('pyromancer_') ||
+            this.p2Class.startsWith('dark_elf_') ||
+            this.p2Class.startsWith('mimic_') ||
+            this.p2Class.startsWith('gorgon_') ||
+            this.p2Class.includes('_golem')
         ));
 
         this.p1 = null;
@@ -279,13 +288,22 @@ class FighterScene extends Phaser.Scene {
             'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
             'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
             'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
-            'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+            'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3',
+            'dark_elf_guard', 'dark_elf_guard_rival', 'dark_elf_spellblade', 'dark_elf_spellblade_rival',
+            'dark_elf_longbowman', 'dark_elf_longbowman_rival', 'dark_elf_queen', 'dark_elf_queen_rival',
+            'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
+            'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
+            'stone_golem', 'stone_golem_rival', 'lava_golem', 'lava_golem_rival', 'copper_golem', 'copper_golem_rival'
         ];
         if (heroClasses.includes(this.p1Class) || (this.p1Class && (
             this.p1Class.startsWith('custom_npc_') || 
             this.p1Class.startsWith('witch_') || 
             this.p1Class.startsWith('priest_') || 
-            this.p1Class.startsWith('pyromancer_')
+            this.p1Class.startsWith('pyromancer_') ||
+            this.p1Class.startsWith('dark_elf_') ||
+            this.p1Class.startsWith('mimic_') ||
+            this.p1Class.startsWith('gorgon_') ||
+            this.p1Class.includes('_golem')
         ))) {
             this.applyHeroLoadout(this.p1, this.p1Level, this.p1Weapon, this.p1Artifact);
         }
@@ -368,13 +386,22 @@ class FighterScene extends Phaser.Scene {
                 'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
                 'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
                 'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
-                'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+                'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3',
+                'dark_elf_guard', 'dark_elf_guard_rival', 'dark_elf_spellblade', 'dark_elf_spellblade_rival',
+                'dark_elf_longbowman', 'dark_elf_longbowman_rival', 'dark_elf_queen', 'dark_elf_queen_rival',
+                'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
+                'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
+                'stone_golem', 'stone_golem_rival', 'lava_golem', 'lava_golem_rival', 'copper_golem', 'copper_golem_rival'
             ];
             if (heroClasses.includes(this.p2Class) || (this.p2Class && (
                 this.p2Class.startsWith('custom_npc_') || 
                 this.p2Class.startsWith('witch_') || 
                 this.p2Class.startsWith('priest_') || 
-                this.p2Class.startsWith('pyromancer_')
+                this.p2Class.startsWith('pyromancer_') ||
+                this.p2Class.startsWith('dark_elf_') ||
+                this.p2Class.startsWith('mimic_') ||
+                this.p2Class.startsWith('gorgon_') ||
+                this.p2Class.includes('_golem')
             ))) {
                 this.applyHeroLoadout(this.p2, this.p2Level, this.p2Weapon, this.p2Artifact);
             }
@@ -639,7 +666,10 @@ class FighterScene extends Phaser.Scene {
         
         // Choose behavior based on class range
         const isRanged = ['wizard', 'ranger'].includes(player.classId);
-        const targetRange = isRanged ? 280 : 50;
+        let targetRange = isRanged ? 280 : 50;
+        if (player.classId && player.classId.includes('dark_elf_guard')) {
+            targetRange = 150;
+        }
 
         if (dist > targetRange + 20) {
             // Move closer

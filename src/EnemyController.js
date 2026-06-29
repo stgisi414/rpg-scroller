@@ -143,6 +143,25 @@ class EnemyController {
             this.sprite.setScale(1.5 * this.scaleMultiplier);
             this.sprite.setSize(24, 24);
             this.sprite.setOffset(4, 4);
+        } else if (this.type.startsWith('dark_elf_')) {
+            const isQueen = this.type.includes('queen');
+            const isMinion = this.type.includes('minion');
+            const baseScale = isQueen ? 0.85 : (isMinion ? 0.75 : 1.066);
+            this.sprite.setScale(baseScale * this.scaleMultiplier);
+            this.sprite.setSize(48, 104);
+            this.sprite.setOffset(40, 24);
+        } else if (this.type.startsWith('mimic_')) {
+            this.sprite.setScale(1.0 * this.scaleMultiplier);
+            this.sprite.setSize(56, 50);
+            this.sprite.setOffset(36, 78);
+        } else if (this.type.startsWith('gorgon_')) {
+            this.sprite.setScale(1.066 * this.scaleMultiplier);
+            this.sprite.setSize(48, 96);
+            this.sprite.setOffset(40, 32);
+        } else if (this.type.includes('_golem')) {
+            this.sprite.setScale(1.15 * this.scaleMultiplier);
+            this.sprite.setSize(56, 100);
+            this.sprite.setOffset(36, 28);
         } else {
             this.sprite.setScale((this.type === 'goblin' ? 1.4 : 1.8) * this.scaleMultiplier);
         }
@@ -199,7 +218,7 @@ class EnemyController {
         this._isFetchingTactic = false;
         this.tacticInterval = 4000; // Ask Gemini every 4s
         // Aggro system: enemies patrol/wander until player enters their detection radius
-        const bossTypes = ['lich_lord', 'the_devil', 'spider', 'frost_giant', 'skeleton', 'bandit'];
+        const bossTypes = ['lich_lord', 'the_devil', 'spider', 'frost_giant', 'skeleton', 'bandit', 'dark_elf_queen'];
         this.aggroRadius = bossTypes.includes(this.type) ? 999 : 420;
         this.isAggrod = false;
         // Wander state
@@ -221,12 +240,54 @@ class EnemyController {
         } else if (this.type === 'dwarf_miner_rival') {
             this.maxHp = 400;
             this.speed = 110;
-        } else if (this.type === 'elven_spellblade_rival') {
+        } else if (this.type === 'elven_spellblade_rival' || this.type === 'dark_elf_spellblade_rival') {
             this.maxHp = 450;
             this.speed = 130;
-        } else if (this.type === 'elven_longbowman_rival') {
+        } else if (this.type === 'elven_longbowman_rival' || this.type === 'dark_elf_longbowman_rival') {
             this.maxHp = 350;
             this.speed = 120;
+        } else if (this.type === 'dark_elf_guard' || this.type === 'dark_elf_guard_rival') {
+            this.maxHp = 500;
+            this.speed = 115;
+        } else if (this.type === 'dark_elf_spellblade') {
+            this.maxHp = 450;
+            this.speed = 125;
+        } else if (this.type === 'dark_elf_longbowman') {
+            this.maxHp = 350;
+            this.speed = 120;
+        } else if (this.type === 'dark_elf_queen' || this.type === 'dark_elf_queen_rival') {
+            this.maxHp = 1800;
+            this.speed = 130;
+        } else if (this.type === 'dark_elf_minion' || this.type === 'dark_elf_minion_rival') {
+            this.maxHp = 300;
+            this.speed = 130;
+        } else if (this.type === 'mimic_1' || this.type === 'mimic_1_rival') {
+            this.maxHp = 300;
+            this.speed = 120;
+        } else if (this.type === 'mimic_2' || this.type === 'mimic_2_rival') {
+            this.maxHp = 450;
+            this.speed = 130;
+        } else if (this.type === 'mimic_3' || this.type === 'mimic_3_rival') {
+            this.maxHp = 600;
+            this.speed = 140;
+        } else if (this.type === 'gorgon_1' || this.type === 'gorgon_1_rival') {
+            this.maxHp = 350;
+            this.speed = 100;
+        } else if (this.type === 'gorgon_2' || this.type === 'gorgon_2_rival') {
+            this.maxHp = 480;
+            this.speed = 110;
+        } else if (this.type === 'gorgon_3' || this.type === 'gorgon_3_rival') {
+            this.maxHp = 620;
+            this.speed = 120;
+        } else if (this.type === 'stone_golem' || this.type === 'stone_golem_rival') {
+            this.maxHp = 800;
+            this.speed = 70;
+        } else if (this.type === 'lava_golem' || this.type === 'lava_golem_rival') {
+            this.maxHp = 1000;
+            this.speed = 80;
+        } else if (this.type === 'copper_golem' || this.type === 'copper_golem_rival') {
+            this.maxHp = 700;
+            this.speed = 75;
         } else if (this.type === 'lich_lord') {
             this.maxHp = 2000;
         } else if (this.type === 'spider' || this.type === 'the_devil') {
@@ -921,10 +982,10 @@ class EnemyController {
                                 if (this.sprite && this.sprite.active) this.isAttacking = false;
                             });
                             break;
-                        }
                     }
+                }
 
-                    // Ranged attack if player is within range (say 350)
+                // Ranged attack if player is within range (say 350)
                     if (distanceX <= 350 && Math.random() < 0.03) {
                         this.sprite.setVelocityX(0);
                         this.sprite.setFlipX(shouldFlip);
@@ -964,6 +1025,111 @@ class EnemyController {
                         }
                     }
                     break;
+                }
+
+                // --- Dark Elf Queen AI (Melee Blade Combo, Step Back, and Summon Minions) ---
+                if (this.type === 'dark_elf_queen' || this.type === 'dark_elf_queen_rival') {
+                    const now = this.scene.time.now;
+                    
+                    // 1. Summon Minions (Medium/Long Range on Cooldown)
+                    if (distanceX > 150 && (!this.lastSummonTime || now - this.lastSummonTime > 6000) && Math.random() < 0.04) {
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
+                        this.sprite.setFlipX(shouldFlip);
+                        this.isAttacking = true;
+                        this.lastSummonTime = now;
+                        this._playAnim(`${this.textureKey}-summon`);
+                        this.spawnDarkElfMinion();
+                        this.scene.time.delayedCall(1000, () => {
+                            if (this.sprite && this.sprite.active) this.isAttacking = false;
+                        });
+                        break;
+                    }
+
+                    // 2. Melee Blade Combo (Close Range)
+                    if (distanceX <= 80) {
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
+                        this.sprite.setFlipX(shouldFlip);
+                        this.isAttacking = true;
+
+                        const combo = Math.random();
+                        let animSuffix = 'attack';
+                        let damage = 20;
+                        let delay = 300;
+                        if (combo < 0.33) {
+                            animSuffix = 'attack'; // Blade 1
+                            damage = 22;
+                        } else if (combo < 0.66) {
+                            animSuffix = 'attack2'; // Blade 2
+                            damage = 28;
+                        } else {
+                            animSuffix = 'attack3'; // Blade 3
+                            damage = 36;
+                        }
+
+                        this._playAnim(`${this.textureKey}-${animSuffix}`);
+                        this.scene.time.delayedCall(delay, () => {
+                            if (!this.sprite || !this.sprite.active) return;
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 100 && this.checkCombatYRange()) {
+                                this.player.takeDamage(damage * (this.damageMultiplier || 1.0));
+                            }
+                        });
+
+                        this.scene.time.delayedCall(800, () => {
+                            if (this.sprite && this.sprite.active) this.isAttacking = false;
+                        });
+                        break;
+                    }
+
+                    // 3. Step Back Evade (Too Close)
+                    if (distanceX < 110 && Math.random() < 0.08 && (!this.lastDashTime || now - this.lastDashTime > 3000)) {
+                        this.lastDashTime = now;
+                        this.isAttacking = true;
+                        this.sprite.setFlipX(shouldFlip);
+                        
+                        // Dash backwards natively
+                        const dashDir = isPlayerLeft ? 1 : -1;
+                        this.sprite.setVelocityX(dashDir * 380);
+                        this._playAnim(`${this.textureKey}-dash`);
+                        
+                        this.scene.time.delayedCall(500, () => {
+                            if (this.sprite && this.sprite.active) {
+                                this.isAttacking = false;
+                                this.sprite.setVelocityX(0);
+                            }
+                        });
+                        break;
+                    }
+                }
+
+                // --- Ranged Dark Elf Archer / Spellblade AI ---
+                if (['dark_elf_longbowman', 'dark_elf_longbowman_rival', 'dark_elf_spellblade', 'dark_elf_spellblade_rival'].includes(this.type)) {
+                    if (distanceX > 100 && distanceX <= 400 && Math.random() < 0.035) {
+                        this.sprite.setVelocityX(0);
+                        this.sprite.setFlipX(shouldFlip);
+                        this.isAttacking = true;
+                        
+                        this._playAnim(`${this.textureKey}-attack`);
+                        this.scene.time.delayedCall(300, () => {
+                            if (this.sprite && this.sprite.active) {
+                                if (this.type.includes('longbowman')) {
+                                    this.shootDarkElfArrow(shouldFlip);
+                                } else {
+                                    this.shootDarkElfSpell(shouldFlip);
+                                }
+                            }
+                        });
+                        this.scene.time.delayedCall(800, () => {
+                            if (this.sprite && this.sprite.active) this.isAttacking = false;
+                        });
+                        break;
+                    }
+                    
+                    if (distanceX < 120) {
+                        this.sprite.setVelocityX(isPlayerLeft ? this.speed : -this.speed);
+                        this.sprite.setFlipX(shouldFlip);
+                        this._playAnim(`${this.textureKey}-move`);
+                        break;
+                    }
                 }
 
                 if (distanceX <= 65) {
@@ -1583,6 +1749,37 @@ class EnemyController {
         });
     }
 
+    spawnDarkElfMinion() {
+        if (!this.sprite || !this.sprite.active) return;
+        
+        if (this.scene.showFloatingText) {
+            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 30, "Rise, my loyal subjects!", 0xa020f0);
+        }
+        
+        this.scene.time.delayedCall(600, () => {
+            if (!this.sprite || !this.sprite.active) return;
+            const xOffset = Math.random() < 0.5 ? -140 : 140;
+            const minionScale = 0.9 * (this.scene.isIndoors ? (2.5 / 1.5) : 1.0);
+            const spawnY = this.sprite.y + (30 * this.sprite.scaleY) - (32 * minionScale);
+            
+            const isRival = this.type.includes('rival');
+            const minionType = isRival ? 'dark_elf_minion_rival' : 'dark_elf_minion';
+            const minion = new EnemyController(this.scene, this.sprite.x + xOffset, spawnY, this.player, this.geminiService, minionType, false, true);
+            if (minion.sprite) {
+                minion.isAttacking = true; // disable standard AI move during spawn
+                minion.sprite.play(`${minionType}-spawn`);
+                minion.scene.time.delayedCall(1000, () => {
+                    if (minion.sprite && minion.sprite.active) {
+                        minion.isAttacking = false;
+                    }
+                });
+            }
+            if (this.scene.enemies) {
+                this.scene.enemies.add(minion.sprite);
+            }
+        });
+    }
+
     spawnDwarfAlly() {
         if (!this.sprite || !this.sprite.active) return;
         
@@ -1834,6 +2031,32 @@ class EnemyController {
                 duration: 500,
                 onComplete: onDeathComplete
             });
+        }
+    }
+
+    shootDarkElfArrow(shouldFlip) {
+        if (!this.sprite || !this.sprite.active || !this.player || !this.player.sprite) return;
+        const dir = shouldFlip ? -1 : 1;
+        const arrow = this.scene.enemyProjectiles.create(this.sprite.x + (dir * 20), this.sprite.y, 'elf_arrow');
+        if (arrow) {
+            arrow.body.setAllowGravity(false);
+            arrow.setVelocityX(dir * 550);
+            if (shouldFlip) arrow.setFlipX(true);
+            arrow.damage = 12 * (this.damageMultiplier || 1.0);
+        }
+    }
+
+    shootDarkElfSpell(shouldFlip) {
+        if (!this.sprite || !this.sprite.active || !this.player || !this.player.sprite) return;
+        const dir = shouldFlip ? -1 : 1;
+        const orb = this.scene.enemyProjectiles.create(this.sprite.x + (dir * 20), this.sprite.y, 'projectile_blue');
+        if (orb) {
+            orb.body.setAllowGravity(false);
+            orb.setScale(0.5);
+            orb.setTint(0x9400d3); // Dark purple magic tint!
+            orb.setVelocityX(dir * 450);
+            if (shouldFlip) orb.setFlipX(true);
+            orb.damage = 18 * (this.damageMultiplier || 1.0);
         }
     }
 }

@@ -28,37 +28,28 @@ class ProgressionManager {
         let currentLevel = window.saveData.level || 1;
         let xpToNextLevel = currentLevel * 100;
         let leveledUp = false;
-
-        // Class-specific stat growth per level
-        const growthTable = {
-            knight:   { vit: 2, str: 2, dex: 1, int: 0 },
-            wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
-            samurai: { vit: 1, str: 1, dex: 3, int: 0 },
-            ranger:   { vit: 1, str: 1, dex: 2, int: 1 }
-        };
-        const classId = window.saveData.classId || 'knight';
-        const growth = growthTable[classId] || growthTable.knight;
+        let gainedPoints = 0;
 
         while (window.saveData.xp >= xpToNextLevel) {
             window.saveData.xp -= xpToNextLevel;
             currentLevel++;
             window.saveData.level = currentLevel;
-            
-            // Apply class-specific stat growth
-            if (window.selectedClass && window.selectedClass.stats) {
-                window.selectedClass.stats.vit += growth.vit;
-                window.selectedClass.stats.str += growth.str;
-                window.selectedClass.stats.dex += growth.dex;
-                window.selectedClass.stats.int += growth.int;
-            }
-
-            xpToNextLevel = currentLevel * 100;
+            gainedPoints++;
             leveledUp = true;
+            xpToNextLevel = currentLevel * 100;
         }
 
-        // Persist stats to saveData so they survive reload
-        if (window.selectedClass && window.selectedClass.stats) {
-            window.saveData.stats = { ...window.selectedClass.stats };
+        if (leveledUp) {
+            // Apply percentage-accelerated stats growth formula
+            const classId = window.saveData.classId || 'knight';
+            const newStats = window.calculateStatsForLevel ? window.calculateStatsForLevel(classId, currentLevel) : window.classesData[classId].stats;
+            newStats.migratedProgress = true;
+            window.saveData.stats = newStats;
+            if (window.selectedClass) {
+                window.selectedClass.stats = { ...newStats };
+            }
+            window.saveData.skillPoints = (window.saveData.skillPoints || 0) + gainedPoints;
+            console.log(`[Level Up] Reached level ${currentLevel}. Gained ${gainedPoints} skill points. Total points: ${window.saveData.skillPoints}`);
         }
 
         if (leveledUp) {
@@ -74,12 +65,17 @@ class ProgressionManager {
                     scene.player.mp = scene.player.maxMp;
                     scene.player.sp = scene.player.maxSp;
 
+                    // Trigger unspent points notification
+                    if (scene.hudManager) {
+                        scene.hudManager.showUnspentSkillPointsBanner();
+                    }
+
                     // Also level up and heal party members!
                     if (scene.partyMembers) {
                         scene.partyMembers.forEach(member => {
                             if (member && member.sprite && member.sprite.active) {
                                 // Refresh class data to apply new level scaling
-                                member.classData = member._getAIClassData(member.classId);
+                                member.classData = member._getAIClassData ? member._getAIClassData(member.classId) : member.classData;
                                 member.recalculateStats();
                                 member.hp = member.maxHp;
                                 member.mp = member.maxMp;

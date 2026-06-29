@@ -24,7 +24,7 @@ window.ARTIFACTS_DATA = {
     // 25 New Artifacts
     'artifact-evasion-ring': { key: 'artifact-evasion-ring', name: 'Ring of Evasion', desc: '+15% Evasion', iconSrc: 'src/assets/items/artifact-evasion-ring.png', type: 'artifact', statBoosts: { evasion: 0.15 } },
     'artifact-wisdom-amulet': { key: 'artifact-wisdom-amulet', name: 'Amulet of Wisdom', desc: '+25 Max MP, +10% Spell Rate', iconSrc: 'src/assets/items/artifact-wisdom-amulet.png', type: 'artifact', statBoosts: { maxMp: 25 } },
-    'artifact-gold-horseshoe': { key: 'artifact-gold-horseshoe', name: 'Golden Horseshoe', desc: '+15% Move Speed', iconSrc: 'src/assets/items/artifact-gold-horseshoe.png', type: 'artifact', statBoosts: { speedMultiplier: 1.15 } },
+    'artifact-gold-horseshoe': { key: 'artifact-gold-horseshoe', name: 'Golden Horseshoe', desc: '+15% Move Speed, +10 Luck', iconSrc: 'src/assets/items/artifact-gold-horseshoe.png', type: 'artifact', statBoosts: { speedMultiplier: 1.15, luck: 10 } },
     'artifact-phoenix-feather': { key: 'artifact-phoenix-feather', name: 'Phoenix Feather', desc: 'Revive once per zone with 30% HP', iconSrc: 'src/assets/items/artifact-phoenix-feather.png', type: 'artifact', special: 'phoenix-revive' },
     'artifact-frozen-rune': { key: 'artifact-frozen-rune', name: 'Frozen Rune', desc: 'Immunity to Freeze, +5% Armor', iconSrc: 'src/assets/items/artifact-frozen-rune.png', type: 'artifact', immunities: ['freeze'], statBoosts: { damageReduction: 0.05 } },
     'artifact-dawn-aegis': { key: 'artifact-dawn-aegis', name: 'Aegis of the Dawn', desc: '+25% DR, +50 Max HP', iconSrc: 'src/assets/items/artifact-dawn-aegis.png', type: 'artifact', statBoosts: { damageReduction: 0.25, maxHp: 50 } },
@@ -33,7 +33,8 @@ window.ARTIFACTS_DATA = {
     'artifact-poison-cask': { key: 'artifact-poison-cask', name: 'Plague Ring', desc: 'Poison immunity, attacks poison enemies', iconSrc: 'src/assets/items/artifact-poison-cask.png', type: 'artifact', immunities: ['poison'], special: 'poison-attacks' },
     'artifact-fire-shard': { key: 'artifact-fire-shard', name: 'Fire Shard', desc: 'Burn immunity, extra fire damage', iconSrc: 'src/assets/items/artifact-fire-shard.png', type: 'artifact', immunities: ['burn'] },
     'artifact-iron-gauntlet': { key: 'artifact-iron-gauntlet', name: 'Ironclad Gauntlets', desc: '+15% Attack Speed, +5% Armor', iconSrc: 'src/assets/items/artifact-iron-gauntlet.png', type: 'artifact', statBoosts: { damageReduction: 0.05 } },
-    'artifact-lucky-coin': { key: 'artifact-lucky-coin', name: 'Coin of Fortune', desc: '+25% Gold gains', iconSrc: 'src/assets/items/artifact-lucky-coin.png', type: 'artifact', special: 'lucky-coin' },
+    'artifact-lucky-coin': { key: 'artifact-lucky-coin', name: 'Coin of Fortune', desc: '+25% Gold gains, +20 Luck', iconSrc: 'src/assets/items/artifact-lucky-coin.png', type: 'artifact', statBoosts: { luck: 20 }, special: 'lucky-coin' },
+    'artifact-clover': { key: 'artifact-clover', name: 'Four-Leaf Clover', desc: '+30 Luck, +10% Crit Chance', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon17.png', type: 'artifact', statBoosts: { luck: 30, crit_chance: 0.10 } },
     'artifact-berserk-horn': { key: 'artifact-berserk-horn', name: 'Horn of Berserk', desc: '+30% Damage below 40% HP', iconSrc: 'src/assets/items/artifact-berserk-horn.png', type: 'artifact', special: 'berserk-horn' },
     'artifact-spirit-stone': { key: 'artifact-spirit-stone', name: 'Spirit Anchor', desc: '+5 SP regen/sec', iconSrc: 'src/assets/items/artifact-spirit-stone.png', type: 'artifact', special: 'spirit-anchor' },
     'artifact-titan-girdle': { key: 'artifact-titan-girdle', name: 'Girdle of Titan', desc: '+60 Max HP, +10% Damage', iconSrc: 'src/assets/items/artifact-titan-girdle.png', type: 'artifact', statBoosts: { maxHp: 60, damageMultiplier: 1.10 } },
@@ -506,6 +507,9 @@ class PlayerController {
                 artifacts: [],
                 equippedArtifact: -1
             };
+            if (window.autoAllocateNPCSkills) {
+                window.autoAllocateNPCSkills(this);
+            }
             this.recalculateStats(); // Ensure stats are fully initialized for AI/Fighter scene too!
         }
 
@@ -747,23 +751,14 @@ class PlayerController {
         };
         const baseStats = classStats[classId] || { vit: 12, str: 12, dex: 12, int: 12 };
         
-        // Auto-scale AI stats based on player's level
+        // Auto-scale AI stats based on player's level using calculateStatsForLevel
         const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
-        const growthTable = {
-            knight:   { vit: 2, str: 2, dex: 1, int: 0 },
-            wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
-            samurai: { vit: 1, str: 1, dex: 3, int: 0 },
-            ranger:   { vit: 1, str: 1, dex: 2, int: 1 },
-            elven_spellblade: { vit: 1, str: 2, dex: 1, int: 2 },
-            warrior:  { vit: 2, str: 2, dex: 1, int: 0 }
-        };
-        const growth = growthTable[classId] || { vit: 1, str: 1, dex: 1, int: 1 };
-        
-        const stats = {
-            vit: baseStats.vit + (growth.vit * (playerLvl - 1)),
-            str: baseStats.str + (growth.str * (playerLvl - 1)),
-            dex: baseStats.dex + (growth.dex * (playerLvl - 1)),
-            int: baseStats.int + (growth.int * (playerLvl - 1))
+        const stats = window.calculateStatsForLevel ? window.calculateStatsForLevel(classId, playerLvl) : {
+            vit: baseStats.vit + (playerLvl - 1),
+            str: baseStats.str + (playerLvl - 1),
+            dex: baseStats.dex + (playerLvl - 1),
+            int: baseStats.int + (playerLvl - 1),
+            luck: 10
         };
         
         let meta = { id: originalClassId, stats, isSheet: true };

@@ -638,6 +638,344 @@ const classesData = {
         attack2Frames: { start: 48, end: 52 },
         stats: { vit: 20, str: 15, dex: 12, int: 32 },
         slotPortraitX: -20, slotPortraitY: -52
+    },
+    dark_elf_guard: {
+        id: 'dark_elf_guard',
+        name: 'Dark Elf Sorceress',
+        tagline: 'Abyssal Weaver',
+        desc: 'A powerful sorceress channeling chaotic void spells.',
+        image: 'src/assets/dark_elf_guard.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 104, bodyOffsetX: 40, bodyOffsetY: 24,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
+        },
+        stats: { vit: 20, str: 10, dex: 12, int: 28 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    dark_elf_spellblade: {
+        id: 'dark_elf_spellblade',
+        name: 'Dark Elf Spellblade',
+        tagline: 'Shadowblade Master',
+        desc: 'A lethal warrior blending blade strikes with dark magic spells.',
+        image: 'src/assets/dark_elf_spellblade.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 104, bodyOffsetX: 40, bodyOffsetY: 24,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
+        },
+        stats: { vit: 24, str: 16, dex: 12, int: 16 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    dark_elf_longbowman: {
+        id: 'dark_elf_longbowman',
+        name: 'Dark Elf Assassin',
+        tagline: 'Shadow Striker',
+        desc: 'An elite blade-wielder striking from the shadows.',
+        image: 'src/assets/dark_elf_longbowman.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 104, bodyOffsetX: 40, bodyOffsetY: 24,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
+        },
+        stats: { vit: 22, str: 14, dex: 22, int: 8 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    dark_elf_queen: {
+        id: 'dark_elf_queen',
+        name: 'Dark Elf Queen',
+        tagline: 'Sovereign of Nightfall',
+        desc: 'The supreme ruler of the obsidian outposts, channeling massive shadow spells.',
+        image: 'src/assets/dark_elf_queen.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.15,
+        bodyWidth: 48, bodyHeight: 104, bodyOffsetX: 40, bodyOffsetY: 24,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 40 },
+            die: { start: 48, end: 52 }
+        },
+        stats: { vit: 40, str: 20, dex: 15, int: 28 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    mimic_1: {
+        id: 'mimic_1',
+        name: 'Bronze Mimic',
+        tagline: 'Hungry Chest',
+        desc: 'A bronze-reinforced treasure chest that attacks greedy delvers.',
+        image: 'src/assets/mimic_1.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 1, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.0,
+        bodyWidth: 56, bodyHeight: 50, bodyOffsetX: 36, bodyOffsetY: 78,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 25, str: 16, dex: 10, int: 5 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    mimic_2: {
+        id: 'mimic_2',
+        name: 'Silver Mimic',
+        tagline: 'Fierce Chest',
+        desc: 'A silver-reinforced treasure chest with dangerous bite force.',
+        image: 'src/assets/mimic_2.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 1, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.0,
+        bodyWidth: 56, bodyHeight: 50, bodyOffsetX: 36, bodyOffsetY: 78,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 35, str: 22, dex: 12, int: 5 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    mimic_3: {
+        id: 'mimic_3',
+        name: 'Gold Mimic',
+        tagline: 'Royal Chest',
+        desc: 'A golden-gilded chest, the most lethal and aggressive mimic.',
+        image: 'src/assets/mimic_3.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 1, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.0,
+        bodyWidth: 56, bodyHeight: 50, bodyOffsetX: 36, bodyOffsetY: 78,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 48, str: 28, dex: 14, int: 5 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    gorgon_1: {
+        id: 'gorgon_1',
+        name: 'Gorgon Sentinel',
+        tagline: 'Serpentine Stalker',
+        desc: 'A snake-bodied sentinel capable of physical strikes and petrifying gazes.',
+        image: 'src/assets/gorgon_1.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 96, bodyOffsetX: 40, bodyOffsetY: 32,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 26, str: 15, dex: 15, int: 10 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    gorgon_2: {
+        id: 'gorgon_2',
+        name: 'Gorgon Stalker',
+        tagline: 'Venomous Serpent',
+        desc: 'A highly dangerous gorgon wielding dual strikes and stone gazes.',
+        image: 'src/assets/gorgon_2.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 96, bodyOffsetX: 40, bodyOffsetY: 32,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 36, str: 20, dex: 18, int: 12 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    gorgon_3: {
+        id: 'gorgon_3',
+        name: 'Gorgon Queen',
+        tagline: 'Mistress of Stone',
+        desc: 'A grand gorgon queen commanding massive stone curses and snake strikes.',
+        image: 'src/assets/gorgon_3.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.066,
+        bodyWidth: 48, bodyHeight: 96, bodyOffsetX: 40, bodyOffsetY: 32,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 48, str: 24, dex: 22, int: 16 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    stone_golem: {
+        id: 'stone_golem',
+        name: 'Stone Golem',
+        tagline: 'Living Boulder',
+        desc: 'A massive golem constructed from solid stone, possessing slow but crushing strikes.',
+        image: 'src/assets/stone_golem.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.15,
+        bodyWidth: 56, bodyHeight: 100, bodyOffsetX: 36, bodyOffsetY: 28,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 60, str: 28, dex: 8, int: 5 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    lava_golem: {
+        id: 'lava_golem',
+        name: 'Lava Golem',
+        tagline: 'Molten Behemoth',
+        desc: 'A terrifying golem forged from molten lava, burning all who draw near.',
+        image: 'src/assets/lava_golem.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.15,
+        bodyWidth: 56, bodyHeight: 100, bodyOffsetX: 36, bodyOffsetY: 28,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 75, str: 32, dex: 8, int: 5 },
+        slotPortraitX: -20, slotPortraitY: -52
+    },
+    copper_golem: {
+        id: 'copper_golem',
+        name: 'Copper Golem',
+        tagline: 'Automated Protector',
+        desc: 'A relic of an ancient empire, defending outposts with mechanical strikes.',
+        image: 'src/assets/copper_golem.png',
+        isSheet: true,
+        frameWidth: 128, frameHeight: 128,
+        idleFrames: 6, idleRow: 0,
+        walkRow: 1,
+        attackRow: 2,
+        spriteScale: 1.15,
+        bodyWidth: 56, bodyHeight: 100, bodyOffsetX: 36, bodyOffsetY: 28,
+        previewScale: 1.6,
+        createPreviewScale: 1.0,
+        previewOffsetY: 20,
+        animFrames: {
+            duck: { frames: [0] },
+            jump: { frames: [0] },
+            fall: { frames: [0] },
+            hit: { start: 36, end: 39 },
+            die: { start: 48, end: 53 }
+        },
+        stats: { vit: 50, str: 22, dex: 12, int: 5 },
+        slotPortraitX: -20, slotPortraitY: -52
     }
 };
 
@@ -766,6 +1104,124 @@ classesData.pyromancer_3_rival = { ...classesData.pyromancer_3, id: 'pyromancer_
 
 window.classesData = classesData;
 
+// Base Luck definition for all classes
+if (classesData.knight && classesData.knight.stats) classesData.knight.stats.luck = 10;
+if (classesData.heavy_knight && classesData.heavy_knight.stats) classesData.heavy_knight.stats.luck = 10;
+if (classesData.wizard && classesData.wizard.stats) classesData.wizard.stats.luck = 10;
+if (classesData.samurai && classesData.samurai.stats) classesData.samurai.stats.luck = 8;
+if (classesData.ranger && classesData.ranger.stats) classesData.ranger.stats.luck = 12;
+if (classesData.elven_spellblade && classesData.elven_spellblade.stats) classesData.elven_spellblade.stats.luck = 10;
+if (classesData.witch && classesData.witch.stats) classesData.witch.stats.luck = 10;
+if (classesData.priest && classesData.priest.stats) classesData.priest.stats.luck = 10;
+if (classesData.pyromancer && classesData.pyromancer.stats) classesData.pyromancer.stats.luck = 10;
+
+const classGrowths = {
+    knight: { vit: 2.0, str: 1.5, dex: 0.8, int: 0.4, luck: 0.5 },
+    heavy_knight: { vit: 2.0, str: 1.5, dex: 0.8, int: 0.4, luck: 0.5 },
+    wizard: { vit: 0.8, str: 0.4, dex: 1.0, int: 2.0, luck: 0.5 },
+    samurai: { vit: 1.0, str: 1.0, dex: 2.0, int: 0.5, luck: 0.4 },
+    ranger: { vit: 1.2, str: 1.2, dex: 1.8, int: 0.6, luck: 0.6 },
+    elven_spellblade: { vit: 1.2, str: 1.4, dex: 1.2, int: 1.6, luck: 0.5 },
+    witch: { vit: 1.4, str: 0.6, dex: 1.0, int: 2.2, luck: 0.5 },
+    priest: { vit: 1.8, str: 0.8, dex: 1.0, int: 1.8, luck: 0.5 },
+    pyromancer: { vit: 1.4, str: 1.2, dex: 1.0, int: 2.0, luck: 0.5 }
+};
+
+window.calculateStatsForLevel = function(classId, level) {
+    const baseData = window.classesData[classId] || window.classesData['knight'];
+    const growths = classGrowths[classId] || classGrowths['knight'];
+    const baseStats = baseData.stats || { vit: 10, str: 10, dex: 10, int: 10, luck: 10 };
+    
+    const factor = 1 + (level - 1) * 0.01;
+    const newStats = {};
+    for (const key in baseStats) {
+        const base = baseStats[key];
+        const growth = growths[key] || 0.5;
+        newStats[key] = Math.round(base + growth * (level - 1) * factor);
+    }
+    if (newStats.luck === undefined) {
+        newStats.luck = Math.round((baseStats.luck || 10) + (growths.luck || 0.5) * (level - 1) * factor);
+    }
+    return newStats;
+};
+
+let creationAllocations = {}; // Stores { skillId: rank }
+
+function renderCreationSkillsGrid() {
+    const grid = document.getElementById('create-skills-grid');
+    const counter = document.getElementById('create-skill-points-counter');
+    const tooltip = document.getElementById('create-skills-tooltip');
+    const btnAwaken = document.getElementById('btn-awaken');
+
+    if (!grid || !window.selectedClassData || !window.PASSIVE_SKILLS_DATA) return;
+
+    const classId = window.selectedClassData.id;
+    const classSkills = window.PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
+    
+    // Calculate total allocated points
+    let allocated = 0;
+    for (const key in creationAllocations) {
+        allocated += creationAllocations[key] || 0;
+    }
+    if (counter) counter.innerText = `${allocated} / 3`;
+
+    // Handle awaken button state
+    if (btnAwaken) {
+        if (allocated === 3) {
+            btnAwaken.disabled = false;
+            btnAwaken.style.opacity = '1.0';
+            btnAwaken.style.pointerEvents = 'auto';
+            btnAwaken.title = 'Awaken your hero!';
+        } else {
+            btnAwaken.disabled = true;
+            btnAwaken.style.opacity = '0.4';
+            btnAwaken.style.pointerEvents = 'none';
+            btnAwaken.title = 'Allocate all 3 starting skill points to awaken.';
+        }
+    }
+
+    grid.innerHTML = classSkills.map(skill => {
+        const rank = creationAllocations[skill.id] || 0;
+        const iconUrl = `src/assets/skills/${skill.id}.png`;
+        const activeClass = rank > 0 ? 'border-primary bg-primary/20 shadow-[0_0_8px_rgba(45,219,222,0.4)]' : 'border-outline-variant hover:border-on-surface-variant';
+        
+        return `
+            <div data-skill-id="${skill.id}" class="create-skill-icon-box relative w-10 h-10 border-2 rounded flex items-center justify-center cursor-pointer transition-all duration-150 ${activeClass}" style="image-rendering: pixelated;">
+                <img src="${iconUrl}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2FhYSI+PHBhdGggZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMxMCAxMCAxMCAxMCAxMCAxMCAxMCAxMFMyIDEyIDEyIDJ6Ii8+PC9zdmc+'" class="w-8 h-8 object-contain" />
+                \${rank > 0 ? \`<span class="absolute -bottom-1 -right-1 bg-primary text-background font-bold text-[9px] px-1 rounded border border-primary shadow">\${rank}</span>\` : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Register event listeners
+    grid.querySelectorAll('.create-skill-icon-box').forEach(box => {
+        const skillId = box.dataset.skillId;
+        const skill = classSkills.find(s => s.id === skillId);
+
+        box.addEventListener('mouseenter', () => {
+            const rank = creationAllocations[skillId] || 0;
+            if (tooltip) tooltip.innerHTML = `<strong>${skill.name}</strong> [Rank ${rank}/5]: ${skill.description}`;
+        });
+
+        box.addEventListener('click', () => {
+            const rank = creationAllocations[skillId] || 0;
+            if (allocated < 3 && rank < 5) {
+                creationAllocations[skillId] = rank + 1;
+            } else if (rank > 0) {
+                creationAllocations[skillId] = rank - 1;
+                if (creationAllocations[skillId] === 0) {
+                    delete creationAllocations[skillId];
+                }
+            }
+            renderCreationSkillsGrid();
+            
+            // Update tooltip text with new rank
+            const newRank = creationAllocations[skillId] || 0;
+            if (tooltip) tooltip.innerHTML = `<strong>\${skill.name}</strong> [Rank \${newRank}/5]: \${skill.description}`;
+        });
+    });
+}
+
 function showTitleScreen() {
     document.getElementById('ui-create').style.display = 'none';
     document.getElementById('ui-title').style.display = 'flex';
@@ -887,6 +1343,9 @@ function selectClass(classId) {
             btn.querySelector('span:first-child').classList.add('text-on-surface-variant');
         }
     });
+
+    creationAllocations = {};
+    renderCreationSkillsGrid();
 }
 
 function startGame(saveData) {
@@ -904,6 +1363,23 @@ function startGame(saveData) {
 
     window.selectedClass = classesData[saveData.classId];
     window.saveData = JSON.parse(JSON.stringify(saveData));
+
+    // Character Stats & Level Progression Migration
+    if (window.saveData && window.saveData.level) {
+        if (!window.saveData.stats || window.saveData.stats.luck === undefined || window.saveData.stats.migratedProgress !== true) {
+            window.saveData.stats = window.calculateStatsForLevel(window.saveData.classId || 'knight', window.saveData.level);
+            window.saveData.stats.migratedProgress = true;
+            window.saveData.passiveSkills = window.saveData.passiveSkills || {};
+            
+            const totalPoints = 3 + (window.saveData.level - 1);
+            let spentPoints = 0;
+            for (const skillId in window.saveData.passiveSkills) {
+                spentPoints += window.saveData.passiveSkills[skillId] || 0;
+            }
+            window.saveData.skillPoints = Math.max(0, totalPoints - spentPoints);
+            console.log(`[Migration] Migrated Level ${window.saveData.level} character to new progression. Stats:`, window.saveData.stats, `Skill Points:`, window.saveData.skillPoints);
+        }
+    }
 
     // Load character-specific autoplay settings or initialize defaults
     window.autoplayConfig = window.saveData.autoplayConfig || {
@@ -1304,6 +1780,20 @@ window.returnToMainMenu = function() {
 
 // Attach event listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Load skills specification
+    fetch('src/assets/skills_specification.json')
+        .then(res => res.json())
+        .then(data => {
+            window.PASSIVE_SKILLS_DATA = data;
+            console.log(`Loaded ${data.length} passive skills specifications.`);
+            if (window.selectedClassData) {
+                renderCreationSkillsGrid();
+            }
+        })
+        .catch(err => {
+            console.error("Failed to load skills specification:", err);
+        });
+
     // Progress loading bar
     const bar = document.getElementById('loading-bar-fill');
     const status = document.getElementById('loading-status');
@@ -1506,7 +1996,10 @@ document.addEventListener('DOMContentLoaded', () => {
             revealedIntel: {},
             knownLanguages: (selectedClassData.id === 'wizard' ? ['common', 'celestial'] :
                              selectedClassData.id === 'ranger' ? ['common', 'elvish'] :
-                             selectedClassData.id === 'knight' ? ['common', 'dwarvish'] : ['common'])
+                             selectedClassData.id === 'knight' ? ['common', 'dwarvish'] : ['common']),
+            // Skills System starting allocations
+            passiveSkills: JSON.parse(JSON.stringify(creationAllocations)),
+            skillPoints: 0
         };
         
         saves.push(newSave);
@@ -1715,6 +2208,36 @@ function setupFighterHTMLHandlers() {
     FIGHTER_WEAPONS.elven_queen = FIGHTER_WEAPONS.knight;
     FIGHTER_WEAPONS.elven_queen_rival = FIGHTER_WEAPONS.knight;
 
+    // Programmatic rival cloning for new classes
+    const newRivals = [
+        'dark_elf_guard', 'dark_elf_spellblade', 'dark_elf_longbowman', 'dark_elf_queen',
+        'mimic_1', 'mimic_2', 'mimic_3',
+        'gorgon_1', 'gorgon_2', 'gorgon_3',
+        'stone_golem', 'lava_golem', 'copper_golem'
+    ];
+    newRivals.forEach(k => {
+        if (classesData[k]) {
+            classesData[k + '_rival'] = {
+                ...classesData[k],
+                id: k + '_rival',
+                animFrames: JSON.parse(JSON.stringify(classesData[k].animFrames || {}))
+            };
+            classesData[k + '_rival'].image = classesData[k].image;
+        }
+    });
+
+    // Populate FIGHTER_WEAPONS for new classes and their rival clones
+    newRivals.forEach(k => {
+        let baseWeapons = FIGHTER_WEAPONS.knight;
+        if (k.includes('guard')) baseWeapons = FIGHTER_WEAPONS.witch;
+        else if (k.includes('spellblade')) baseWeapons = FIGHTER_WEAPONS.elven_spellblade;
+        else if (k.includes('longbowman')) baseWeapons = FIGHTER_WEAPONS.samurai;
+        else if (k.includes('gorgon') || k.includes('mimic')) baseWeapons = FIGHTER_WEAPONS.samurai;
+        
+        FIGHTER_WEAPONS[k] = baseWeapons;
+        FIGHTER_WEAPONS[k + '_rival'] = baseWeapons;
+    });
+
     const FIGHTER_ARTIFACTS = window.ARTIFACTS_DATA ? Object.values(window.ARTIFACTS_DATA) : [
         { key: 'artifact-strength', name: 'Ring of Strength' },
         { key: 'artifact-vitality', name: 'Amulet of Vitality' },
@@ -1743,7 +2266,12 @@ function setupFighterHTMLHandlers() {
         'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
         'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
         'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
-        'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+        'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3',
+        'dark_elf_guard', 'dark_elf_guard_rival', 'dark_elf_spellblade', 'dark_elf_spellblade_rival',
+        'dark_elf_longbowman', 'dark_elf_longbowman_rival', 'dark_elf_queen', 'dark_elf_queen_rival',
+        'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
+        'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
+        'stone_golem', 'stone_golem_rival', 'lava_golem', 'lava_golem_rival', 'copper_golem', 'copper_golem_rival'
     ];
 
     function populateWeaponDropdown(selectId, classId) {
@@ -1890,7 +2418,12 @@ function setupFighterHTMLHandlers() {
                 'dwarf_warrior', 'dwarf_warrior_rival', 'dwarf_miner', 'dwarf_miner_rival', 
                 'dwarf_king', 'dwarf_king_rival', 'human_king', 'human_queen', 'elven_king', 
                 'elven_queen', 'elven_queen_rival', 'witch_1_rival', 'witch_3_rival', 
-                'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3'
+                'pyromancer_1_rival', 'pyromancer_2_rival', 'priest_1', 'priest_3',
+                'dark_elf_guard', 'dark_elf_guard_rival', 'dark_elf_spellblade', 'dark_elf_spellblade_rival',
+                'dark_elf_longbowman', 'dark_elf_longbowman_rival', 'dark_elf_queen', 'dark_elf_queen_rival',
+                'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
+                'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
+                'stone_golem', 'stone_golem_rival', 'lava_golem', 'lava_golem_rival', 'copper_golem', 'copper_golem_rival'
             ];
             const isCustom = window.fighterState.p1Class && window.fighterState.p1Class.startsWith('custom_npc');
             if (!heroClasses.includes(window.fighterState.p1Class) && !isCustom) {
@@ -2162,5 +2695,33 @@ window.exportLoreDictionary = function() {
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
     console.log("Lore dictionary exported successfully!");
+};
+
+window.autoAllocateNPCSkills = function(member) {
+    if (!member || !member.classId || !window.PASSIVE_SKILLS_DATA) return;
+    const classId = member.classId;
+    const classSkills = window.PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
+    if (classSkills.length === 0) return;
+
+    member.passiveSkills = member.passiveSkills || {};
+    const level = member.level || 1;
+    let totalPoints = 3 + (level - 1);
+    
+    // Clear and distribute points sequentially
+    classSkills.forEach(s => {
+        member.passiveSkills[s.id] = 0;
+    });
+
+    let index = 0;
+    while (totalPoints > 0) {
+        const skill = classSkills[index % classSkills.length];
+        const maxRank = skill.maxRank || 5;
+        if (member.passiveSkills[skill.id] < maxRank) {
+            member.passiveSkills[skill.id]++;
+            totalPoints--;
+        }
+        index++;
+        if (index > classSkills.length * 10) break;
+    }
 };
 

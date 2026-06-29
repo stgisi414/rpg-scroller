@@ -227,11 +227,17 @@ class WorldManager {
         let forceTown = zoneIndex === 0 || (absIdx > 0 && absIdx % 4 === 0);
 
         let selectedBiome;
+        const isFrontier = zoneIndex < -48 || zoneIndex > 88;
+        const isOutpostIndex = isFrontier && (absIdx % 8 === 2 || absIdx % 8 === 6);
+
         if (zoneIndex === 777) {
             selectedBiome = 'Heaven';
             forceTown = true;
         } else if (zoneIndex === -666) {
             selectedBiome = 'Hell';
+            forceTown = false;
+        } else if (isOutpostIndex) {
+            selectedBiome = 'Dark Elf Outpost';
             forceTown = false;
         } else {
             // Get kingdom for this zone
@@ -1372,7 +1378,11 @@ class WorldManager {
                     'special_enemy_ghost_male', 'special_enemy_ghost_female',
                     'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub',
                     'ogre', 'giant', 'troll', 'willowisp',
-                    'hellhound_1', 'hellhound_2', 'hellhound_3'
+                    'hellhound_1', 'hellhound_2', 'hellhound_3',
+                    'dark_elf_guard', 'dark_elf_spellblade', 'dark_elf_longbowman', 'dark_elf_queen', 'dark_elf_minion',
+                    'mimic_1', 'mimic_2', 'mimic_3',
+                    'gorgon_1', 'gorgon_2', 'gorgon_3',
+                    'stone_golem', 'lava_golem', 'copper_golem'
                 ];
                 if (!validTypes.includes(type)) {
                     console.warn(`AI generated invalid enemy type: ${type}. Falling back.`);
@@ -1388,7 +1398,7 @@ class WorldManager {
                 // Spawn from above so they don't fall through the floor or spawn inside platforms!
                 const enemy = new EnemyController(this.scene, spawnX, 100, this.scene.player, this.geminiService, type);
                 // Only override HP/speed for non-boss enemies (BUG-18: bosses have carefully tuned stats in constructor)
-                const bossTypes = ['lich_lord', 'the_devil', 'spider', 'frost_giant'];
+                const bossTypes = ['lich_lord', 'the_devil', 'spider', 'frost_giant', 'dark_elf_queen'];
                 if (!bossTypes.includes(type)) {
                     enemy.maxHp = hp;
                     enemy.hp = hp;
