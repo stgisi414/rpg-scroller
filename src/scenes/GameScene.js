@@ -763,6 +763,7 @@ class GameScene extends Phaser.Scene {
         });
         
         if (this.player && this.player.sprite && this.player.sprite.y > 1400 && this.player.hp > 0) {
+            console.error(`%c[DIAGNOSTIC] GameScene detected player below abyss! Y: ${this.player.sprite.y}. HP: ${this.player.hp}. Platforms count: ${this.platforms.getLength()}`, "color: #ff3333; font-weight: bold;");
             this.player.takeDamage(this.player.hp);
         }
         
@@ -933,7 +934,7 @@ class GameScene extends Phaser.Scene {
 
         // Update Loot Chests
         if (this.lootChests && this.lootChests.length > 0) {
-            const interactDistance = this.isIndoors ? 90 : 60;
+            const interactDistance = 100; // Increased from 60 to 100 to allow smooth interaction with vertical offsets
             const px = this.player.sprite.x;
             const py = this.player.sprite.y;
 

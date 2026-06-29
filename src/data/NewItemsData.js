@@ -116,20 +116,23 @@ window.NEW_ITEMS_DATA = [
 
     // --- SUBCLASS EXPANSION: 20 WEAPONS & 10 ARTIFACTS ---
     // Witch weapons
+    { key: 'weapon-apprentice-doll', name: 'Apprentice Witch Doll', desc: '+5 Damage', price: 80, type: 'weapon', damageBonus: 5, classRestrict: 'witch', imageSrc: 'src/assets/items/weapon-apprentice-doll.png' },
     { key: 'weapon-gnarled-root-wand', name: 'Gnarled Root Wand', desc: '+15 Damage', price: 450, type: 'weapon', damageBonus: 15, classRestrict: 'witch', imageSrc: 'src/assets/items/weapon-gnarled-root-wand.png' },
     { key: 'weapon-blightwood-staff', name: 'Blightwood Staff', desc: '+22 Damage', price: 750, type: 'weapon', damageBonus: 22, classRestrict: 'witch', imageSrc: 'src/assets/items/weapon-blightwood-staff.png' },
     { key: 'weapon-voodoo-doll-effigy', name: 'Cursed Effigy', desc: '+28 Damage', price: 1100, type: 'weapon', damageBonus: 28, classRestrict: 'witch', imageSrc: 'src/assets/items/weapon-voodoo-doll-effigy.png' },
     { key: 'weapon-hex-tome', name: 'Grimoire of Hexes', desc: '+36 Damage', price: 1600, type: 'weapon', damageBonus: 36, classRestrict: 'witch', imageSrc: 'src/assets/items/weapon-hex-tome.png' },
     { key: 'weapon-censer-of-shadows', name: 'Shadow Censer', desc: '+45 Damage', price: 2500, type: 'weapon', damageBonus: 45, classRestrict: 'witch', imageSrc: 'src/assets/items/weapon-censer-of-shadows.png' },
-
+ 
     // Priest weapons
+    { key: 'weapon-wooden-cross', name: 'Novice Wooden Cross', desc: '+5 Damage', price: 80, type: 'weapon', damageBonus: 5, classRestrict: 'priest', imageSrc: 'src/assets/items/weapon-wooden-cross.png' },
     { key: 'weapon-radiant-crosier', name: 'Radiant Crosier', desc: '+16 Damage', price: 500, type: 'weapon', damageBonus: 16, classRestrict: 'priest', imageSrc: 'src/assets/items/weapon-radiant-crosier.png' },
     { key: 'weapon-divine-mace', name: 'Divine War Mace', desc: '+24 Damage', price: 850, type: 'weapon', damageBonus: 24, classRestrict: 'priest', imageSrc: 'src/assets/items/weapon-divine-mace.png' },
     { key: 'weapon-reliquary-of-light', name: 'Reliquary of Light', desc: '+32 Damage', price: 1250, type: 'weapon', damageBonus: 32, classRestrict: 'priest', imageSrc: 'src/assets/items/weapon-reliquary-of-light.png' },
     { key: 'weapon-blessed-chalice', name: 'Blessed Chalice', desc: '+38 Damage', price: 1800, type: 'weapon', damageBonus: 38, classRestrict: 'priest', imageSrc: 'src/assets/items/weapon-blessed-chalice.png' },
     { key: 'weapon-censer-of-holiness', name: 'Sanctified Censer', desc: '+48 Damage', price: 2800, type: 'weapon', damageBonus: 48, classRestrict: 'priest', imageSrc: 'src/assets/items/weapon-censer-of-holiness.png' },
-
+ 
     // Pyromancer weapons
+    { key: 'weapon-spark-candle', name: 'Spark Candle', desc: '+4 Damage', price: 75, type: 'weapon', damageBonus: 4, classRestrict: 'pyromancer', imageSrc: 'src/assets/items/weapon-spark-candle.png' },
     { key: 'weapon-ember-scepter', name: 'Ember Scepter', desc: '+14 Damage', price: 400, type: 'weapon', damageBonus: 14, classRestrict: 'pyromancer', imageSrc: 'src/assets/items/weapon-ember-scepter.png' },
     { key: 'weapon-flame-brand-staff', name: 'Hellfire Brand', desc: '+25 Damage', price: 900, type: 'weapon', damageBonus: 25, classRestrict: 'pyromancer', imageSrc: 'src/assets/items/weapon-flame-brand-staff.png' },
     { key: 'weapon-phoenix-focus', name: 'Phoenix Fire Focus', desc: '+30 Damage', price: 1200, type: 'weapon', damageBonus: 30, classRestrict: 'pyromancer', imageSrc: 'src/assets/items/weapon-phoenix-focus.png' },

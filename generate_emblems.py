@@ -5,8 +5,17 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
 
-# Pixellab API Key
-API_KEY = "9995495e-4f0a-4376-88c6-c49eb29d8179"
+# Load Pixellab API Key from environment or local untracked config.json
+API_KEY = os.environ.get("PIXELLAB_API_KEY")
+if not API_KEY:
+    config_path = os.path.join(os.path.dirname(__file__), "src", "assets", "pixellab_config.json")
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            try:
+                config_data = json.load(f)
+                API_KEY = config_data.get("pixellab_api_key")
+            except Exception as e:
+                print(f"Error reading pixellab_config.json: {e}")
 
 def api_post(url, data):
     payload = json.dumps(data)
@@ -53,14 +62,25 @@ def poll_job(job_id, filename=""):
     last_status = None
     while True:
         res = api_get(f"https://api.pixellab.ai/v2/background-jobs/{job_id}")
+        
+        if "detail" in res:
+            raise RuntimeError(f"API Error for job {job_id}: {res['detail']}")
+            
         status = res.get("status")
+        if status is None:
+            raise RuntimeError(f"Unexpected empty status for job {job_id}. Response: {res}")
+            
         if status != last_status:
             print(f"[{filename}] Job status: {status}", flush=True)
             last_status = status
+            
         if status == "completed":
             return res
         elif status == "failed":
             raise RuntimeError(f"Job {job_id} failed: {res}")
+        elif status not in ["queued", "pending", "processing"]:
+            raise RuntimeError(f"Unknown job status '{status}' for job {job_id}. Response: {res}")
+            
         time.sleep(5)
 
 def generate_single_emblem(prompt, filename):

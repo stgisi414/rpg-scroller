@@ -70,6 +70,7 @@ class NPCController {
         this.chatHistory = [];
         this.isChatOpen = false;
         this.isShopOpen = false;
+        this.activeActivity = null;
 
         // Create the physics sprite using the appropriate sprite key
         this.sprite = this.scene.physics.add.sprite(x, y, spriteKey, 0);
@@ -862,6 +863,7 @@ class NPCController {
         this.isChatOpen = false;
         this.isIntroCutscene = false;
         this.player.isTalking = false;
+        this.activeActivity = null;
         this.unregisterChatListeners();
         this.uiContainer.style.display = 'none';
         this.chatInput.blur();
@@ -992,7 +994,8 @@ class NPCController {
         }
 
         if (!prompt) return;
-
+ 
+        this.activeActivity = this.indoorAction;
         this.addMessageToUI("System", "Activity Started! Wait for the NPC's response...");
         this.chatInput.disabled = true;
         this.chatSubmitBtn.disabled = true;
@@ -1039,158 +1042,7 @@ class NPCController {
     }
 
     executeActivityEffect() {
-        if (this.indoorAction === 'train') {
-            if (!this.scene.anims.exists('training_dummy-idle')) {
-                this.scene.anims.create({ key: 'training_dummy-idle', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 0, end: 8 }), frameRate: 8, repeat: -1 });
-                this.scene.anims.create({ key: 'training_dummy-hit', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 9, end: 13 }), frameRate: 12, repeat: 0 });
-                this.scene.anims.create({ key: 'training_dummy-die', frames: this.scene.anims.generateFrameNumbers('training_dummy', { start: 9, end: 13 }), frameRate: 12, repeat: 0 });
-            }
-            if (EnemyController) {
-                // Spawn at Y=500 so the 128px tall sprite's bottom edge starts above the Y=700 floor
-                const dummy = new EnemyController(this.scene, 600, 500, this.player, this.geminiService, 'training_dummy');
-                dummy.maxHp = 999999;
-                dummy.hp = 999999;
-                dummy.stats = { hp: 999999, maxHp: 999999, atk: 0, def: 5, spd: 0, xp: 50 }; // High HP for training
-                dummy.isDummy = true;
-                dummy.isHit = false;
-                dummy.sprite.setScale(0.8);
-                if (this.scene.enemies && this.scene.enemies.add) this.scene.enemies.add(dummy.sprite);
-                if (this.scene.isIndoors && this.scene.indoorFloor) {
-                    this.scene.physics.add.collider(dummy.sprite, this.scene.indoorFloor);
-                } else {
-                    this.scene.physics.add.collider(dummy.sprite, this.scene.platforms);
-                }
-                if (this.scene.showFloatingText) this.scene.showFloatingText(this.player.sprite.x, this.player.sprite.y - 50, "Training Dummy Spawned!", 0xffff00);
-            }
-            return;
-        }
-
-        if (this.indoorAction === 'arena') {
-            this.closeChat();
-            if (this.scene.arenaManager) {
-                this.scene.arenaManager.startWave();
-            }
-            return;
-        }
-
-        let rewardText = "";
-        switch (this.indoorAction) {
-            case 'rest':
-                this.player.hp = this.player.maxHp;
-                this.player.mp = this.player.maxMp;
-                this.player.sp = this.player.maxSp;
-                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
-                rewardText = "Fully Rested!";
-                break;
-            case 'forge':
-                if (this.player.inventory.weapon) {
-                    this.player.inventory.weapon.damageBonus = (this.player.inventory.weapon.damageBonus || 0) + 5;
-                    rewardText = "Weapon Upgraded (+5 Dmg)!";
-                }
-                break;
-            case 'brew':
-                this.player.inventory.potions = (this.player.inventory.potions || 0) + 1;
-                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
-                rewardText = "Received 1 HP Potion!";
-                break;
-            case 'contracts':
-                const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-                const localFaction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
-                const factionId = localFaction ? localFaction.id : null;
-
-                if (this.pendingQuestType === 'kill' && this.pendingQuestTarget) {
-                    // KILL QUEST
-                    const quest = {
-                        id: `bounty_${Date.now()}`,
-                        type: 'kill',
-                        title: `Hunt ${this.pendingQuestTarget}s`,
-                        description: `Slay 3 ${this.pendingQuestTarget}s in the wilderness.`,
-                        targetType: this.pendingQuestTarget,
-                        targetCount: 3,
-                        currentCount: 0,
-                        rewardGold: 100,
-                        rewardXP: 75,
-                        factionId: factionId
-                    };
-                    this.player.addQuest(quest);
-                    rewardText = `Quest Accepted: Hunt 3 ${this.pendingQuestTarget}s!`;
-                } else if (this.pendingQuestType === 'rescue' && this.pendingQuestName) {
-                    // RESCUE QUEST
-                    const quest = {
-                        id: `rescue_${Date.now()}`,
-                        type: 'rescue',
-                        title: `Rescue ${this.pendingQuestName}`,
-                        description: `Clear all enemies in zone ${this.pendingQuestZone} and escort ${this.pendingQuestName} back to a town.`,
-                        targetCount: 1,
-                        currentCount: 0,
-                        rescueeName: this.pendingQuestName,
-                        rescueeGender: this.pendingQuestGender,
-                        rescueeZone: this.pendingQuestZone,
-                        rescueState: 'captive',
-                        rewardGold: 150,
-                        rewardXP: 120,
-                        factionId: factionId
-                    };
-                    this.player.addQuest(quest);
-                    rewardText = `Rescue Quest: Save ${this.pendingQuestName} in Zone ${this.pendingQuestZone}!`;
-                } else if (this.pendingQuestType === 'delivery' && this.pendingQuestItem) {
-                    // DELIVERY QUEST
-                    const quest = {
-                        id: `delivery_${Date.now()}`,
-                        type: 'delivery',
-                        title: `Deliver ${this.pendingQuestItem}`,
-                        description: `Bring the ${this.pendingQuestItem} to the ${this.pendingQuestTargetNPC} in zone ${this.pendingQuestZone}.`,
-                        targetCount: 1,
-                        currentCount: 0,
-                        deliveryItem: this.pendingQuestItem,
-                        deliveryTargetZone: this.pendingQuestZone,
-                        deliveryTargetNPC: this.pendingQuestTargetNPC,
-                        deliveryPickedUp: true,
-                        rewardGold: 120,
-                        rewardXP: 80,
-                        factionId: factionId
-                    };
-                    this.player.addQuest(quest);
-                    rewardText = `Delivery Quest: Bring ${this.pendingQuestItem} to zone ${this.pendingQuestZone}!`;
-                }
-                break;
-            case 'pray':
-                // Heal to full HP for 25 gold
-                const healCost = 25;
-                let didHeal = false;
-                if (this.player.gold >= healCost) {
-                    this.player.gold -= healCost;
-                    this.player.hp = this.player.maxHp;
-                    this.player.mp = this.player.maxMp;
-                    didHeal = true;
-                }
-                // Also give +1 to a random stat as a blessing
-                const stats = ['vit', 'str', 'dex', 'int'];
-                const randomStat = stats[Math.floor(Math.random() * stats.length)];
-                if (this.player.classData && this.player.classData.stats) {
-                    this.player.classData.stats[randomStat]++;
-                    this.player.recalculateStats();
-                }
-                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
-                if (didHeal) {
-                    rewardText = `Healed & Blessed (+1 ${randomStat.toUpperCase()})! -${healCost}g`;
-                } else {
-                    rewardText = `Blessing (+1 ${randomStat.toUpperCase()})! Need ${healCost}g for healing`;
-                }
-                break;
-            case 'study':
-                if (this.player.tempStats) {
-                    this.player.tempStats.int += 1;
-                    this.player.recalculateStats();
-                }
-                if (this.scene && this.scene.updateHUD) this.scene.updateHUD();
-                rewardText = "Temporary +1 INT Buff!";
-                break;
-        }
-
-        if (rewardText) {
-            if (this.scene.showFloatingText) this.scene.showFloatingText(this.player.sprite.x, this.player.sprite.y - 50, rewardText, 0x00ff00);
-        }
+        window.NPCCampaignHelper.executeActivityEffect(this);
     }
 
     async handlePlayerMessage() {
@@ -1279,6 +1131,21 @@ class NPCController {
             actionContext = roleplayResult.contextNote;
             // Update HUD to reflect any gold changes immediately
             if (this.scene.updateHUD) this.scene.updateHUD();
+        }
+
+        if (this.activeActivity) {
+            const activityPrompts = {
+                'rest': "The player is currently trying to rest at your tavern. They are telling you a tale or interacting with you. If they reply/roleplay well or describe resting, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to successfully trigger their healing/rest.",
+                'forge': "The player is trying to forge/upgrade their weapon with you. If they describe helping successfully, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to successfully trigger their weapon upgrade.",
+                'brew': "The player is trying to brew a potion with you. If they describe helping successfully in their reply, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to successfully grant the potion.",
+                'contracts': "The player is checking the bounty board. If they answer/roleplay well, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to grant the quest.",
+                'pray': "The player is praying. If they roleplay/pray well, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to bless them.",
+                'study': "The player is studying riddles with you. If they answer correctly, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to grant the buff."
+            };
+            const activePrompt = activityPrompts[this.activeActivity];
+            if (activePrompt) {
+                actionContext = actionContext ? actionContext + '\n' + activePrompt : activePrompt;
+            }
         }
 
         // 1. Display player message
@@ -1499,6 +1366,38 @@ class NPCController {
         }
     }
 
+    async triggerHiddenPrompt(hiddenPrompt, displayName) {
+        const loadingId = "loading-" + Date.now();
+        this.addMessageToUI(displayName, "...", loadingId);
+
+        const state = this.getGameState();
+        
+        try {
+            const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
+            if (!this.scene || this.scene.isSceneDestroyed) return;
+            if (!this.sprite || !this.sprite.active) return;
+            
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) loadingElement.remove();
+
+            this.addMessageToUI(displayName, response.response);
+            
+            this.chatHistory.push({ sender: displayName, text: response.response });
+            
+        } catch (err) {
+            if (!this.scene || this.scene.isSceneDestroyed) return;
+            if (!this.sprite || !this.sprite.active) return;
+            console.error("AI Intro failed:", err);
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) loadingElement.remove();
+            this.addMessageToUI(displayName, "Greetings.");
+        }
+
+        if (this.chatInput) this.chatInput.disabled = false;
+        if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
+        if (this.chatInput) this.chatInput.focus();
+    }
+
     addMessageToUI(sender, text, id = null) {
         const msgDiv = document.createElement('div');
         if (id) msgDiv.id = id;
@@ -1679,353 +1578,31 @@ class NPCController {
     }
 
     getGameState() {
-        const wm = this.scene.worldManager;
-        const p = this.player;
-        const luckOverride = this.checkLuckOverride();
-        
-        let pc = this.getPoliticalContext();
-        if (luckOverride) {
-            if (pc.npcFactionReputation < 0) pc.npcFactionReputation = 0;
-            if (pc.rulingFactionReputation < 0) pc.rulingFactionReputation = 0;
-        }
-
-        return {
-            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            weather: this.scene.weatherManager ? this.scene.weatherManager.currentWeather : 'clear',
-            luckOverride: luckOverride,
-            player: {
-                level: p.level || (window.saveData && window.saveData.level) || 1,
-                class: p.classData ? p.classData.id : "adventurer",
-                hp: `${p.hp}/${p.maxHp}`,
-                gold: p.inventory ? p.inventory.gold : 0,
-                alignment: p.alignment || 0,
-                isSavior: (window.saveData && window.saveData.isSavior) || false,
-                inventory: p.inventory,
-                quests: p.quests,
-                coliseumReputation: p.coliseumReputation || 0
-            },
-            npc: {
-                alignment: this.alignment,
-                socialScore: luckOverride ? Math.max(20, this.socialScore) : this.socialScore,
-                isMismatched: !luckOverride && ((this.alignment === 'Good' && p.alignment <= -40) || (this.alignment === 'Evil' && p.alignment >= 40)),
-                faction: this.faction,
-                factionRank: this.factionRank,
-                politicalTitle: this.politicalTitle,
-                personality: this.personality,
-                languageInfo: this.getLanguageInfo(),
-                playerUnderstandsLanguage: this.checkPlayerUnderstanding().understands
-            },
-            politicalContext: pc
-        };
+        return window.NPCCampaignHelper.getGameState(this);
     }
 
     getPoliticalContext() {
-        const zoneIdx = (window.saveData && window.saveData.currentZone) || 0;
-        const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
-        const rulingFaction = window.getFactionForZone ? window.getFactionForZone(zoneIdx) : null;
-        
-        let npcFactionData = null;
-        let npcFactionRep = 0;
-        if (this.faction && window.WORLD_FACTIONS && window.WORLD_FACTIONS[this.faction]) {
-            npcFactionData = window.WORLD_FACTIONS[this.faction];
-            npcFactionRep = window.getFactionReputation ? window.getFactionReputation(this.faction) : 0;
-        }
-
-        let rulingFactionRep = 0;
-        if (rulingFaction) {
-            rulingFactionRep = window.getFactionReputation ? window.getFactionReputation(rulingFaction.id) : 0;
-        }
-
-        // Gather ruling faction relations
-        const relations = {};
-        if (rulingFaction && rulingFaction.relations) {
-            for (const fId in rulingFaction.relations) {
-                const score = rulingFaction.relations[fId];
-                const otherFactionName = window.WORLD_FACTIONS[fId] ? window.WORLD_FACTIONS[fId].name : fId;
-                relations[otherFactionName] = score;
-            }
-        }
-
-        // Discovered frontier kingdoms
-        const discovered = [];
-        if (window.saveData && window.saveData.discoveredKingdoms) {
-            for (const kId in window.saveData.discoveredKingdoms) {
-                discovered.push(window.saveData.discoveredKingdoms[kId].name);
-            }
-        }
-
-        return {
-            kingdom: kingdom ? kingdom.name : "Frontier",
-            rulingFaction: rulingFaction ? { name: rulingFaction.name, alignment: rulingFaction.alignment } : null,
-            rulingFactionReputation: rulingFactionRep,
-            npcFaction: npcFactionData ? { name: npcFactionData.name, alignment: npcFactionData.alignment } : null,
-            npcFactionReputation: npcFactionRep,
-            rulingFactionRelations: relations,
-            discoveredFrontierKingdoms: discovered
-        };
-    }
-
-    async triggerHiddenPrompt(hiddenPrompt, displayName) {
-        const loadingId = "loading-" + Date.now();
-        this.addMessageToUI(displayName, "...", loadingId);
-
-        const state = this.getGameState();
-        
-        try {
-            const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
-            if (!this.scene || this.scene.isSceneDestroyed) return;
-            if (!this.sprite || !this.sprite.active) return;
-            
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) loadingElement.remove();
-
-            this.addMessageToUI(displayName, response.response);
-            
-            // Do not add the hidden prompt to the chat history, so the user doesn't see it
-            // Only add the AI's response so it has context of its own words
-            this.chatHistory.push({ sender: displayName, text: response.response });
-            
-        } catch (err) {
-            if (!this.scene || this.scene.isSceneDestroyed) return;
-            if (!this.sprite || !this.sprite.active) return;
-            console.error("AI Intro failed:", err);
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) loadingElement.remove();
-            this.addMessageToUI(displayName, "Greetings.");
-        }
-
-        if (this.chatInput) this.chatInput.disabled = false;
-        if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
-        if (this.chatInput) this.chatInput.focus();
+        return window.NPCCampaignHelper.getPoliticalContext(this);
     }
 
     _checkDeliveryQuestCompletion() {
-        if (!this.player || !this.player.quests) return;
-        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-        
-        for (const quest of this.player.quests) {
-            // Standard Delivery
-            if (quest.type === 'delivery' && 
-                quest.deliveryPickedUp === true && 
-                quest.deliveryTargetZone === currentZone) {
-                if (this.player.progressQuest) {
-                    this.player.progressQuest('delivery_complete', quest.id);
-                }
-                if (this.scene && this.scene.showFloatingText) {
-                    this.scene.showFloatingText(
-                        this.sprite.x, this.sprite.y - 60,
-                        `📦 ${quest.deliveryItem} Delivered!`, 0x44ff44
-                    );
-                }
-                break;
-            }
-            
-            // Diplomacy Treaty Delivery
-            if (quest.type === 'diplomacy' && quest.targetRuler === this.npcName) {
-                if (this.player.progressQuest) {
-                    this.player.progressQuest('diplomacy_complete', quest.id);
-                }
-                if (this.scene && this.scene.showFloatingText) {
-                    this.scene.showFloatingText(
-                        this.sprite.x, this.sprite.y - 60,
-                        `📜 Treaty Delivered to ${this.npcName}!`, 0x44ff44
-                    );
-                }
-                break;
-            }
-            
-            // Intel Report Delivery
-            if (quest.type === 'intel_report') {
-                const isLeaderOrOfficer = this.factionRank === 'leader' || this.factionRank === 'officer';
-                if (isLeaderOrOfficer) {
-                    if (this.player.progressQuest) {
-                        this.player.progressQuest('intel_report_complete', quest.id);
-                    }
-                    if (this.scene && this.scene.showFloatingText) {
-                        this.scene.showFloatingText(
-                            this.sprite.x, this.sprite.y - 60,
-                            `🗺️ Frontier Intel Delivered!`, 0x44ff44
-                        );
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    _addMarriageButton() {
-        if (document.getElementById('chat-propose')) return;
-        
-        const container = document.getElementById('chat-input-container');
-        if (!container) return;
-        
-        const button = document.createElement('button');
-        button.id = 'chat-propose';
-        button.innerText = '💍 Propose Marriage';
-        button.style.backgroundColor = '#ec4899';
-        button.style.color = '#ffffff';
-        button.style.marginLeft = '5px';
-        button.style.fontWeight = 'bold';
-        button.style.border = '1px solid #db2777';
-        button.style.borderRadius = '4px';
-        button.style.padding = '0 12px';
-        button.style.cursor = 'pointer';
-        
-        container.appendChild(button);
-        
-        button.onclick = () => {
-            this.handleProposal();
-        };
+        window.NPCCampaignHelper.checkDeliveryQuestCompletion(this);
     }
 
     handleProposal() {
-        if (window.saveData && window.saveData.spouseData) {
-            this.addMessageToUI("System", `<span style="color:#ff4444">You are already married to ${window.saveData.spouseData.name}!</span>`);
-            return;
-        }
-
-        const isLeader = this.factionRank === 'leader';
-        const rep = this.faction && window.getFactionReputation ? window.getFactionReputation(this.faction) : 0;
-        
-        if (isLeader && rep < 75) {
-            this.addMessageToUI(this.npcName, "A member of the royalty cannot marry outside their rank without high political standing. Earn the trust of my kingdom first.");
-            return;
-        }
-
-        // Close proposal button immediately
-        const btn = document.getElementById('chat-propose');
-        if (btn) btn.remove();
-
-        this.closeChat();
-
-        // Wedding cutscene lines
-        const dialogue = [
-            {
-                speaker: "Narrator",
-                text: `The grand cathedral bells begin to ring, echoing across the land in celebration of a historic union.`
-            },
-            {
-                speaker: this.npcName,
-                portrait: this.spriteKey,
-                side: 'right',
-                text: `I do. In times of battle and peace, I bind my soul to yours. Together, we shall face whatever comes next.`
-            },
-            {
-                speaker: "Narrator",
-                text: `The priest raises his hands, blessing the bond. With vows sealed and rings exchanged, the ceremony concludes.`
-            }
-        ];
-
-        if (this.scene.cutsceneController) {
-            this.scene.cutsceneController.playCutscene(dialogue, () => {
-                // Save spouse data
-                window.saveData.spouseData = {
-                    name: this.npcName,
-                    spriteKey: this.spriteKey,
-                    faction: this.faction || null
-                };
-                
-                // Persist
-                if (this.player && this.player._persistToLocalStorage) {
-                    this.player._persistToLocalStorage();
-                }
-
-                // Visual celebrations
-                if (this.scene.showFloatingText && this.player && this.player.sprite && this.player.sprite.active) {
-                    this.scene.showFloatingText(
-                        this.player.sprite.x, this.player.sprite.y - 80,
-                        `💍 Married to ${this.npcName}!`, 0xec4899
-                    );
-                }
-            });
-        }
-    }
-
-    _addIntelButton() {
-        if (document.getElementById('chat-sell-intel')) return;
-        
-        const container = document.getElementById('chat-input-container');
-        if (!container) return;
-        
-        const button = document.createElement('button');
-        button.id = 'chat-sell-intel';
-        button.innerText = '🗺️ Sell Frontier Intel';
-        button.style.backgroundColor = '#10b981';
-        button.style.color = '#ffffff';
-        button.style.marginLeft = '5px';
-        button.style.fontWeight = 'bold';
-        button.style.border = '1px solid #059669';
-        button.style.borderRadius = '4px';
-        button.style.padding = '0 12px';
-        button.style.cursor = 'pointer';
-        
-        container.appendChild(button);
-        
-        button.onclick = () => {
-            this.handleSellIntel();
-        };
+        window.NPCCampaignHelper.handleProposal(this);
     }
 
     handleSellIntel() {
-        if (!window.saveData || !window.saveData.discoveredKingdoms) return;
-        
-        const unsoldKingdom = Object.values(window.saveData.discoveredKingdoms).find(k => {
-            const soldList = (window.saveData.soldIntel && window.saveData.soldIntel[this.faction]) || [];
-            return !soldList.includes(k.id);
-        });
-        
-        if (!unsoldKingdom) return;
-        
-        // Save sold state
-        window.saveData.soldIntel = window.saveData.soldIntel || {};
-        window.saveData.soldIntel[this.faction] = window.saveData.soldIntel[this.faction] || [];
-        window.saveData.soldIntel[this.faction].push(unsoldKingdom.id);
-        
-        // Reward
-        const rewardGold = 250;
-        const rewardRep = 15;
-        window.saveData.gold += rewardGold;
-        
-        const goldDisplay = document.getElementById('hud-gold');
-        if (goldDisplay) goldDisplay.innerText = `Gold: ${window.saveData.gold}`;
-        
-        if (window.changeFactionReputation) {
-            window.changeFactionReputation(this.faction, rewardRep, true);
-        }
-        
-        // Persist
-        if (this.player && this.player._persistToLocalStorage) {
-            this.player._persistToLocalStorage();
-        }
-        
-        const btn = document.getElementById('chat-sell-intel');
-        if (btn) btn.remove();
-        
-        this.closeChat();
-        
-        const dialogue = [
-            {
-                speaker: "Narrator",
-                text: `You present the map and findings of the procedural frontier kingdom of ${unsoldKingdom.name} to the court.`
-            },
-            {
-                speaker: `${this.politicalTitle} ${this.npcName}`,
-                portrait: this.spriteKey,
-                side: 'right',
-                text: `This map is of incredible importance to the ${window.WORLD_FACTIONS[this.faction].name}. Knowing who holds the lands beyond is a massive advantage. Take this gold reward for your discovery.`
-            }
-        ];
-        
-        if (this.scene.cutsceneController) {
-            this.scene.cutsceneController.playCutscene(dialogue, () => {
-                if (this.scene.showFloatingText && this.player && this.player.sprite && this.player.sprite.active) {
-                    this.scene.showFloatingText(
-                        this.player.sprite.x, this.player.sprite.y - 80,
-                        `🗺️ Intel Sold: +250g, +15 rep!`, 0x10b981
-                    );
-                }
-            });
-        }
+        window.NPCCampaignHelper.handleSellIntel(this);
+    }
+
+    _addMarriageButton() {
+        window.NPCCampaignHelper.addMarriageButton(this);
+    }
+
+    _addIntelButton() {
+        window.NPCCampaignHelper.addIntelButton(this);
     }
 
 
@@ -2043,3 +1620,4 @@ class NPCController {
         if (index > -1) this.scene.npcs.splice(index, 1);
     }
 }
+window.NPCController = NPCController;

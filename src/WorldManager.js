@@ -37,6 +37,27 @@ class WorldManager {
         // Show loading screen
         this.scene.showLoading(true);
 
+        const playerY = this.scene.player && this.scene.player.sprite ? this.scene.player.sprite.y : 'N/A';
+        const platformsCount = this.scene.platforms ? this.scene.platforms.getLength() : 0;
+        console.log(`%c[DIAGNOSTIC] loadZone started for zone ${zoneIndex}. Player Y: ${playerY}. Platforms count: ${platformsCount}`, "color: #ff9f43; font-weight: bold;");
+
+        // Pause the physics world simulation to prevent lag/tunneling during loading
+        if (this.scene && this.scene.physics && this.scene.physics.world) {
+            this.scene.physics.world.pause();
+        }
+
+        // Temporarily disable physics during asynchronous load to prevent falling through floor
+        if (this.scene && this.scene.player && this.scene.player.sprite && this.scene.player.sprite.body) {
+            this.scene.player.sprite.body.enable = false;
+        }
+        if (this.scene && this.scene.partyMembers) {
+            this.scene.partyMembers.forEach(member => {
+                if (member && member.sprite && member.sprite.body) {
+                    member.sprite.body.enable = false;
+                }
+            });
+        }
+
         if (this.scene && this.scene.player) {
             this.scene.player.phoenixReviveUsedInZone = false;
             if (typeof this.scene.player.clearTempStats === 'function') {
@@ -47,61 +68,7 @@ class WorldManager {
         window.saveData.currentZone = zoneIndex;
 
         // Generate frontier kingdom if in unclaimed frontier (Phase 10)
-        const isFrontier = zoneIndex < -48 || zoneIndex > 88;
-        if (isFrontier) {
-            const existingKingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIndex) : null;
-            if (!existingKingdom) {
-                // Calculate chunk range
-                let startZone = 0;
-                let endZone = 0;
-                if (zoneIndex > 88) {
-                    const chunkIndex = Math.floor((zoneIndex - 89) / 16);
-                    startZone = 89 + chunkIndex * 16;
-                    endZone = 88 + (chunkIndex + 1) * 16;
-                } else {
-                    const chunkIndex = Math.floor((-49 - zoneIndex) / 16);
-                    startZone = -48 - (chunkIndex + 1) * 16;
-                    endZone = -49 - chunkIndex * 16;
-                }
-                
-                // Show loading message
-                if (this.scene.showFloatingText && this.scene.player && this.scene.player.sprite) {
-                    this.scene.showFloatingText(this.scene.player.sprite.x, this.scene.player.sprite.y - 60, "Map expanding... drafting frontier kingdom...", 0x88aaff);
-                }
-                
-                // Call Gemini to generate kingdom
-                const kingdomData = await this.scene.geminiService.generateFrontierKingdom([startZone, endZone]);
-                
-                // Save it
-                window.saveData.discoveredKingdoms = window.saveData.discoveredKingdoms || {};
-                window.saveData.discoveredKingdoms[kingdomData.id] = kingdomData;
-                
-                // Populate townNames into saveData.zones immediately upon discovery
-                if (kingdomData.townNames) {
-                    if (!window.saveData.zones) window.saveData.zones = {};
-                    for (const zIdx in kingdomData.townNames) {
-                        if (!window.saveData.zones[zIdx]) {
-                            window.saveData.zones[zIdx] = {
-                                name: kingdomData.townNames[zIdx],
-                                biome: (parseInt(zIdx) === kingdomData.capital) ? 'Capital' : 'Town'
-                            };
-                        }
-                    }
-                }
-
-                // Register faction
-                if (window.registerFrontierKingdomFaction) {
-                    window.registerFrontierKingdomFaction(kingdomData);
-                }
-                
-                // Persist
-                if (this.scene.player && this.scene.player._persistToLocalStorage) {
-                    this.scene.player._persistToLocalStorage();
-                }
-                
-                console.log(`[Frontier] Procedurally generated kingdom: ${kingdomData.name} (${startZone} to ${endZone})`);
-            }
-        }
+        await window.ZoneGenerator.draftFrontierKingdomIfNeeded(this.scene, zoneIndex);
 
         // Track visited town zones for fast-travel discovery
         const isTownZone = zoneIndex === 0 || (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0);
@@ -115,47 +82,7 @@ class WorldManager {
             }
         }
 
-        let zoneData = window.saveData.zones[zoneIndex];
-
-        // Invalidate stale zones from the old broken gemini-1.5-flash era or repetitive naming
-        const staleNames = ['Fallback Wilderness', 'Fallback Town', 'Corrupted Void', 'Whispering Thicket', 'The Whispering Thicket'];
-        if (zoneData && staleNames.includes(zoneData.name)) {
-            zoneData = null;
-        }
-
-        // Invalidate zones that should be towns but were cached as wilderness in older saves
-        const isTownIndex = Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0;
-        if (zoneData && isTownIndex && zoneData.type !== 'Safe') {
-            zoneData = null;
-        }
-        // Inverse: invalidate zones that should be wilderness but were cached as Safe (Gemini hallucination)
-        if (zoneData && !isTownIndex && zoneIndex !== 0 && zoneData.type === 'Safe') {
-            console.warn(`Zone ${zoneIndex} was cached as Safe but should be Dangerous — regenerating.`);
-            zoneData = null;
-        }
-
-        // Invalidate zones whose cached biome does not match the valid biomes of the ruling kingdom (political geography migration)
-        if (zoneData) {
-            const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIndex) : null;
-            if (kingdom && kingdom.biomes) {
-                if (!kingdom.biomes.includes(zoneData.biome)) {
-                    console.warn(`Zone ${zoneIndex} had biome ${zoneData.biome} which is invalid for kingdom ${kingdom.name} (expected ${kingdom.biomes.join('/')}) — regenerating.`);
-                    zoneData = null;
-                }
-            }
-        }
-
-        // Invalidate capital city zones if their NPC list does not contain court members (save migration) (Phase 5)
-        if (zoneData && zoneData.type === 'Safe' && window.isCapitalCity && window.isCapitalCity(zoneIndex)) {
-            const faction = window.getFactionForZone ? window.getFactionForZone(zoneIndex) : null;
-            if (faction && faction.court) {
-                const hasCourtMember = zoneData.npcs && zoneData.npcs.some(n => faction.court.some(c => c.name === n.name));
-                if (!hasCourtMember) {
-                    console.warn(`Capital city at zone ${zoneIndex} is missing faction court members — invalidating for regeneration.`);
-                    zoneData = null;
-                }
-            }
-        }
+        let zoneData = window.ZoneGenerator.validateZoneCache(zoneIndex, window.saveData.zones[zoneIndex]);
 
         if (!zoneData) {
             // Generate via Gemini (or rich fallback)
@@ -187,6 +114,29 @@ class WorldManager {
             const errEl = document.getElementById('debug-content');
             if (errEl) errEl.innerHTML += `<br><span style="color:red">CRITICAL ERROR in buildZone: ${e.message}<br>${e.stack}</span>`;
         }
+        // Re-enable physics now that platforms have been built and the player is repositioned
+        const postPlayerY = this.scene.player && this.scene.player.sprite ? this.scene.player.sprite.y : 'N/A';
+        const postPlatformsCount = this.scene.platforms ? this.scene.platforms.getLength() : 0;
+        console.log(`%c[DIAGNOSTIC] loadZone buildZone completed. Player Y: ${postPlayerY}. Platforms count: ${postPlatformsCount}`, "color: #28a745; font-weight: bold;");
+
+        if (this.scene && this.scene.player && this.scene.player.sprite && this.scene.player.sprite.body) {
+            this.scene.player.sprite.body.enable = true;
+            this.scene.player.sprite.body.setVelocity(0, 0);
+        }
+        if (this.scene && this.scene.partyMembers) {
+            this.scene.partyMembers.forEach(member => {
+                if (member && member.sprite && member.sprite.body) {
+                    member.sprite.body.enable = true;
+                    member.sprite.body.setVelocity(0, 0);
+                }
+            });
+        }
+
+        // Resume the physics world simulation now that everything is safely positioned and built
+        if (this.scene && this.scene.physics && this.scene.physics.world) {
+            this.scene.physics.world.resume();
+        }
+
         this.scene.showLoading(false);
     }
 
@@ -214,85 +164,7 @@ class WorldManager {
     }
 
     async generateZoneWithGemini(zoneIndex) {
-        if (!this.scene || this.scene.isSceneDestroyed) return null;
-        if (this.scene.loadingText) {
-            this.scene.loadingText.setText("Gemini is forging the world...");
-        }
-        
-        const playerLevel = (window.saveData && window.saveData.level) || 1;
-        const playerClassId = (window.saveData && window.saveData.classId) || 'knight';
-        
-        // Zone 0 is always a town; after that, a town appears every 4 zones in either direction
-        const absIdx = Math.abs(zoneIndex);
-        let forceTown = zoneIndex === 0 || (absIdx > 0 && absIdx % 4 === 0);
-
-        let selectedBiome;
-        const isFrontier = zoneIndex < -48 || zoneIndex > 88;
-        const isOutpostIndex = isFrontier && (absIdx % 8 === 2 || absIdx % 8 === 6);
-
-        if (zoneIndex === 777) {
-            selectedBiome = 'Heaven';
-            forceTown = true;
-        } else if (zoneIndex === -666) {
-            selectedBiome = 'Hell';
-            forceTown = false;
-        } else if (isOutpostIndex) {
-            selectedBiome = 'Dark Elf Outpost';
-            forceTown = false;
-        } else {
-            // Get kingdom for this zone
-            const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIndex) : null;
-            if (kingdom && kingdom.biomes && kingdom.biomes.length > 0) {
-                // Select a biome from the kingdom's list based on zoneIndex
-                const bIdx = Math.abs(zoneIndex) % kingdom.biomes.length;
-                selectedBiome = kingdom.biomes[bIdx];
-            } else {
-                // Biome Chunking fallback for Frontier: Every 4 zones share a biome.
-                const biomes = ['Forest', 'Plains', 'Cave', 'Desert', 'Winter', 'Coastal', 'Dungeon', 'Deadwoods', 'Hell'];
-                let chunkIndex = absIdx === 0 ? 0 : Math.floor((absIdx - 1) / 4);
-                selectedBiome = biomes[chunkIndex % biomes.length];
-            }
-        }
-
-        const response = await this.geminiService.generateZoneData(zoneIndex, playerLevel, forceTown, playerClassId, selectedBiome);
-        
-        // Guarantee court members in capital cities (Phase 5)
-        if (response && response.type === 'Safe') {
-            const isCapitalCity = window.isCapitalCity ? window.isCapitalCity(zoneIndex) : false;
-            const faction = window.getFactionForZone ? window.getFactionForZone(zoneIndex) : null;
-            if (faction) {
-                if (isCapitalCity && faction.court) {
-                    // Keep the first merchant/blacksmith/alchemist from Gemini, but replace/append court members
-                    const standardNpcs = response.npcs || [];
-                    const courtNpcs = faction.court.map((cMember, idx) => ({
-                        name: cMember.name,
-                        persona: cMember.persona,
-                        x: 600 + idx * 350,
-                        spriteKey: cMember.spriteKey || 'custom_townsfolk',
-                        faction: faction.id,
-                        factionRank: cMember.role || 'courtier',
-                        politicalTitle: cMember.title || 'Noble'
-                    }));
-                    
-                    const merchants = standardNpcs.filter(n => 
-                        n.name.toLowerCase().includes('merchant') || 
-                        n.name.toLowerCase().includes('blacksmith') || 
-                        n.name.toLowerCase().includes('alchemist')
-                    );
-                    response.npcs = [...merchants.slice(0, 1), ...courtNpcs];
-                } else {
-                    // Normal town: promote one of the generic NPCs to a local official
-                    if (response.npcs && response.npcs.length > 0) {
-                        const candidate = response.npcs[0];
-                        candidate.faction = faction.id;
-                        candidate.factionRank = 'officer';
-                        candidate.politicalTitle = `Guard Officer`;
-                        candidate.persona += ` They represent ${faction.name} in this region.`;
-                    }
-                }
-            }
-        }
-        return response;
+        return window.ZoneGenerator.generateZoneWithGemini(this.scene, zoneIndex);
     }
 
     buildZone(zoneData, spawnSide) {
@@ -366,49 +238,45 @@ class WorldManager {
             }
         }
 
-        // Spawn Player at correct edge
-        this.scene.player.sprite.setY(600);
-        this.scene.player.sprite.setVelocityY(0);
-        this.scene.player.sprite.setVelocityX(0);
-
         const isTown = zoneData.type === 'Safe';
         const isCapitalZone = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
         const widthTiles = isTown ? (isCapitalZone ? 60 : 40) : 84;
         const mapWidth = widthTiles * 46;
 
+        const resetEntity = (entity, x, y) => {
+            if (entity && entity.sprite) {
+                if (entity.sprite.body) {
+                    entity.sprite.body.reset(x, y);
+                } else {
+                    entity.sprite.setPosition(x, y);
+                }
+            }
+        };
+
         if (currentZoneIdx === 777 || currentZoneIdx === -666 || spawnSide === 'center') {
             const centerX = mapWidth / 2;
-            this.scene.player.sprite.setX(centerX);
-            this.scene.player.sprite.setY(600);
+            resetEntity(this.scene.player, centerX, 600);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
                     const offset = (i + 1) * 60 * (i % 2 === 0 ? -1 : 1);
-                    hero.sprite.setX(centerX + offset);
-                    hero.sprite.setY(600);
-                    hero.sprite.setVelocity(0, 0);
+                    resetEntity(hero, centerX + offset, 600);
                 });
             }
         } else if (spawnSide === 'left') {
-            this.scene.player.sprite.setX(180);
-            this.scene.player.sprite.setY(600);
+            resetEntity(this.scene.player, 180, 600);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
                     const targetX = Math.max(50, 180 - 60 - (i * 60));
-                    hero.sprite.setX(targetX);
-                    hero.sprite.setY(600);
-                    hero.sprite.setVelocity(0, 0);
+                    resetEntity(hero, targetX, 600);
                 });
             }
         } else if (spawnSide === 'right') {
             const spawnX = mapWidth - 180;
-            this.scene.player.sprite.setX(spawnX);
-            this.scene.player.sprite.setY(600);
+            resetEntity(this.scene.player, spawnX, 600);
             if (this.scene.partyMembers) {
                 this.scene.partyMembers.forEach((hero, i) => {
                     const targetX = Math.min(mapWidth - 50, spawnX + 60 + (i * 60));
-                    hero.sprite.setX(targetX);
-                    hero.sprite.setY(600);
-                    hero.sprite.setVelocity(0, 0);
+                    resetEntity(hero, targetX, 600);
                 });
             }
         }
@@ -429,497 +297,7 @@ class WorldManager {
         }
 
         if (zoneData.type === 'Safe') {
-            // Retroactively add town NPCs to old saves if missing
-            if (!zoneData.npcs || zoneData.npcs.length < 4) {
-                zoneData.npcs = [
-                    { name: "Elara the Sage", persona: "A wise elder who offers counsel on magical threats.", x: 250, spriteKey: "npc" },
-                    { name: "Brom the Hammer", persona: "A gruff blacksmith who forged his weapons in dragon fire.", x: 500, spriteKey: "blacksmith" },
-                    { name: "Orion the Hunter", persona: "A quiet tracker offering goods from the wilds.", x: 750, spriteKey: "ranger" },
-                    { name: "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 1000, spriteKey: "alchemist" }
-                ];
-                // Update cache
-                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                if (window.saveData && window.saveData.zones) {
-                    window.saveData.zones[this.currentZoneIndex] = JSON.parse(JSON.stringify(zoneData));
-                    const idx = saves.findIndex(s => s.id === window.saveData.id);
-                    const clonedSave = JSON.parse(JSON.stringify(window.saveData));
-                    if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
-                    localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
-                }
-            }
-
-            // --- DECOR PERSISTENCE ---
-            // Migrate: force regeneration if layout contains old broken assets or wrong building type (cap vs town mismatch)
-            if (zoneData.decorLayout) {
-                const currentZoneIdx = this.currentZoneIndex;
-                const isCapitalZone = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
-                
-                const hasCapitalBuildings = zoneData.decorLayout.some(item => item.asset && item.asset.startsWith && item.asset.startsWith('cap_'));
-                const hasCozyBuildings = zoneData.decorLayout.some(item => item.asset && item.asset.startsWith && item.asset.startsWith('cozy_'));
-                const hasOldAssets = zoneData.decorLayout.some(item => 
-                    item.asset === 'ultimate_pines' || 
-                    item.asset === 'bg_coastal' ||
-                    (item.asset && item.asset.startsWith && item.asset.startsWith('ultimate_pines'))
-                );
-                // Regenerate if mismatch: capital town has no capital buildings, or normal town has capital buildings, or lacks cozy building expansion
-                const isMismatch = (isCapitalZone && !hasCapitalBuildings) || (!isCapitalZone && hasCapitalBuildings) || (!isCapitalZone && !hasCozyBuildings && Math.random() < 0.25);
-                
-                // Regenerate dungeon/deadwoods towns that have regular trees
-                const isDungeonTownWithTrees = (zoneData.biome === 'Dungeon') && 
-                    zoneData.decorLayout.some(item => ['tree1','tree2','tree3','tree4','pine'].includes(item.asset));
-                const isDeadwoodsTownWithTrees = (zoneData.biome === 'Deadwoods') && 
-                    zoneData.decorLayout.some(item => ['tree1','tree2','tree3','tree4','pine'].includes(item.asset));
-                if (hasOldAssets || isDungeonTownWithTrees || isDeadwoodsTownWithTrees || isMismatch) {
-                    delete zoneData.decorLayout;
-                }
-            }
-            
-            // Generate the layout once and save it inside zoneData so it never changes on reload.
-            if (!zoneData.decorLayout) {
-                const currentZoneIdx = this.currentZoneIndex;
-                const isCapitalZone = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
-
-                let validAssets = [];
-                let scale = 1.5;
-                let spacing = 140;
-
-                if (isCapitalZone) {
-                    // Medieval Town Buildings for Capitals
-                    const allCapAssets = [
-                        'cap_bakery', 'cap_blacksmith', 'cap_carpenter', 'cap_church', 'cap_farmhouse',
-                        'cap_store', 'cap_guardhouse', 'cap_inn', 'cap_markethall', 'cap_merchanthouse',
-                        'cap_cottage', 'cap_stonehouse', 'cap_tailor', 'cap_tavern', 'cap_townhall', 'cap_watchtower'
-                    ];
-                    validAssets = allCapAssets.filter(k => this.scene.textures.exists(k));
-                    scale = 2.0; // Capital buildings feel grand
-                    spacing = 200; // Larger spacing for bigger structures
-                } else {
-                    // Normal Town: Base + Cozy Village Buildings
-                    const baseAssets = ['house', 'house2', 'house3', 'house4', 'house5', 'house6', 'tavern', 'tavernGreen', 'shop', 'stall', 'stable'];
-                    const cozyAssets = [
-                        'cozy_barn', 'cozy_house_big', 'cozy_water_building',
-                        'cozy_house1', 'cozy_house2', 'cozy_house3', 'cozy_house4', 'cozy_house5',
-                        'cozy_house6', 'cozy_house7', 'cozy_house8', 'cozy_house9', 'cozy_house10',
-                        'cozy_bakery', 'cozy_blacksmith', 'cozy_fish', 'cozy_inn', 'cozy_shop1', 'cozy_shop2',
-                        'cozy_stall1', 'cozy_stall2', 'cozy_stall3', 'cozy_stall4', 'cozy_stall5',
-                        'cozy_stall6', 'cozy_stall7', 'cozy_stall8', 'cozy_stall9', 'cozy_stall10',
-                        'cozy_woodcutting', 'cozy_distillery', 'cozy_masonry', 'cozy_pottery'
-                    ];
-                    const allTownAssets = [...baseAssets, ...cozyAssets];
-                    validAssets = allTownAssets.filter(k => this.scene.textures.exists(k));
-                    scale = 1.5;
-                    spacing = 140;
-                }
-
-                if (validAssets.length === 0) {
-                    validAssets = ['house'];
-                }
-
-                const layout = [];
-
-                if (isCapitalZone) {
-                    // Medieval Town Buildings for Capitals - Planned & Structured Layout
-                    const houses = ['cap_cottage', 'cap_stonehouse', 'cap_merchanthouse', 'cap_farmhouse'];
-                    const shuffledHouses = [...houses].sort(() => Math.random() - 0.5);
-
-                    const crafts = ['cap_carpenter', 'cap_tailor', 'cap_blacksmith', 'cap_bakery'];
-                    const shuffledCrafts = [...crafts].sort(() => Math.random() - 0.5);
-
-                    const hospitality = ['cap_inn', 'cap_tavern'];
-                    const shuffledHosp = [...hospitality].sort(() => Math.random() - 0.5);
-
-                    // Structured plan across the 60-tile (2760px) width
-                    const plannedLayout = [
-                        { asset: 'cap_watchtower', x: 150, scale: 2.0 },
-                        { asset: 'cap_guardhouse', x: 345, scale: 2.0 },
-                        { asset: shuffledHouses[0], x: 550, scale: 2.0 },
-                        { asset: shuffledHouses[1], x: 745, scale: 2.0 },
-                        { asset: shuffledCrafts[0], x: 940, scale: 2.0 },
-                        { asset: shuffledCrafts[1], x: 1135, scale: 2.0 },
-                        { asset: 'cap_markethall', x: 1360, scale: 2.2 },
-                        { asset: 'cap_store', x: 1590, scale: 2.0 },
-                        { asset: shuffledHosp[0], x: 1795, scale: 2.0 },
-                        { asset: 'cap_townhall', x: 2030, scale: 2.2 },
-                        { asset: 'cap_church', x: 2295, scale: 2.2 },
-                        { asset: 'cap_watchtower', x: 2530, scale: 2.0 }
-                    ];
-
-                    plannedLayout.forEach(item => {
-                        if (this.scene.textures.exists(item.asset)) {
-                            layout.push({
-                                asset: item.asset,
-                                x: item.x,
-                                y: 696,
-                                scale: item.scale,
-                                depth: -5
-                            });
-                        }
-                    });
-                } else {
-                    // Normal Town Layout (Base + Cozy Village)
-                    let buildingCount = Math.floor(Math.random() * 4) + 7;
-                    let shuffled = [...validAssets].sort(() => Math.random() - 0.5);
-                    let buildingList = shuffled.slice();
-                    while (buildingList.length < buildingCount) {
-                        buildingList.push(validAssets[Math.floor(Math.random() * validAssets.length)]);
-                    }
-                    buildingList = buildingList.slice(0, buildingCount);
-
-                    for (let i = 0; i < buildingCount; i++) {
-                        const xOffset = 120;
-                        const randOffset = 40;
-                        layout.push({ 
-                            asset: buildingList[i], 
-                            x: xOffset + (i * spacing) + Math.floor(Math.random() * randOffset), 
-                            y: 696, 
-                            scale: scale, 
-                            depth: -5 
-                        });
-                    }
-                }
-
-                // Add trees to towns (but NOT in Dungeon biome)
-                const biome = zoneData.biome || 'Forest';
-                if (biome !== 'Dungeon') {
-                    const treeCount = Math.floor(Math.random() * 3) + 2;
-                    for (let i = 0; i < treeCount; i++) {
-                        layout.push({ asset: 'tree1', x: 150 + Math.floor(Math.random() * 1100), y: 696, scale: 0.8, depth: -4 });
-                    }
-                }
-
-                // Guarantee one Angel Statue per town for the Town Directory
-                layout.push({ asset: 'statue', x: 640, y: 696, scale: 1.5, depth: -4, isAngelStatue: true });
-
-                zoneData.decorLayout = layout;
-                // Persist back to localStorage
-                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                const idx = saves.findIndex(s => s.id === window.saveData.id);
-                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
-                if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
-                localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
-            }
-
-            // Fallback for older saves that lack the angel statue
-            if (!zoneData.decorLayout.some(item => item.isAngelStatue)) {
-                let existingStatue = zoneData.decorLayout.find(item => item.asset === 'statue');
-                if (existingStatue) {
-                    existingStatue.isAngelStatue = true;
-                } else {
-                    zoneData.decorLayout.push({ asset: 'statue', x: 640, y: 696, scale: 1.5, depth: -4, isAngelStatue: true });
-                }
-            }
-
-            // Render from the saved layout
-            zoneData.decorLayout.forEach(item => {
-                let targetY = item.y;
-                if (this.scene.platforms && this.scene.platforms.getChildren().length > 0) {
-                    const blocksAtX = this.scene.platforms.getChildren().filter(block => Math.abs(block.x - item.x) <= 23 && block.y < 800);
-                    if (blocksAtX.length > 0) {
-                        const highestBlock = blocksAtX.reduce((highest, current) => current.y < highest.y ? current : highest, blocksAtX[0]);
-                        const offsetY = item.y - 696;
-                        // Subtract 24px (half of 48px height) to align with top edge of grass
-                        targetY = (highestBlock.y - 24) + offsetY;
-                    }
-                }
-
-                const img = (item.frame !== undefined) ? 
-                    this.scene.add.image(item.x, targetY, item.asset, item.frame) : 
-                    this.scene.add.image(item.x, targetY, item.asset);
-                
-                img.setOrigin(0.5, 1).setScale(item.scale).setDepth(item.depth);
-                if (item.tint !== undefined) img.setTint(item.tint);
-                this.scene.decorGroup.add(img);
-
-                // Setup interaction for the angel statue
-                if (item.isAngelStatue && zoneData.type === 'Safe') {
-                    this.scene.angelStatue = img;
-                    this.scene.physics.add.existing(img, true); // static body
-                    
-                    // Interaction zone
-                    this.scene.angelStatueZone = this.scene.add.zone(img.x, img.y - 50, 150, 150);
-                    this.scene.physics.add.existing(this.scene.angelStatueZone);
-                    this.scene.angelStatueZone.body.moves = false;
-                }
-            });
-
-            // Build NPCs
-            const currentZoneIdxForNpc = this.currentZoneIndex;
-            const currentKingdomForNpc = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdxForNpc) : null;
-            const isElvenKingdom = currentKingdomForNpc && (
-                (currentKingdomForNpc.biomes && currentKingdomForNpc.biomes.includes('Deadwoods')) || 
-                currentKingdomForNpc.id === 'duskveil' || 
-                currentKingdomForNpc.id === 'ashenmoor' || 
-                (currentKingdomForNpc.name && currentKingdomForNpc.name.toLowerCase().includes('elven')) || 
-                (currentKingdomForNpc.rulingFaction && currentKingdomForNpc.rulingFaction.toLowerCase().includes('elven'))
-            );
-            const isDwarvenKingdom = currentKingdomForNpc && (
-                (currentKingdomForNpc.biomes && currentKingdomForNpc.biomes.includes('Cave')) || 
-                (currentKingdomForNpc.name && currentKingdomForNpc.name.toLowerCase().includes('dwarf')) || 
-                (currentKingdomForNpc.name && currentKingdomForNpc.name.toLowerCase().includes('dwarven')) || 
-                (currentKingdomForNpc.name && currentKingdomForNpc.name.toLowerCase().includes('underrealm')) || 
-                (currentKingdomForNpc.name && currentKingdomForNpc.name.toLowerCase().includes('stronghold')) || 
-                (currentKingdomForNpc.rulingFaction && currentKingdomForNpc.rulingFaction.toLowerCase().includes('dwarf')) ||
-                (currentKingdomForNpc.rulingFaction && currentKingdomForNpc.rulingFaction.toLowerCase().includes('dwarven'))
-            );
-
-            if (zoneData.npcs && Array.isArray(zoneData.npcs)) {
-                zoneData.npcs.forEach(nData => {
-                    const rawKey = nData.spriteKey || nData.type || 'npc';
-                    let spriteKey = rawKey;
-                    let combatClass = 'sword';
-                    
-                    if (['npc', 'blacksmith', 'alchemist', 'knight', 'samurai', 'sage', 'ranger', 'wizard', 'king'].includes(rawKey)) {
-                        spriteKey = rawKey;
-                    } else {
-                        // Restore custom modular NPC or generate one
-                        if (nData.customConfig) {
-                            const recreated = window.CharacterComposer.recreateNPC(this.scene, rawKey, nData.customConfig.layers, nData.customConfig.weaponType);
-                            spriteKey = recreated.spriteKey;
-                            combatClass = recreated.weaponType;
-                        } else {
-                            const npcData = window.CharacterComposer.generateRandomNPC(this.scene, null, { isElven: isElvenKingdom, isDwarven: isDwarvenKingdom });
-                            spriteKey = npcData.spriteKey;
-                            combatClass = npcData.weaponType;
-                            nData.spriteKey = spriteKey; // save key
-                            nData.customConfig = npcData.config; // save recipe
-                        }
-                    }
-                    
-                    const npc = new NPCController(this.scene, nData.x, 624, this.scene.player, this.geminiService, nData.name, nData.persona, spriteKey, combatClass);
-                    npc.faction = nData.faction || null;
-                    npc.factionRank = nData.factionRank || 'commoner';
-                    npc.politicalTitle = nData.politicalTitle || null;
-                    
-                    this.scene.physics.add.collider(npc.sprite, this.scene.platforms);
-                    this.scene.npcs.push(npc);
-                    this.scene.decorGroup.add(npc.nameText);
-                    this.scene.decorGroup.add(npc.promptText);
-                });
-            }
-
-            // Spawn 2-3 ambient custom modular villagers so the town feels alive.
-            // These are separate from the named shop/quest NPCs above and never replace them.
-            // Persist ambient villagers in zoneData too so they don't change every time we load the zone!
-            if (!zoneData.ambientNpcs) {
-                zoneData.ambientNpcs = [];
-                const ambientCount = Math.floor(Math.random() * 2) + 2; // 2 or 3
-                const ambientSlots = [1300, 1500, 1700];
-                for (let i = 0; i < ambientCount; i++) {
-                    if (zoneData.biome === 'Heaven') {
-                        const gender = Math.random() < 0.5 ? 'male' : 'female';
-                        const ghostData = window.CharacterComposer.generateSpecialEnemy(this.scene, 'ghost', gender);
-                        const celestialNames = [
-                            'Aurelius', 'Seraphina', 'Valerius', 'Caelia', 'Uriel', 'Astraea', 'Cassiel',
-                            'Azrael', 'Metatron', 'Gabriel', 'Michael', 'Raphael', 'Jophiel', 'Zadkiel',
-                            'Chamuel', 'Haniel', 'Remiel', 'Sariel', 'Raguel', 'Arielle', 'Selene',
-                            'Caelum', 'Elysia', 'Zephyr', 'Orion', 'Lyra', 'Nova', 'Astra', 'Solana'
-                        ];
-                        const name = celestialNames[Math.floor(Math.random() * celestialNames.length)] + ' the Spirit';
-                        const spiritPersonas = [
-                            'A peaceful soul enjoying the eternal serenity of the heavens, hums a gentle hymn.',
-                            'A majestic sentinel standing watch over the pearlescent architecture.',
-                            'A celestial weaver shaping clouds into beautiful patterns in the sky.',
-                            'An ancient spirit reading a tome of pure light under a golden-leaved tree.',
-                            'A light-forged soul polishing a shield of condensed starlight.',
-                            'A serene spirit meditating on a floating platform, surrounded by a faint golden aura.'
-                        ];
-                        const persona = spiritPersonas[Math.floor(Math.random() * spiritPersonas.length)];
-                        zoneData.ambientNpcs.push({
-                            name: name,
-                            x: ambientSlots[i],
-                            spriteKey: ghostData.spriteKey,
-                            weaponType: ghostData.weaponType,
-                            isCelestial: true,
-                            type: 'ghost',
-                            gender: gender,
-                            persona: persona
-                        });
-                    } else {
-                        const npcData = window.CharacterComposer.generateRandomNPC(this.scene, null, { isElven: isElvenKingdom, isDwarven: isDwarvenKingdom });
-                        const villagerName = window.CharacterComposer.generateRandomName(isDwarvenKingdom ? 'dwarf' : (isElvenKingdom ? 'elf' : npcData.weaponType));
-                        zoneData.ambientNpcs.push({
-                            name: villagerName,
-                            x: ambientSlots[i],
-                            spriteKey: npcData.spriteKey,
-                            weaponType: npcData.weaponType,
-                            customConfig: npcData.config
-                        });
-                    }
-                }
-            }
-
-            zoneData.ambientNpcs.forEach(nData => {
-                let villager;
-                if (nData.isCelestial) {
-                    if (nData.type === 'ghost') {
-                        // Recreate the ghost canvas texture if it doesn't exist
-                        window.CharacterComposer.generateSpecialEnemy(this.scene, 'ghost', nData.gender, nData.spriteKey);
-                    }
-                    villager = new NPCController(
-                        this.scene, 
-                        nData.x, 
-                        624, 
-                        this.scene.player, 
-                        this.geminiService, 
-                        nData.name, 
-                        nData.persona || 'A celestial soul.', 
-                        nData.spriteKey, 
-                        nData.weaponType
-                    );
-                } else {
-                    const recreated = window.CharacterComposer.recreateNPC(this.scene, nData.spriteKey, nData.customConfig.layers, nData.customConfig.weaponType);
-                    villager = new NPCController(this.scene, nData.x, 624, this.scene.player, this.geminiService, nData.name, 'A friendly townsperson going about their day.', recreated.spriteKey, recreated.weaponType);
-                }
-                this.scene.physics.add.collider(villager.sprite, this.scene.platforms);
-                this.scene.npcs.push(villager);
-                this.scene.decorGroup.add(villager.nameText);
-                this.scene.decorGroup.add(villager.promptText);
-            });
-
-            // FALLBACK: If it's zone 0 and Gemini forgot the Sage, force her to spawn!
-            if (this.currentZoneIndex === 0) {
-                const hasSage = this.scene.npcs.find(n => n.npcName === 'Elara the Sage' || n.spriteKey === 'sage');
-                if (!hasSage) {
-                    const sage = new NPCController(this.scene, 500, 624, this.scene.player, this.geminiService, 'Elara the Sage', 'Elara is a wise and mysterious sage...', 'sage');
-                    this.scene.physics.add.collider(sage.sprite, this.scene.platforms);
-                    this.scene.npcs.push(sage);
-                    this.scene.decorGroup.add(sage.nameText);
-                    this.scene.decorGroup.add(sage.promptText);
-                }
-            }
-            
-            // --- KINGS GUARD SYSTEM (Phase 4) ---
-            const currentZoneIdx = this.currentZoneIndex;
-            const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZoneIdx, window.saveData.alignment) : { shouldAttack: false, reason: null };
-            
-            if (hostility.shouldAttack) {
-                const isCapitalZone = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
-                const guardCount = isCapitalZone ? (Math.floor(Math.random() * 3) + 5) : (Math.floor(Math.random() * 3) + 2); // 5-7 in cities, 2-4 in towns
-                
-                // Spawn coordinates spread across the zone
-                const zoneWidth = isCapitalZone ? 2760 : 1840;
-                const step = zoneWidth / (guardCount + 1);
-                for (let i = 0; i < guardCount; i++) {
-                    const spawnX = step * (i + 1);
-                    // Spawn as EnemyController of type 'knight_rival' or celestial or elven
-                    let guardType = 'knight_rival';
-                    if (zoneData.biome === 'Heaven') {
-                        const types = ['heavenly_valkyrie', 'heavenly_archangel'];
-                        guardType = types[i % types.length];
-                    } else if (isElvenKingdom) {
-                        const types = ['elven_spellblade_rival', 'elven_longbowman_rival', 'elven_guard_rival'];
-                        guardType = types[i % types.length];
-                    } else if (isDwarvenKingdom) {
-                        const types = ['dwarf_warrior_rival', 'dwarf_miner_rival'];
-                        guardType = types[i % types.length];
-                    } else {
-                        const types = ['knight_rival', 'ranger_rival'];
-                        guardType = types[i % types.length];
-                    }
-                    const guard = new EnemyController(this.scene, spawnX, 600, this.scene.player, this.geminiService, guardType);
-                    this.scene.physics.add.collider(guard.sprite, this.scene.platforms);
-                    this.scene.enemies.add(guard.sprite);
-                }
-
-                // Trigger warning cutscene if not already played in this session/entry
-                if (!this.scene.guardWarningCutscenePlayed) {
-                    this.scene.guardWarningCutscenePlayed = true;
-                    if (this.scene.cutsceneController) {
-                        const reason = hostility.reason || "The King has ordered your arrest!";
-                        const dialogue = [
-                            {
-                                speaker: "King's Guard",
-                                portrait: 'knight_rival',
-                                side: 'left',
-                                text: `HALT, TRAITOR!`
-                            },
-                            {
-                                speaker: "King's Guard",
-                                portrait: 'knight_rival',
-                                side: 'left',
-                                text: `${reason}`
-                            },
-                            {
-                                speaker: "King's Guard",
-                                portrait: 'knight_rival',
-                                side: 'left',
-                                text: `Surrender now or face the executioner's steel!`
-                            }
-                        ];
-                        
-                        this.scene.time.delayedCall(100, () => {
-                            this.scene.cutsceneController.playCutscene(dialogue, () => {
-                                console.log("[KingsGuard] Cutscene finished. Guards attacking!");
-                            });
-                        });
-                    }
-                }
-            } else {
-                // Spawn peaceful gate guards and patrols that look like King's Guard but are just friendly NPCs
-                const isCapitalZone = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
-                const guardCount = isCapitalZone ? 4 : 2;
-                
-                const positions = isCapitalZone ? [200, 450, 2350, 2550] : [200, 1600];
-                for (let i = 0; i < guardCount; i++) {
-                    const spawnX = positions[i];
-                    const faction = window.getFactionForZone(currentZoneIdx);
-                    const factionName = faction ? faction.name : "the Realm";
-                    let guardSprite = 'knight_rival';
-                    let guardName = `King's Guard`;
-                    let guardPersona = `A disciplined soldier sworn to protect the peace of ${factionName}. They watch for criminals and rebels.`;
-                    let guardClass = 'sword';
-
-                    if (zoneData.biome === 'Heaven') {
-                        guardSprite = i % 2 === 0 ? 'heavenly_valkyrie' : 'heavenly_archangel';
-                        guardName = guardSprite === 'heavenly_valkyrie' ? 'Celestial Valkyrie' : 'Seraphim Sentinel';
-                        guardPersona = 'A divine guardian sent by the Order of the Seraphim to protect the gates of Heaven and watch over righteous souls.';
-                        guardClass = guardSprite === 'heavenly_valkyrie' ? 'ranged' : 'sword';
-                    } else if (isElvenKingdom) {
-                        guardSprite = i % 2 === 0 ? 'elven_spellblade' : 'elven_longbowman';
-                        guardName = guardSprite === 'elven_spellblade' ? 'Sylvan Spellblade' : 'Elven Sentinel';
-                        guardPersona = `An elite elven guardian sworn to protect the realm of ${factionName}. They watch the borders with sharp senses.`;
-                        guardClass = guardSprite === 'elven_spellblade' ? 'sword' : 'ranged';
-                    } else if (isDwarvenKingdom) {
-                        guardSprite = i % 2 === 0 ? 'dwarf_warrior' : 'dwarf_miner';
-                        guardName = guardSprite === 'dwarf_warrior' ? 'Dwarven Ironshield' : 'Dwarven Miner Guard';
-                        guardPersona = `A stalwart dwarven defender sworn to protect the stronghold of ${factionName}. They stand firm against intruders.`;
-                        guardClass = 'sword';
-                    } else {
-                        guardSprite = i % 2 === 0 ? 'knight_rival' : 'ranger';
-                        guardName = guardSprite === 'knight_rival' ? "King's Guard" : 'Royal Archer';
-                        guardPersona = `A disciplined soldier sworn to protect the peace of ${factionName}. They watch for criminals and rebels.`;
-                        guardClass = guardSprite === 'knight_rival' ? 'sword' : 'ranged';
-                    }
-
-                    const guardNPC = new NPCController(
-                        this.scene, 
-                        spawnX, 
-                        600, 
-                        this.scene.player, 
-                        this.geminiService, 
-                        guardName, 
-                        guardPersona, 
-                        guardSprite,
-                        guardClass
-                    );
-                    this.scene.physics.add.collider(guardNPC.sprite, this.scene.platforms);
-                    this.scene.npcs.push(guardNPC);
-                    this.scene.decorGroup.add(guardNPC.nameText);
-                    this.scene.decorGroup.add(guardNPC.promptText);
-                }
-            }
-
-            // Persist the updated zone npcs/ambientNpcs configs to localStorage
-            if (window.saveData && window.saveData.zones) {
-                window.saveData.zones[this.currentZoneIndex] = JSON.parse(JSON.stringify(zoneData));
-                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                const idx = saves.findIndex(s => s.id === window.saveData.id);
-                if (idx > -1) {
-                    saves[idx] = window.saveData;
-                    localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
-                }
-            }
-        } else {
+            window.TownBuilder.buildTownDecorAndNPCs(this, zoneData); } else {
             // --- WILDERNESS DECOR PERSISTENCE (biome-aware) ---
             // Migrate: force regeneration if layout contains old/broken assets
             if (zoneData.decorLayout) {
@@ -1458,7 +836,11 @@ class WorldManager {
                     let displayName = 'Rival Adventurer';
                     if (rivalClass) {
                         const cleanClass = rivalClass.toLowerCase();
-                        if (cleanClass.includes('knight')) rivalPortrait = 'knight_rival';
+                        if (this.scene.textures.exists(cleanClass)) {
+                            rivalPortrait = cleanClass;
+                        } else if (this.scene.textures.exists(cleanClass + '_rival')) {
+                            rivalPortrait = cleanClass + '_rival';
+                        } else if (cleanClass.includes('knight')) rivalPortrait = 'knight_rival';
                         else if (cleanClass.includes('wizard')) rivalPortrait = 'wizard_rival';
                         else if (cleanClass.includes('ranger')) rivalPortrait = 'ranger_rival';
                         else if (cleanClass.includes('samurai') || cleanClass.includes('ninja')) rivalPortrait = 'samurai_rival';

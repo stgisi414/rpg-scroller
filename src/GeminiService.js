@@ -11,7 +11,7 @@ class GeminiService {
         }
         this.apiKey = key || "";
 
-        // Seed user's Chartopia API Key if not already present from local untracked config
+        // Seed user's Chartopia API Key if not already present from local untracked config or prompt
         let chartopiaKey = localStorage.getItem("chartopia_api_key");
         if (!chartopiaKey) {
             fetch('src/assets/chartopia_config.json')
@@ -20,16 +20,28 @@ class GeminiService {
                     if (data && data.chartopia_api_key) {
                         localStorage.setItem("chartopia_api_key", data.chartopia_api_key);
                         console.log("Seeded Chartopia API key from local config.");
+                    } else {
+                        this.promptChartopiaKey();
                     }
                 })
                 .catch(err => {
-                    // Fail silently if config is missing or unreadable
+                    this.promptChartopiaKey();
                 });
         }
 
         this.ai = null;
         this.model = null;
         this.isReady = false;
+    }
+
+    promptChartopiaKey() {
+        let key = localStorage.getItem("chartopia_api_key");
+        if (!key) {
+            key = window.prompt("Please enter your Chartopia API Key to enable RPG faction name and lore generation:");
+            if (key) {
+                localStorage.setItem("chartopia_api_key", key.trim());
+            }
+        }
     }
 
     cleanAndParseJson(text) {

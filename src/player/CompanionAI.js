@@ -322,9 +322,13 @@ class CompanionAI {
                 if (time - (player.lastTacticTime || 0) > 3000) {
                     player.lastTacticTime = time;
                     let optimalDist = 40; // Melee
-                    const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+                    const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
                     if (isRanged) {
-                        optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                        if (player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival') {
+                            optimalDist = 160;
+                        } else {
+                            optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                        }
                     } else if (player.classData.id && player.classData.id.startsWith('witch')) {
                         optimalDist = 65; // Account for wider body collision limits
                     } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
@@ -373,9 +377,13 @@ class CompanionAI {
                         player.currentTactic = 'IDLE';
                     } else if (player.currentTactic === 'CHASE') {
                         let optimalDist = 40; // Melee
-                        const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+                        const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
                         if (isRanged) {
-                            optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                            if (player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival') {
+                                optimalDist = 160;
+                            } else {
+                                optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                            }
                         } else if (player.classData.id && player.classData.id.startsWith('witch')) {
                             optimalDist = 65; // Account for wider body collision limits
                         } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
@@ -407,9 +415,13 @@ class CompanionAI {
             // --- END GEMINI AI ---
             
             let optimalDist = 40; // Melee
-            const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
+            const isRanged = player.classData.id === 'wizard' || player.classData.id === 'ranger' || player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival' || player.classData.id === 'elven_longbowman' || player.classData.id === 'elven_longbowman_rival' || player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival' || (player.classData.id && player.classData.id.startsWith('custom_npc_') && player.classData.weaponType === 'magic');
             if (isRanged) {
-                optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                if (player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival') {
+                    optimalDist = 160;
+                } else {
+                    optimalDist = (player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') ? 100 : 150;
+                }
             } else if (player.classData.id && player.classData.id.startsWith('witch')) {
                 optimalDist = 65; // Account for wider body collision limits
             } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
@@ -596,6 +608,18 @@ class CompanionAI {
                         }
                     }
                     if (shouldHeal && player.mp >= 4 && Math.random() < 0.25 * spellRateMult) {
+                        player.aiInput.superSpell = true;
+                        usedSpell = true;
+                    }
+                } else if (player.classData.id === 'dark_elf_queen' || player.classData.id === 'dark_elf_queen_rival') {
+                    const hasSummonActive = player.scene.enemies && player.scene.enemies.getChildren().some(e => e.active && e.controller && e.controller.type === 'dark_elf_minion');
+                    if (player.mp >= 40 && !hasSummonActive && Math.random() < 0.15 * spellRateMult) {
+                        player.aiInput.summonSpell = true;
+                        usedSpell = true;
+                    } else if (player.mp >= 30 && Math.random() < 0.20 * spellRateMult) {
+                        player.aiInput.megaSpell = true;
+                        usedSpell = true;
+                    } else if (player.mp >= 15 && Math.random() < 0.25 * spellRateMult) {
                         player.aiInput.superSpell = true;
                         usedSpell = true;
                     }

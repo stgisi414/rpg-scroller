@@ -1,5 +1,6 @@
 node_modules/
 .env
+config.json
 src/assets/
 
 # Capture, temp, and scratch directories

@@ -399,6 +399,9 @@
                 <button id="btn-menu-help" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
                     Help & Guide
                 </button>
+                <button id="btn-menu-settings" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+                    Settings
+                </button>
                 <button class="menu-item font-body-lg text-[18px] text-on-surface-variant uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none hover:text-error transition-colors">
                     Quit
                 </button>
@@ -918,19 +921,27 @@
     <script src="src/data/NewItemsData.js"></script>
     <script src="src/player/ShopManager.js"></script>
     <script src="src/player/CombatController.js"></script>
+    <script src="src/player/SpellController.js"></script>
+    <script src="src/player/StatusEffectManager.js"></script>
     <script src="src/player/CompanionAI.js?v=20260625d"></script>
     <script src="src/player/QuestAlignmentManager.js"></script>
     <script src="src/player/ChatManager.js"></script>
     <script src="src/GeminiService.js?v=20260625d"></script>
     <script src="src/scene_modules/ModularAssetLists.js"></script>
     <script src="src/PlayerController.js?v=20260625e"></script>
+    <script src="src/enemy/EnemyBehaviors.js"></script>
+    <script src="src/enemy/EnemyActions.js"></script>
     <script src="src/EnemyController.js?v=20260625d"></script>
     <script src="src/RescueeNPCFactory.js?v=20260625"></script>
     <script src="src/RescueeNPC.js"></script>
+    <script src="src/npc/NPCCampaignHelper.js"></script>
     <script src="src/NPCController.js"></script>
     <script src="src/data/WorldFactions.js"></script>
+    <script src="src/world/ZoneGenerator.js"></script>
+    <script src="src/world/TownBuilder.js"></script>
     <script src="src/WorldManager.js?v=20260625"></script>
     <script src="src/scenes/TitleScene.js"></script>
+    <script src="src/scene_modules/HUDCharacterSheet.js?v=20260625e"></script>
     <script src="src/scene_modules/HUDManager.js?v=20260625d"></script>
     <script src="src/scene_modules/SpriteDebugger.js"></script>
     <script src="src/scene_modules/CutsceneController.js"></script>
@@ -942,7 +953,11 @@
     <script src="src/scene_modules/CharacterComposer.js?v=20260625"></script>
     <script src="src/scenes/EnemyAnimationLoader.js"></script>
     <script src="src/scenes/FighterScene.js"></script>
+    <script src="src/data/AIClassPresets.js?v=20260625e"></script>
     <script src="src/scenes/GameScene.js?v=20260625e"></script>
+    <script src="src/data/ClassesData.js"></script>
+    <script src="src/world/CharacterCreationManager.js"></script>
+    <script src="src/scenes/FighterSuiteManager.js"></script>
     <script src="src/main.js?v=20260625d"></script>
     <script>
     setInterval(function() {
@@ -2116,6 +2131,42 @@
       <div id="lore-bible-content" style="display:flex; flex-direction:column; gap:20px; max-height:60vh; overflow-y:auto; padding-right:8px; border:1px solid #222; background:#111; border-radius:6px; padding:12px;">
         <!-- JavaScript will populate this dynamically -->
       </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="ui-menu-settings" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; box-sizing:border-box; font-family:'Space Grotesk', sans-serif;">
+  <div style="background:rgba(13, 13, 15, 0.95); border:2px solid #2ddbde; border-radius:12px; padding:28px; width:500px; max-width:95vw; box-shadow:0 0 50px rgba(45,219,222,0.25); position:relative; box-sizing:border-box; color:#fff; display:flex; flex-direction:column; gap:20px;">
+    
+    <!-- Close button -->
+    <button id="btn-close-menu-settings" style="position:absolute; top:20px; right:20px; background:transparent; border:none; color:#aaa; font-size:16px; font-weight:bold; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#ff4444'" onmouseout="this.style.color='#aaa'">✕ CLOSE</button>
+    
+    <div style="text-align:center;">
+      <h2 style="color:#2ddbde; margin:0; font-size:24px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 10px rgba(45,219,222,0.4);">⚙️ API Configurations</h2>
+      <p style="color:#888; font-size:11px; margin:4px 0 0; text-transform:uppercase; letter-spacing:1px;">Configure AI and lore generation keys</p>
+    </div>
+
+    <!-- Inputs -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Gemini API Key</label>
+        <input type="password" id="input-setting-gemini" placeholder="AI storyteller key (AI-xxxx...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
+        <span style="color:#666; font-size:10px;">Used for dynamic AI dialog, game mastering, and procedural story updates.</span>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Chartopia API Key</label>
+        <input type="password" id="input-setting-chartopia" placeholder="Faction & lore generator key (0xsv...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
+        <span style="color:#666; font-size:10px;">Used for generating rich faction histories, custom town layouts, and kingdom lore.</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button id="btn-save-settings" style="flex:2; background:#2ddbde; border:none; border-radius:6px; color:#0d0d0f; padding:12px 0; font-family:inherit; font-size:14px; font-weight:bold; text-transform:uppercase; cursor:pointer; box-shadow:0 0 15px rgba(45,219,222,0.3); transition:transform 0.1s, opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1.0'" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">Save Settings</button>
+      <button id="btn-reset-settings" style="flex:1; background:transparent; border:1px solid #ff4444; border-radius:6px; color:#ff4444; padding:12px 0; font-family:inherit; font-size:14px; font-weight:bold; text-transform:uppercase; cursor:pointer; transition:background 0.2s, color 0.2s;" onmouseover="this.style.background='#ff4444'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='#ff4444';">Clear Keys</button>
     </div>
 
   </div>

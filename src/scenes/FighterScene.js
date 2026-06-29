@@ -665,8 +665,8 @@ class FighterScene extends Phaser.Scene {
         player.aiTargetDx = oppX - selfX;
         
         // Choose behavior based on class range
-        const isRanged = ['wizard', 'ranger'].includes(player.classId);
-        let targetRange = isRanged ? 280 : 50;
+        const isRanged = ['wizard', 'ranger', 'dark_elf_queen', 'dark_elf_queen_rival'].includes(player.classId);
+        let targetRange = isRanged ? 240 : 50;
         if (player.classId && player.classId.includes('dark_elf_guard')) {
             targetRange = 150;
         }

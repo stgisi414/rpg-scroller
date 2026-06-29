@@ -347,10 +347,15 @@ class EnemyAnimationLoader {
                 const isMimic = hKey.startsWith('mimic');
                 const idleEnd = isMimic ? 0 : 5;
                 
+                let attackEnd = 29;
+                if (hKey.startsWith('stone_golem') || hKey.startsWith('lava_golem')) {
+                    attackEnd = 28; // only 5 frames for Stone and Lava Golem attacks to prevent blinking
+                }
+                
                 scene.anims.create({ key: `${hKey}-idle`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 0, end: idleEnd }),   frameRate: isMimic ? 1 : 8, repeat: -1 });
                 scene.anims.create({ key: `${hKey}-move`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 12, end: 17 }),  frameRate: 10, repeat: -1 });
-                scene.anims.create({ key: `${hKey}-attack`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }), frameRate: 12, repeat: 0 });
-                scene.anims.create({ key: `${hKey}-attack2`, frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }), frameRate: 12, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-attack`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: attackEnd }), frameRate: 12, repeat: 0 });
+                scene.anims.create({ key: `${hKey}-attack2`, frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: attackEnd }), frameRate: 12, repeat: 0 });
                 scene.anims.create({ key: `${hKey}-hit`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 36, end: 39 }), frameRate: 10, repeat: 0 });
                 scene.anims.create({ key: `${hKey}-die`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 48, end: 53 }), frameRate: 10, repeat: 0 });
             }
@@ -363,8 +368,8 @@ class EnemyAnimationLoader {
                 scene.anims.create({ key: `${hKey}-idle`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 0, end: 5 }),    frameRate: 8, repeat: -1 });
                 scene.anims.create({ key: `${hKey}-move`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 12, end: 17 }),  frameRate: 10, repeat: -1 });
                 scene.anims.create({ key: `${hKey}-attack`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 24, end: 29 }),  frameRate: 12, repeat: 0 }); // Blade 1
-                scene.anims.create({ key: `${hKey}-attack2`, frames: scene.anims.generateFrameNumbers(hKey, { start: 36, end: 41 }),  frameRate: 12, repeat: 0 }); // Blade 2
-                scene.anims.create({ key: `${hKey}-attack3`, frames: scene.anims.generateFrameNumbers(hKey, { start: 48, end: 53 }),  frameRate: 12, repeat: 0 }); // Blade 3
+                scene.anims.create({ key: `${hKey}-attack2`, frames: scene.anims.generateFrameNumbers(hKey, { start: 36, end: 39 }),  frameRate: 12, repeat: 0 }); // Blade 2
+                scene.anims.create({ key: `${hKey}-attack3`, frames: scene.anims.generateFrameNumbers(hKey, { start: 48, end: 51 }),  frameRate: 12, repeat: 0 }); // Blade 3
                 scene.anims.create({ key: `${hKey}-dash`,    frames: scene.anims.generateFrameNumbers(hKey, { start: 60, end: 65 }),  frameRate: 12, repeat: 0 }); // Step Back
                 scene.anims.create({ key: `${hKey}-summon`,  frames: scene.anims.generateFrameNumbers(hKey, { start: 72, end: 81 }),  frameRate: 10, repeat: 0 }); // Summoning
                 scene.anims.create({ key: `${hKey}-hit`,     frames: scene.anims.generateFrameNumbers(hKey, { start: 84, end: 87 }),  frameRate: 10, repeat: 0 }); // Hurt

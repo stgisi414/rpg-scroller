@@ -22,9 +22,9 @@ class ArenaManager {
 
         // Determine enemy composition based on wave
         // Start easy, get progressively harder
-        let enemyTypes = ['slime', 'bat', 'mushroom', 'goblin'];
-        let bossTypes = ['orc', 'bandit', 'skeleton', 'mummy'];
-        let epicBosses = ['spider', 'frost_giant', 'lich_lord', 'the_devil'];
+        let enemyTypes = ['slime', 'bat', 'mushroom', 'goblin', 'dark_elf_guard', 'dark_elf_longbowman', 'mimic_1', 'gorgon_1'];
+        let bossTypes = ['orc', 'bandit', 'skeleton', 'mummy', 'dark_elf_spellblade', 'mimic_2', 'mimic_3', 'gorgon_2', 'gorgon_3', 'stone_golem', 'copper_golem'];
+        let epicBosses = ['spider', 'frost_giant', 'lich_lord', 'the_devil', 'dark_elf_queen', 'lava_golem'];
 
         let numEnemies = Math.min(3 + Math.floor(this.currentWave / 2), 25); // Scale up to 25 enemies
         let hpMultiplier = Math.pow(1.15, this.currentWave - 1);

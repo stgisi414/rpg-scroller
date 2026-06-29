@@ -1,66 +1,5 @@
 // PlayerController.js - Base class for the player character
 
-window.ARTIFACTS_DATA = {
-    'artifact-strength': { key: 'artifact-strength', name: 'Ring of Strength', desc: '+20% Damage', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon1.png', type: 'artifact', statBoosts: { damageMultiplier: 1.2 } },
-    'artifact-vitality': { key: 'artifact-vitality', name: 'Amulet of Vitality', desc: '+50 Max HP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon2.png', type: 'artifact', statBoosts: { maxHp: 50 } },
-    'artifact-swiftness': { key: 'artifact-swiftness', name: 'Boots of Swiftness', desc: '+20% Speed', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon3.png', type: 'artifact', statBoosts: { speedMultiplier: 1.2 } },
-    'artifact-magic': { key: 'artifact-magic', name: 'Crystal of Magic', desc: '+50 Max MP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon4.png', type: 'artifact', statBoosts: { maxMp: 50 } },
-    'artifact-vampire': { key: 'artifact-vampire', name: 'Vampiric Fang', desc: '5% Lifesteal', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon5.png', type: 'artifact', statBoosts: { lifesteal: 0.05 } },
-    'artifact-shield': { key: 'artifact-shield', name: 'Shielding Charm', desc: '10% Damage Reduction', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon6.png', type: 'artifact', statBoosts: { damageReduction: 0.10 } },
-    'artifact-antidote': { key: 'artifact-antidote', name: 'Antidote Vial', desc: 'Immunity to Poison', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon7.png', type: 'artifact', immunities: ['poison'] },
-    'artifact-frostward': { key: 'artifact-frostward', name: 'Frost Ward', desc: 'Immunity to Freeze', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon8.png', type: 'artifact', immunities: ['freeze'] },
-    'artifact-fireopal': { key: 'artifact-fireopal', name: 'Fire Opal', desc: 'Immunity to Burn', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon9.png', type: 'artifact', immunities: ['burn'] },
-    'artifact-holy': { key: 'artifact-holy', name: 'Holy Symbol', desc: '+30% Dmg/Spd (Align > 50)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon10.png', type: 'artifact', alignmentReq: { min: 51, max: 100 }, statBoosts: { damageMultiplier: 1.3, speedMultiplier: 1.3 } },
-    'artifact-demonic': { key: 'artifact-demonic', name: 'Demonic Sigil', desc: '+50% Dmg, 10% Lifesteal (Align < -50)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon11.png', type: 'artifact', alignmentReq: { min: -100, max: -51 }, statBoosts: { damageMultiplier: 1.5, lifesteal: 0.10 } },
-    'artifact-scales': { key: 'artifact-scales', name: 'Scales of Balance', desc: '+20% All Stats (Align -20 to 20)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon12.png', type: 'artifact', alignmentReq: { min: -20, max: 20 }, statBoosts: { damageMultiplier: 1.2, speedMultiplier: 1.2, maxHp: 20, maxMp: 20 } },
-    'artifact-teleporter': { key: 'artifact-teleporter', name: 'Town Portal Stone', desc: 'Teleport to town at <15% HP', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon13.png', type: 'artifact', special: 'auto-teleport' },
-    'artifact-commander': { key: 'artifact-commander', name: 'Commander\'s Horn', desc: 'Party gets +50% Stats', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon14.png', type: 'artifact', special: 'party-boost' },
-    'artifact-autopot': { key: 'artifact-autopot', name: 'Elixir of Last Resort', desc: 'Auto-uses HP potion at <30% HP (3s CD)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon15.png', type: 'artifact', special: 'auto-potion' },
-    'artifact-wooden-buckler': { key: 'artifact-wooden-buckler', name: 'Wooden Buckler', desc: '5% Damage Reduction', iconSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_01.png', type: 'artifact', statBoosts: { damageReduction: 0.05 } },
-    'artifact-iron-shield': { key: 'artifact-iron-shield', name: 'Iron Kite Shield', desc: '12% Damage Reduction', iconSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_02.png', type: 'artifact', statBoosts: { damageReduction: 0.12 } },
-    'artifact-crystal-aegis': { key: 'artifact-crystal-aegis', name: 'Crystal Aegis', desc: '20% Damage Reduction, +30 Max HP', iconSrc: 'src/assets/PixelArt_FantasyWeapons_01/PixelArt_FantasyWeapons_01/Shields/PixelArt_FantasyWeapons_01_Shield_03.png', type: 'artifact', statBoosts: { damageReduction: 0.20, maxHp: 30 } },
-    'artifact-invisibility': { key: 'artifact-invisibility', name: 'Cloak of Shadows', desc: 'Invisible to enemies (breaks on attack)', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon16.png', type: 'artifact', special: 'invisibility' },
-    
-    // 25 New Artifacts
-    'artifact-evasion-ring': { key: 'artifact-evasion-ring', name: 'Ring of Evasion', desc: '+15% Evasion', iconSrc: 'src/assets/items/artifact-evasion-ring.png', type: 'artifact', statBoosts: { evasion: 0.15 } },
-    'artifact-wisdom-amulet': { key: 'artifact-wisdom-amulet', name: 'Amulet of Wisdom', desc: '+25 Max MP, +10% Spell Rate', iconSrc: 'src/assets/items/artifact-wisdom-amulet.png', type: 'artifact', statBoosts: { maxMp: 25 } },
-    'artifact-gold-horseshoe': { key: 'artifact-gold-horseshoe', name: 'Golden Horseshoe', desc: '+15% Move Speed, +10 Luck', iconSrc: 'src/assets/items/artifact-gold-horseshoe.png', type: 'artifact', statBoosts: { speedMultiplier: 1.15, luck: 10 } },
-    'artifact-phoenix-feather': { key: 'artifact-phoenix-feather', name: 'Phoenix Feather', desc: 'Revive once per zone with 30% HP', iconSrc: 'src/assets/items/artifact-phoenix-feather.png', type: 'artifact', special: 'phoenix-revive' },
-    'artifact-frozen-rune': { key: 'artifact-frozen-rune', name: 'Frozen Rune', desc: 'Immunity to Freeze, +5% Armor', iconSrc: 'src/assets/items/artifact-frozen-rune.png', type: 'artifact', immunities: ['freeze'], statBoosts: { damageReduction: 0.05 } },
-    'artifact-dawn-aegis': { key: 'artifact-dawn-aegis', name: 'Aegis of the Dawn', desc: '+25% DR, +50 Max HP', iconSrc: 'src/assets/items/artifact-dawn-aegis.png', type: 'artifact', statBoosts: { damageReduction: 0.25, maxHp: 50 } },
-    'artifact-shadow-cloak': { key: 'artifact-shadow-cloak', name: 'Cloak of Shadows', desc: 'Invisibility (breaks on attack)', iconSrc: 'src/assets/items/artifact-shadow-cloak.png', type: 'artifact', special: 'invisibility' },
-    'artifact-vamp-teeth': { key: 'artifact-vamp-teeth', name: 'Bloodlord Fangs', desc: '+8% Lifesteal', iconSrc: 'src/assets/items/artifact-vamp-teeth.png', type: 'artifact', statBoosts: { lifesteal: 0.08 } },
-    'artifact-poison-cask': { key: 'artifact-poison-cask', name: 'Plague Ring', desc: 'Poison immunity, attacks poison enemies', iconSrc: 'src/assets/items/artifact-poison-cask.png', type: 'artifact', immunities: ['poison'], special: 'poison-attacks' },
-    'artifact-fire-shard': { key: 'artifact-fire-shard', name: 'Fire Shard', desc: 'Burn immunity, extra fire damage', iconSrc: 'src/assets/items/artifact-fire-shard.png', type: 'artifact', immunities: ['burn'] },
-    'artifact-iron-gauntlet': { key: 'artifact-iron-gauntlet', name: 'Ironclad Gauntlets', desc: '+15% Attack Speed, +5% Armor', iconSrc: 'src/assets/items/artifact-iron-gauntlet.png', type: 'artifact', statBoosts: { damageReduction: 0.05 } },
-    'artifact-lucky-coin': { key: 'artifact-lucky-coin', name: 'Coin of Fortune', desc: '+25% Gold gains, +20 Luck', iconSrc: 'src/assets/items/artifact-lucky-coin.png', type: 'artifact', statBoosts: { luck: 20 }, special: 'lucky-coin' },
-    'artifact-clover': { key: 'artifact-clover', name: 'Four-Leaf Clover', desc: '+30 Luck, +10% Crit Chance', iconSrc: 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon17.png', type: 'artifact', statBoosts: { luck: 30, crit_chance: 0.10 } },
-    'artifact-berserk-horn': { key: 'artifact-berserk-horn', name: 'Horn of Berserk', desc: '+30% Damage below 40% HP', iconSrc: 'src/assets/items/artifact-berserk-horn.png', type: 'artifact', special: 'berserk-horn' },
-    'artifact-spirit-stone': { key: 'artifact-spirit-stone', name: 'Spirit Anchor', desc: '+5 SP regen/sec', iconSrc: 'src/assets/items/artifact-spirit-stone.png', type: 'artifact', special: 'spirit-anchor' },
-    'artifact-titan-girdle': { key: 'artifact-titan-girdle', name: 'Girdle of Titan', desc: '+60 Max HP, +10% Damage', iconSrc: 'src/assets/items/artifact-titan-girdle.png', type: 'artifact', statBoosts: { maxHp: 60, damageMultiplier: 1.10 } },
-    'artifact-angelic-halo': { key: 'artifact-angelic-halo', name: 'Angelic Halo', desc: '+30% Max HP, +20% Potion healing', iconSrc: 'src/assets/items/artifact-angelic-halo.png', type: 'artifact', statBoosts: { maxHp: 30 }, special: 'angelic-halo' },
-    'artifact-cursed-skull': { key: 'artifact-cursed-skull', name: 'Cursed Skull', desc: '+40% Damage, but take +15% Damage', iconSrc: 'src/assets/items/artifact-cursed-skull.png', type: 'artifact', statBoosts: { damageMultiplier: 1.40, damageReduction: -0.15 } },
-    'artifact-mirror-shield': { key: 'artifact-mirror-shield', name: 'Mirror Shield', desc: 'Reflect 15% taken damage to attacker', iconSrc: 'src/assets/items/artifact-mirror-shield.png', type: 'artifact', statBoosts: { reflectDamage: 0.15 } },
-    'artifact-gale-boots': { key: 'artifact-gale-boots', name: 'Boots of the Gale', desc: '+15% Dash freq, +10% Speed', iconSrc: 'src/assets/items/artifact-gale-boots.png', type: 'artifact', statBoosts: { speedMultiplier: 1.10 } },
-    'artifact-spiked-collar': { key: 'artifact-spiked-collar', name: 'Spiked Collar', desc: 'Companions get +15% Damage', iconSrc: 'src/assets/items/artifact-spiked-collar.png', type: 'artifact', special: 'spiked-collar' },
-    'artifact-chrono-glass': { key: 'artifact-chrono-glass', name: 'Hourglass of Time', desc: 'Spells cooldown 20% faster', iconSrc: 'src/assets/items/artifact-chrono-glass.png', type: 'artifact', special: 'chrono-glass' },
-    'artifact-heart-pendant': { key: 'artifact-heart-pendant', name: 'Pendant of Life', desc: '+3 HP regen/sec', iconSrc: 'src/assets/items/artifact-heart-pendant.png', type: 'artifact', special: 'heart-pendant' },
-    'artifact-sages-tome': { key: 'artifact-sages-tome', name: 'Sage\'s Secret Tome', desc: '+20% Spell Damage, +30 Max MP', iconSrc: 'src/assets/items/artifact-sages-tome.png', type: 'artifact', statBoosts: { maxMp: 30, damageMultiplier: 1.20 } },
-    'artifact-merchant-purse': { key: 'artifact-merchant-purse', name: 'Merchant\'s Ledger', desc: '15% discount in all shops', iconSrc: 'src/assets/items/artifact-merchant-purse.png', type: 'artifact', special: 'merchant-discount' },
-    'artifact-dragon-scale': { key: 'artifact-dragon-scale', name: 'Scale of the Dragon', desc: '+25% Fire resist, +15% Armor', iconSrc: 'src/assets/items/artifact-dragon-scale.png', type: 'artifact', immunities: ['burn'], statBoosts: { damageReduction: 0.15 } },
-    
-    // Subclass Artifacts
-    'artifact-witch-eye-pendant': { key: 'artifact-witch-eye-pendant', name: 'Eye of the Coven', desc: '+25% Damage', iconSrc: 'src/assets/items/artifact-witch-eye-pendant.png', type: 'artifact', statBoosts: { damageMultiplier: 1.25 } },
-    'artifact-voodoo-fetish': { key: 'artifact-voodoo-fetish', name: 'Voodoo Fetish', desc: '+15% Damage Reduction', iconSrc: 'src/assets/items/artifact-voodoo-fetish.png', type: 'artifact', statBoosts: { damageReduction: 0.15 } },
-    'artifact-holy-halo-crown': { key: 'artifact-holy-halo-crown', name: 'Halo Crown', desc: '+40 Max HP, +40 Max MP', iconSrc: 'src/assets/items/artifact-holy-halo-crown.png', type: 'artifact', statBoosts: { maxHp: 40, maxMp: 40 } },
-    'artifact-divine-rosary': { key: 'artifact-divine-rosary', name: 'Divine Rosary', desc: '+10% DR, +20 Max HP', iconSrc: 'src/assets/items/artifact-divine-rosary.png', type: 'artifact', statBoosts: { damageReduction: 0.10, maxHp: 20 } },
-    'artifact-phoenix-egg': { key: 'artifact-phoenix-egg', name: 'Phoenix Egg', desc: '+30% Damage', iconSrc: 'src/assets/items/artifact-phoenix-egg.png', type: 'artifact', statBoosts: { damageMultiplier: 1.30 } },
-    'artifact-infernal-core': { key: 'artifact-infernal-core', name: 'Infernal Core', desc: '+20% Damage, +30 Max HP', iconSrc: 'src/assets/items/artifact-infernal-core.png', type: 'artifact', statBoosts: { damageMultiplier: 1.20, maxHp: 30 } },
-    'artifact-sylvan-crest': { key: 'artifact-sylvan-crest', name: 'Sylvan Crest', desc: '+25% Move Speed', iconSrc: 'src/assets/items/artifact-sylvan-crest.png', type: 'artifact', statBoosts: { speedMultiplier: 1.25 } },
-    'artifact-elven-wind-feather': { key: 'artifact-elven-wind-feather', name: 'Elven Wind Feather', desc: '+15% Speed, +15% Damage', iconSrc: 'src/assets/items/artifact-elven-wind-feather.png', type: 'artifact', statBoosts: { speedMultiplier: 1.15, damageMultiplier: 1.15 } },
-    'artifact-kings-seal': { key: 'artifact-kings-seal', name: 'Royal King Seal', desc: '+50 Max HP, +15% Damage', iconSrc: 'src/assets/items/artifact-kings-seal.png', type: 'artifact', statBoosts: { maxHp: 50, damageMultiplier: 1.15 } },
-    'artifact-queens-diadem': { key: 'artifact-queens-diadem', name: 'Empress Diadem', desc: '+15% DR, +30 Max HP', iconSrc: 'src/assets/items/artifact-queens-diadem.png', type: 'artifact', statBoosts: { damageReduction: 0.15, maxHp: 30 } }
-};
 class PlayerController {
     constructor(scene, x, y, inputManager, options = {}) {
         this.scene = scene;
@@ -178,9 +117,13 @@ class PlayerController {
 
                 // Attack row 14 = first combat row
                 const attackRow = classData.attackRow !== undefined ? classData.attackRow : Math.min(14, Math.floor(tex.height / classData.frameHeight) - 1);
+                let attackEndOffset = Math.min(5, cols - 1);
+                if (animPrefix.startsWith('stone_golem') || animPrefix.startsWith('lava_golem')) {
+                    attackEndOffset = 4; // Only 5 frames (columns 0 to 4) to prevent blinking
+                }
                 this.scene.anims.create({ key: animPrefix + '_attack',
                     frames: this.scene.anims.generateFrameNumbers(texKey,
-                        safeFrames(af.attack || { start: attackRow * cols, end: attackRow * cols + Math.min(5, cols - 1) })),
+                        safeFrames(af.attack || { start: attackRow * cols, end: attackRow * cols + attackEndOffset })),
                     frameRate: 16, repeat: 0 });
 
                 // Attack2 animation (alternating attacks)
@@ -250,6 +193,7 @@ class PlayerController {
                     { from: '-move', to: '_walk' },
                     { from: '-attack', to: '_attack' },
                     { from: '-attack2', to: '_combo' },
+                    { from: '-attack3', to: '_mega' },
                     { from: '-hit', to: '_hit' },
                     { from: '-die', to: '_die' }
                 ];
@@ -258,12 +202,14 @@ class PlayerController {
                     const tKey = baseKey + pair.to;
                     if (this.scene.anims.exists(fKey) && !this.scene.anims.exists(tKey)) {
                         const anim = this.scene.anims.get(fKey);
-                        this.scene.anims.create({
-                            key: tKey,
-                            frames: anim.frames,
-                            frameRate: anim.frameRate,
-                            repeat: anim.repeat
-                        });
+                        if (anim && anim.frames) {
+                            this.scene.anims.create({
+                                key: tKey,
+                                frames: anim.frames.map(f => ({ key: f.textureKey || baseKey, frame: f.textureFrame })),
+                                frameRate: anim.frameRate,
+                                repeat: anim.repeat
+                            });
+                        }
                     }
                 });
             }
@@ -519,323 +465,7 @@ class PlayerController {
     }
 
     _getAIClassData(classId, weaponType = 'sword') {
-        if (classId && classId.startsWith('custom_npc_')) {
-            // Stats configuration based on weaponType
-            let stats = { vit: 12, str: 12, dex: 12, int: 12 };
-            if (weaponType === 'magic') {
-                stats = { vit: 10, str: 8, dex: 11, int: 15 };
-            } else if (weaponType === 'axe' || weaponType === 'pickaxe') {
-                stats = { vit: 14, str: 15, dex: 8, int: 6 };
-            } else if (weaponType === 'hoe') {
-                stats = { vit: 13, str: 11, dex: 10, int: 8 };
-            } else { // sword / default
-                stats = { vit: 12, str: 13, dex: 12, int: 8 };
-            }
-            
-            // Auto-scale AI stats based on player's level
-            const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
-            stats.vit += (playerLvl - 1) * 2;
-            stats.str += (playerLvl - 1) * 2;
-            stats.dex += (playerLvl - 1) * 1;
-            stats.int += (playerLvl - 1) * (weaponType === 'magic' ? 2 : 0);
-
-            return {
-                id: classId,
-                stats: stats,
-                isSheet: true,
-                frameWidth: 100,
-                frameHeight: 64,
-                flipX: true,
-                idleRow: 0,
-                idleFrames: 4,
-                walkRow: 1,
-                attackRow: 5,
-                jumpRow: 3,
-                fallRow: 3,
-                duckRow: 1,
-                dashRow: 1,
-                spriteScale: 1.5,
-                weaponType: weaponType,
-                attackDuration: 400
-            };
-        }
-
-        if (classId === 'knight_rival' || classId === 'megaboss_rival' || classId === 'heavy_knight') {
-            let stats;
-            let spriteScale;
-            if (classId === 'megaboss_rival') {
-                stats = { vit: 150, str: 50, dex: 20, int: 20 };
-                spriteScale = 2.2;
-            } else if (classId === 'knight_rival') {
-                stats = { vit: 30, str: 25, dex: 15, int: 8 };
-                spriteScale = 1.5;
-            } else { // heavy_knight
-                stats = { vit: 15, str: 14, dex: 9, int: 8 };
-                spriteScale = 1.5;
-            }
-            return {
-                id: classId,
-                stats: stats,
-                isSheet: true,
-                frameWidth: 91,
-                frameHeight: 64,
-                flipX: true,
-                idleRow: 0,
-                idleFrames: 5,
-                walkRow: 1,
-                attackRow: 2,
-                jumpRow: 1,
-                fallRow: 1,
-                dashRow: 1,
-                spriteScale: spriteScale,
-                animFrames: {
-                    hit: { start: 30, end: 34 },
-                    die: { start: 50, end: 54 },
-                    duck: { start: 25, end: 29 }
-                }
-            };
-        }
-
-        const pixelLabMonsters = [
-            'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub',
-            'male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'imp', 'old_demon'
-        ];
-        if (pixelLabMonsters.includes(classId)) {
-            let scale = 1.5;
-            if (classId === 'heavenly_cherub') scale = 0.6;
-            else if (classId === 'heavenly_seraph') scale = 1.0;
-            else if (classId === 'heavenly_valkyrie') scale = 1.0;
-            else if (classId === 'heavenly_archangel') scale = 1.2;
-            else if (classId === 'old_demon') scale = 1.8 * 1.5;
-            else scale = 1.8 * 1.5;
-            
-            const fw = (classId === 'old_demon') ? 80 : (classId.startsWith('heavenly_') ? 128 : 64);
-            const fh = (classId.startsWith('heavenly_') ? 128 : 64);
-            
-            const monsterStats = {
-                heavenly_archangel: { vit: 30, str: 20, dex: 15, int: 15 },
-                heavenly_valkyrie: { vit: 25, str: 18, dex: 16, int: 10 },
-                heavenly_seraph: { vit: 20, str: 15, dex: 18, int: 18 },
-                heavenly_cherub: { vit: 12, str: 8, dex: 12, int: 12 },
-                male_damned: { vit: 15, str: 14, dex: 10, int: 5 },
-                female_damned: { vit: 14, str: 12, dex: 12, int: 8 },
-                twisted_damned: { vit: 18, str: 16, dex: 8, int: 6 },
-                burning_damned: { vit: 16, str: 15, dex: 10, int: 10 },
-                imp: { vit: 10, str: 10, dex: 14, int: 12 },
-                old_demon: { vit: 22, str: 18, dex: 12, int: 10 }
-            };
-            const mStats = monsterStats[classId] || { vit: 15, str: 12, dex: 12, int: 10 };
-            
-            return {
-                id: classId,
-                stats: mStats,
-                isSheet: true,
-                frameWidth: fw,
-                frameHeight: fh,
-                spriteScale: scale,
-                animFrames: {
-                    idle: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
-                    walk: { start: 9, end: 17 },
-                    attack: { start: 18, end: 26 },
-                    combo: { start: 27, end: 35 },
-                    hit: { start: 36, end: 40 },
-                    die: { start: 41, end: 49 },
-                    jump: { start: 9, end: 17 },
-                    fall: { start: 9, end: 17 },
-                    duck: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
-                    dash: { start: 9, end: 17 }
-                }
-            };
-        }
-
-        if (classId === 'pack_mule' || classId === 'mule_cart') {
-            const isCart = classId === 'mule_cart';
-            return {
-                id: classId,
-                stats: { vit: isCart ? 25 : 15, str: 0, dex: 0, int: 0 },
-                isSheet: true,
-                frameWidth: isCart ? 96 : 120,
-                frameHeight: 120,
-                spriteScale: 1.5,
-                flipX: false,
-                idleRow: 0,
-                idleFrames: 6,
-                walkRow: 1,
-                attackRow: 1,
-                jumpRow: 1,
-                fallRow: 1,
-                duckRow: 0,
-                dashRow: 1,
-                animFrames: {
-                    idle: { start: 0, end: 5 },
-                    walk: { start: 6, end: 11 },
-                    hit: { start: 12, end: 17 },
-                    die: { start: 18, end: 23 }
-                }
-            };
-        }
-
-        const originalClassId = classId;
-        // Strip _rival suffix if present
-        const baseClassId = classId.replace('_rival', '');
-        classId = baseClassId;
-
-        // If the class is defined in global classesData, use it dynamically!
-        let baseClass = null;
-        if (window.classesData) {
-            if (window.classesData[originalClassId]) {
-                baseClass = window.classesData[originalClassId];
-            } else if (window.classesData[baseClassId]) {
-                baseClass = window.classesData[baseClassId];
-            }
-        }
-        if (baseClass) {
-            
-            // Auto-scale AI stats based on player's level
-            const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
-            const growthTable = {
-                knight:   { vit: 2, str: 2, dex: 1, int: 0 },
-                wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
-                samurai: { vit: 1, str: 1, dex: 3, int: 0 },
-                ranger:   { vit: 1, str: 1, dex: 2, int: 1 },
-                elven_spellblade: { vit: 1, str: 2, dex: 1, int: 2 },
-                elven_longbowman: { vit: 1, str: 1, dex: 2, int: 1 },
-                dwarf_warrior: { vit: 2, str: 2, dex: 1, int: 0 }
-            };
-            const growth = growthTable[baseClassId] || { vit: 1, str: 1, dex: 1, int: 1 };
-            
-            const stats = {
-                vit: (baseClass.stats?.vit || 12) + (growth.vit * (playerLvl - 1)),
-                str: (baseClass.stats?.str || 12) + (growth.str * (playerLvl - 1)),
-                dex: (baseClass.stats?.dex || 12) + (growth.dex * (playerLvl - 1)),
-                int: (baseClass.stats?.int || 12) + (growth.int * (playerLvl - 1))
-            };
-            
-            return {
-                id: originalClassId,
-                stats: stats,
-                isSheet: true,
-                frameWidth: baseClass.frameWidth || 64,
-                frameHeight: baseClass.frameHeight || 64,
-                spriteScale: baseClass.spriteScale || 1.5,
-                flipX: baseClass.flipX,
-                idleFrames: baseClass.idleFrames || 5,
-                idleRow: baseClass.idleRow !== undefined ? baseClass.idleRow : 0,
-                walkRow: baseClass.walkRow !== undefined ? baseClass.walkRow : 1,
-                attackRow: baseClass.attackRow !== undefined ? baseClass.attackRow : 2,
-                jumpRow: baseClass.jumpRow !== undefined ? baseClass.jumpRow : 3,
-                fallRow: baseClass.fallRow !== undefined ? baseClass.fallRow : 3,
-                duckRow: baseClass.duckRow !== undefined ? baseClass.duckRow : 1,
-                dashRow: baseClass.dashRow,
-                animFrames: baseClass.animFrames || {},
-                attack2Frames: baseClass.attack2Frames,
-                sheetCols: baseClass.sheetCols,
-                attackDuration: baseClass.attackDuration,
-                comboStartFrame: baseClass.comboStartFrame,
-                comboEndFrame: baseClass.comboEndFrame,
-                bodyWidth: baseClass.bodyWidth,
-                bodyHeight: baseClass.bodyHeight,
-                bodyOffsetX: baseClass.bodyOffsetX,
-                bodyOffsetY: baseClass.bodyOffsetY
-            };
-        }
-
-        // AI base metadata matching main.js to fix animation rows, sprite sizes, and flip
-        const classStats = {
-            knight:   { vit: 15, str: 14, dex: 9,  int: 8  },
-            wizard:   { vit: 8,  str: 6,  dex: 10, int: 18 },
-            samurai: { vit: 10, str: 10, dex: 16, int: 10 },
-            ranger:   { vit: 11, str: 12, dex: 15, int: 9  },
-            elven_spellblade: { vit: 12, str: 13, dex: 11, int: 14 },
-            warrior:  { vit: 14, str: 16, dex: 8,  int: 6  } // fallback
-        };
-        const baseStats = classStats[classId] || { vit: 12, str: 12, dex: 12, int: 12 };
-        
-        // Auto-scale AI stats based on player's level using calculateStatsForLevel
-        const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
-        const stats = window.calculateStatsForLevel ? window.calculateStatsForLevel(classId, playerLvl) : {
-            vit: baseStats.vit + (playerLvl - 1),
-            str: baseStats.str + (playerLvl - 1),
-            dex: baseStats.dex + (playerLvl - 1),
-            int: baseStats.int + (playerLvl - 1),
-            luck: 10
-        };
-        
-        let meta = { id: originalClassId, stats, isSheet: true };
-        
-        if (classId === 'knight' || classId === 'warrior') {
-            meta = { ...meta, frameWidth: 80, frameHeight: 64, idleFrames: 5, idleRow: 0, flipX: true, attackRow: 14, dashRow: 5,
-                animFrames: {
-                    jump: { start: 40, end: 43 },
-                    fall: { start: 50, end: 53 },
-                    hit: { start: 160, end: 164 },
-                    die: { start: 150, end: 157 },
-                    duck: { frames: [100] } // Row 10 col 0 — sword raised guard stance
-                }
-            };
-            // Make warrior ID map back to knight animations if 'warrior' was specifically requested
-            if (originalClassId === 'warrior') {
-                meta.id = 'knight'; 
-            }
-        } else if (classId === 'wizard') {
-            meta = { ...meta, frameWidth: 64, frameHeight: 64, idleFrames: 6, idleRow: 1, walkRow: 0, attackRow: 2, jumpRow: 3, fallRow: 3, comboStartFrame: 24, comboEndFrame: 41,
-                animFrames: {
-                    hit: { start: 54, end: 54 },
-                    die: { start: 60, end: 64 },
-                    duck: { frames: [14] } // Casting frame — staff raised as magic block pose
-                }
-            };
-        } else if (classId === 'samurai') {
-            meta = { ...meta, frameWidth: 96, frameHeight: 64, idleFrames: 5, idleRow: 0, flipX: true,
-                animFrames: {
-                    idle: { start: 0, end: 4 },
-                    walk: { start: 16, end: 23 },
-                    attack: { start: 24, end: 31 },
-                    duck: { start: 96, end: 99 },
-                    jump: { start: 0, end: 0 },
-                    fall: { start: 40, end: 43 },
-                    hit: { start: 112, end: 116 },
-                    die: { start: 128, end: 136 }
-                },
-                comboStartFrame: 32,
-                comboEndFrame: 47,
-                dashRow: 13
-            };
-        } else if (classId === 'ranger') {
-            meta = { ...meta, frameWidth: 64, frameHeight: 64, idleFrames: 5, idleRow: 0, attackRow: 14,
-                animFrames: {
-                    idle: { start: 0, end: 4 },
-                    attack: { start: 11, end: 21 },
-                    walk: { start: 22, end: 29 },
-                    hit: { start: 33, end: 36 },
-                    die: { start: 44, end: 50 },
-                    duck: { frames: [15] }, // Bow drawn — block/ready stance
-                    jump: { frames: [0] },
-                    fall: { frames: [0] }
-                }
-            };
-        } else if (classId === 'elven_spellblade') {
-            meta = { ...meta, frameWidth: 128, frameHeight: 128, spriteScale: 1.15, idleFrames: 9, idleRow: 0, attackDuration: 560,
-                animFrames: {
-                    idle: { start: 0, end: 8 },
-                    walk: { start: 9, end: 17 },
-                    attack: { start: 18, end: 26 },
-                    combo: { start: 27, end: 35 },
-                    hit: { start: 36, end: 40 },
-                    die: { start: 41, end: 49 },
-                    duck: { start: 53, end: 53 },
-                    jump: { frames: [0] },
-                    fall: { frames: [0] }
-                }
-            };
-        } else if (classId === 'spider') {
-            meta = { ...meta, frameWidth: 96, frameHeight: 96, isSheet: true };
-        } else {
-            // Safe fallback
-            meta = { ...meta, frameWidth: 80, frameHeight: 64, idleFrames: 5, idleRow: 0 };
-        }
-        
-        return meta;
+        return window.getAIClassPresetData(classId, weaponType);
     }
 
     recalculateStats() {
@@ -1281,7 +911,19 @@ class PlayerController {
         const animPrefix = this.classId || this.classData.id;
         if (!targetKey) {
             if (this.hp <= 0) targetKey = animPrefix + '_die';
-            else if (this.isAttacking) targetKey = animPrefix + '_attack';
+            else if (this.isAttacking) {
+                if (this.currentAnimKey && (
+                    this.currentAnimKey.endsWith('_attack') || 
+                    this.currentAnimKey.endsWith('_attack2') || 
+                    this.currentAnimKey.endsWith('_combo') || 
+                    this.currentAnimKey.endsWith('_mega') ||
+                    this.currentAnimKey.endsWith('_summon')
+                )) {
+                    targetKey = this.currentAnimKey;
+                } else {
+                    targetKey = animPrefix + '_attack';
+                }
+            }
             else if (this.isDashing) targetKey = animPrefix + '_dash';
             else if (this.wasDucking) targetKey = animPrefix + '_duck';
             else if (this.isHit) targetKey = animPrefix + '_hit';
@@ -1330,6 +972,7 @@ class PlayerController {
 
         // Instant death if falling into the deep abyss
         if (this.sprite.y > 1400) {
+            console.error(`%c[DIAGNOSTIC] PlayerController detected y > 1400! Y: ${this.sprite.y}. HP: ${this.hp}. Platforms count: ${this.scene.platforms.getLength()}`, "color: #ff3333; font-weight: bold;");
             // Cargo carriers (mules) get teleported back to safety instead of dying
             if (this.isCargoCarrier && this.scene && this.scene.player && this.scene.player.sprite) {
                 this.sprite.setPosition(this.scene.player.sprite.x, this.scene.player.sprite.y - 20);

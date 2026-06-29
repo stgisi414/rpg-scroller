@@ -99,6 +99,9 @@ class AssetManager {
         this.scene.load.spritesheet('dark_elf_longbowman_rival', 'src/assets/dark_elf_longbowman.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('dark_elf_queen', 'src/assets/dark_elf_queen.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('dark_elf_queen_rival', 'src/assets/dark_elf_queen.png', { frameWidth: 128, frameHeight: 128 });
+        this.scene.load.image('queen_blade_1', 'src/assets/craftpix-net-313262-pixel-dark-elf-queen-animated-sprite-pack/1/Blade_1.png');
+        this.scene.load.image('queen_blade_2', 'src/assets/craftpix-net-313262-pixel-dark-elf-queen-animated-sprite-pack/1/Blade_2.png');
+        this.scene.load.image('queen_blade_3', 'src/assets/craftpix-net-313262-pixel-dark-elf-queen-animated-sprite-pack/1/Blade_3.png');
         this.scene.load.spritesheet('dark_elf_minion', 'src/assets/dark_elf_minion.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('dark_elf_minion_rival', 'src/assets/dark_elf_minion.png', { frameWidth: 128, frameHeight: 128 });
 
