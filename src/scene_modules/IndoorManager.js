@@ -33,7 +33,7 @@ class IndoorManager {
         const container = document.getElementById('directory-locations-container');
         if (container) {
             container.innerHTML = '';
-            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+            const currentZone = (saveData && saveData.currentZone) || 0;
             const isCapital = window.isCapitalCity ? window.isCapitalCity(currentZone) : false;
             const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
 
@@ -41,14 +41,14 @@ class IndoorManager {
             if (isCapital && currentKingdom && window.WORLD_FACTIONS) {
                 const faction = window.WORLD_FACTIONS[currentKingdom.rulingFaction];
                 if (faction && faction.leader) {
-                    window.INDOOR_LOCATIONS.throne_room.npcName = `${faction.leader.title} ${faction.leader.name}`;
-                    window.INDOOR_LOCATIONS.throne_room.npcPersona = faction.leader.persona;
-                    window.INDOOR_LOCATIONS.throne_room.desc = `Audience with ${faction.leader.title} ${faction.leader.name}`;
+                    INDOOR_LOCATIONS.throne_room.npcName = `${faction.leader.title} ${faction.leader.name}`;
+                    INDOOR_LOCATIONS.throne_room.npcPersona = faction.leader.persona;
+                    INDOOR_LOCATIONS.throne_room.desc = `Audience with ${faction.leader.title} ${faction.leader.name}`;
                 }
             }
 
-            Object.keys(window.INDOOR_LOCATIONS).forEach(id => {
-                const loc = window.INDOOR_LOCATIONS[id];
+            Object.keys(INDOOR_LOCATIONS).forEach(id => {
+                const loc = INDOOR_LOCATIONS[id];
                 // Skip capitalOnly locations if not in a capital city
                 if (loc.capitalOnly && !isCapital) return;
                 const cardEl = document.createElement('div');
@@ -99,15 +99,15 @@ class IndoorManager {
         if (!container) return;
         container.innerHTML = '';
 
-        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-        const playerGold = (window.saveData && window.saveData.gold) || 0;
-        const visitedZones = (window.saveData && window.saveData.visitedZones) || [];
+        const currentZone = (saveData && saveData.currentZone) || 0;
+        const playerGold = (saveData && saveData.gold) || 0;
+        const visitedZones = (saveData && saveData.visitedZones) || [];
 
         // Gather all Known World towns
         const knownWorldDestinations = {};
-        if (window.WORLD_KINGDOMS) {
-            for (const kId in window.WORLD_KINGDOMS) {
-                const kingdom = window.WORLD_KINGDOMS[kId];
+        if (WORLD_KINGDOMS) {
+            for (const kId in WORLD_KINGDOMS) {
+                const kingdom = WORLD_KINGDOMS[kId];
                 const faction = window.WORLD_FACTIONS ? window.WORLD_FACTIONS[kingdom.rulingFaction] : null;
                 const towns = window.getKingdomTowns ? window.getKingdomTowns(kId) : [];
                 knownWorldDestinations[kId] = {
@@ -120,9 +120,9 @@ class IndoorManager {
 
         // Gather discovered Frontier towns
         const frontierDestinations = [];
-        if (window.saveData && window.saveData.discoveredKingdoms) {
-            for (const fkId in window.saveData.discoveredKingdoms) {
-                const fk = window.saveData.discoveredKingdoms[fkId];
+        if (saveData && saveData.discoveredKingdoms) {
+            for (const fkId in saveData.discoveredKingdoms) {
+                const fk = saveData.discoveredKingdoms[fkId];
                 
                 // Programmatically align capital to nearest multiple of 4 (town zone) if it isn't one
                 if (Math.abs(fk.capital) % 4 !== 0) {
@@ -217,8 +217,8 @@ class IndoorManager {
                 }
 
                 // Check if both zones are Coastal for Ship Travel Discount
-                const currentZoneData = window.saveData && window.saveData.zones && window.saveData.zones[currentZone];
-                const targetZoneData = window.saveData && window.saveData.zones && window.saveData.zones[zoneIdx];
+                const currentZoneData = saveData && saveData.zones && saveData.zones[currentZone];
+                const targetZoneData = saveData && saveData.zones && saveData.zones[zoneIdx];
                 const isCurrentCoastal = currentZoneData && currentZoneData.biome === 'Coastal';
                 const isTargetCoastal = targetZoneData && targetZoneData.biome === 'Coastal';
                 const isShipRoute = isCurrentCoastal && isTargetCoastal;
@@ -229,7 +229,7 @@ class IndoorManager {
                 }
 
                 // Cargo Exponential Multiplier
-                const totalCargo = window.saveData && window.saveData.cargo ? Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0) : 0;
+                const totalCargo = saveData && saveData.cargo ? Object.values(saveData.cargo).reduce((a, b) => a + b, 0) : 0;
                 const cargoMultiplier = totalCargo > 0 ? Math.pow(1.5, totalCargo) : 1.0;
 
                 const cost = isNemesis ? 0 : Math.max(1, Math.round(rawCost * repMultiplier * cargoMultiplier));
@@ -237,7 +237,7 @@ class IndoorManager {
                 const isCapital = targetKingdom.capital === zoneIdx;
 
                 // Try to get zone name from saved data
-                const savedZone = window.saveData && window.saveData.zones && window.saveData.zones[zoneIdx];
+                const savedZone = saveData && saveData.zones && saveData.zones[zoneIdx];
                 const zoneName = savedZone ? savedZone.name : (window.getTownNameForZone ? window.getTownNameForZone(zoneIdx) : (isCapital ? `${targetKingdom.name} Capital` : `Zone ${zoneIdx}`));
 
                 const card = document.createElement('div');
@@ -331,8 +331,8 @@ class IndoorManager {
                     }
 
                     // Check if both zones are Coastal for Ship Travel Discount
-                    const currentZoneData = window.saveData && window.saveData.zones && window.saveData.zones[currentZone];
-                    const targetZoneData = window.saveData && window.saveData.zones && window.saveData.zones[zoneIdx];
+                    const currentZoneData = saveData && saveData.zones && saveData.zones[currentZone];
+                    const targetZoneData = saveData && saveData.zones && saveData.zones[zoneIdx];
                     const isCurrentCoastal = currentZoneData && currentZoneData.biome === 'Coastal';
                     const isTargetCoastal = targetZoneData && targetZoneData.biome === 'Coastal';
                     const isShipRoute = isCurrentCoastal && isTargetCoastal;
@@ -343,14 +343,14 @@ class IndoorManager {
                     }
 
                     // Cargo Exponential Multiplier
-                    const totalCargo = window.saveData && window.saveData.cargo ? Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0) : 0;
+                    const totalCargo = saveData && saveData.cargo ? Object.values(saveData.cargo).reduce((a, b) => a + b, 0) : 0;
                     const cargoMultiplier = totalCargo > 0 ? Math.pow(1.5, totalCargo) : 1.0;
 
                     const cost = isNemesis ? 0 : Math.max(1, Math.round(rawCost * repMultiplier * cargoMultiplier));
                     const canAfford = playerGold >= cost && !isNemesis;
                     const isCapital = targetKingdom.capital === zoneIdx;
 
-                    const savedZone = window.saveData && window.saveData.zones && window.saveData.zones[zoneIdx];
+                    const savedZone = saveData && saveData.zones && saveData.zones[zoneIdx];
                     const zoneName = savedZone ? savedZone.name : (window.getTownNameForZone ? window.getTownNameForZone(zoneIdx) : (isCapital ? `${targetKingdom.name} Capital` : `Zone ${zoneIdx}`));
 
                     const card = document.createElement('div');
@@ -396,11 +396,11 @@ class IndoorManager {
      */
     fastTravel(targetZone, cost) {
         const scene = this.scene;
-        if (!window.saveData || window.saveData.gold < cost) return;
+        if (!saveData || saveData.gold < cost) return;
 
         // Deduct gold
-        window.saveData.gold -= cost;
-        if (scene.player) scene.player.gold = window.saveData.gold;
+        saveData.gold -= cost;
+        if (scene.player) scene.player.gold = saveData.gold;
 
         // Reward Faction Reputation proportional to transit taxes paid (Phase 11)
         const targetKingdom = window.getKingdomForZone ? window.getKingdomForZone(targetZone) : null;
@@ -408,10 +408,10 @@ class IndoorManager {
         if (factionId && cost > 0) {
             const repGain = Math.floor(cost / 50);
             if (repGain > 0) {
-                if (!window.saveData.factionReputation) window.saveData.factionReputation = {};
-                window.saveData.factionReputation[factionId] = (window.saveData.factionReputation[factionId] || 0) + repGain;
-                if (window.saveData.factionReputation[factionId] > 100) {
-                    window.saveData.factionReputation[factionId] = 100;
+                if (!saveData.factionReputation) saveData.factionReputation = {};
+                saveData.factionReputation[factionId] = (saveData.factionReputation[factionId] || 0) + repGain;
+                if (saveData.factionReputation[factionId] > 100) {
+                    saveData.factionReputation[factionId] = 100;
                 }
                 const factionName = targetKingdom.name;
                 scene.time.delayedCall(600, () => {
@@ -486,7 +486,7 @@ class IndoorManager {
         if (scene.isTransitioning) return;
         scene.isTransitioning = true;
         
-        const loc = window.INDOOR_LOCATIONS[locationId];
+        const loc = INDOOR_LOCATIONS[locationId];
         if (!loc) return;
 
         scene.cameras.main.fadeOut(500, 0, 0, 0);
@@ -531,7 +531,7 @@ class IndoorManager {
 
             // Set indoor background
             let bgKey = loc.bg;
-            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+            const currentZone = (saveData && saveData.currentZone) || 0;
             if (locationId === 'throne_room' && currentZone === 777) {
                 bgKey = 'bg_heaven_throne';
             }
@@ -692,8 +692,8 @@ class IndoorManager {
             let spriteKey = loc.npcSprite;
             let finalNpcName = loc.npcName;
             
-            const currentZoneIdx = (window.saveData && window.saveData.currentZone) || 0;
-            const currentZoneData = (window.saveData && window.saveData.zones) ? window.saveData.zones[currentZoneIdx] : null;
+            const currentZoneIdx = (saveData && saveData.currentZone) || 0;
+            const currentZoneData = (saveData && saveData.zones) ? saveData.zones[currentZoneIdx] : null;
             const isHeaven = currentZoneData && currentZoneData.biome === 'Heaven';
 
             const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdx) : null;
@@ -725,9 +725,9 @@ class IndoorManager {
                     spriteKey = leaderGender === 'female' ? 'human_queen' : 'human_king';
                 }
             } else if (spriteKey === 'spouse') {
-                if (window.saveData && window.saveData.spouseData) {
-                    spriteKey = window.saveData.spouseData.spriteKey;
-                    finalNpcName = window.saveData.spouseData.name;
+                if (saveData && saveData.spouseData) {
+                    spriteKey = saveData.spouseData.spriteKey;
+                    finalNpcName = saveData.spouseData.name;
                 } else {
                     // Fallback if entering estate without spouse (shouldn't happen)
                     const npcData = window.CharacterComposer.generateRandomNPC(scene);
@@ -747,7 +747,7 @@ class IndoorManager {
             
             // Set faction info for the ruler in the Throne Room (Phase 5)
             if (locationId === 'throne_room') {
-                const currentZoneIdx = (window.saveData && window.saveData.currentZone) || 0;
+                const currentZoneIdx = (saveData && saveData.currentZone) || 0;
                 const faction = window.getFactionForZone ? window.getFactionForZone(currentZoneIdx) : null;
                 if (faction) {
                     npc.faction = faction.id;
@@ -755,9 +755,9 @@ class IndoorManager {
                     npc.politicalTitle = faction.leader.title || 'Ruler';
 
                     // Play Throne Room Entrance Cutscene (Phase 7)
-                    window.saveData.visitedThroneRooms = window.saveData.visitedThroneRooms || {};
-                    if (!window.saveData.visitedThroneRooms[currentZoneIdx]) {
-                        window.saveData.visitedThroneRooms[currentZoneIdx] = true;
+                    saveData.visitedThroneRooms = saveData.visitedThroneRooms || {};
+                    if (!saveData.visitedThroneRooms[currentZoneIdx]) {
+                        saveData.visitedThroneRooms[currentZoneIdx] = true;
                         
                         const titleAndName = `${npc.politicalTitle} ${npc.npcName}`;
                         const dialogue = [
@@ -798,7 +798,7 @@ class IndoorManager {
             }
             scene.npcs.push(npc);
 
-            const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZone, window.saveData.alignment) : { shouldAttack: false, reason: null };
+            const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZone, saveData.alignment) : { shouldAttack: false, reason: null };
             if (hostility.shouldAttack) {
                 const guardCount = Math.floor(Math.random() * 2) + 2; // 2 or 3 guards
                 for (let i = 0; i < guardCount; i++) {
@@ -876,14 +876,14 @@ class IndoorManager {
         const scene = this.scene;
         if (!scene.indoorLeaveBtn) {
             scene.indoorLeaveBtn = document.createElement('button');
-            scene.indoorLeaveBtn.innerText = 'Leave ' + window.INDOOR_LOCATIONS[scene.currentIndoorLocation].name;
+            scene.indoorLeaveBtn.innerText = 'Leave ' + INDOOR_LOCATIONS[scene.currentIndoorLocation].name;
             scene.indoorLeaveBtn.style.cssText = 'position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(0,0,0,0.8); border: 2px solid #cc0000; color: #ffcccc; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-family: "Courier Prime", monospace; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;';
             scene.indoorLeaveBtn.onclick = () => this.exitIndoorLocation();
             scene.indoorLeaveBtn.onmouseover = () => scene.indoorLeaveBtn.style.background = 'rgba(200,0,0,0.8)';
             scene.indoorLeaveBtn.onmouseout = () => scene.indoorLeaveBtn.style.background = 'rgba(0,0,0,0.8)';
             document.body.appendChild(scene.indoorLeaveBtn);
         } else {
-            scene.indoorLeaveBtn.innerText = 'Leave ' + window.INDOOR_LOCATIONS[scene.currentIndoorLocation].name;
+            scene.indoorLeaveBtn.innerText = 'Leave ' + INDOOR_LOCATIONS[scene.currentIndoorLocation].name;
             scene.indoorLeaveBtn.style.display = 'block';
         }
     }

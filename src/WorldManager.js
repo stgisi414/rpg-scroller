@@ -6,8 +6,8 @@ class WorldManager {
         this.geminiService = geminiService;
         
         // Initialize zones in saveData if not present
-        if (!window.saveData) {
-            window.saveData = {
+        if (!saveData) {
+            saveData = {
                 id: 'save_' + Date.now(),
                 name: 'Unknown Hero',
                 level: 1,
@@ -17,19 +17,19 @@ class WorldManager {
                 zones: {}
             };
         }
-        if (!window.saveData.zones) window.saveData.zones = {};
-        if (typeof window.saveData.currentZone === 'undefined') window.saveData.currentZone = 0;
-        if (typeof window.saveData.gold === 'undefined') window.saveData.gold = 0;
+        if (!saveData.zones) saveData.zones = {};
+        if (typeof saveData.currentZone === 'undefined') saveData.currentZone = 0;
+        if (typeof saveData.gold === 'undefined') saveData.gold = 0;
     }
 
     async loadZone(zoneIndex, spawnSide) {
-        if (window.saveData) {
-            window.saveData = JSON.parse(JSON.stringify(window.saveData));
+        if (saveData) {
+            saveData = JSON.parse(JSON.stringify(saveData));
         }
 
         // Force pocket zones (777 and -666) to regenerate fresh on every visit
-        if ((zoneIndex === 777 || zoneIndex === -666) && window.saveData.zones) {
-            delete window.saveData.zones[zoneIndex];
+        if ((zoneIndex === 777 || zoneIndex === -666) && saveData.zones) {
+            delete saveData.zones[zoneIndex];
         }
 
         this.currentZoneIndex = zoneIndex;
@@ -65,15 +65,15 @@ class WorldManager {
             }
         }
 
-        window.saveData.currentZone = zoneIndex;
+        saveData.currentZone = zoneIndex;
 
         // Generate frontier kingdom if in unclaimed frontier (Phase 10)
         await window.ZoneGenerator.draftFrontierKingdomIfNeeded(this.scene, zoneIndex);
 
         // Track visited town zones for fast-travel discovery
         const isTownZone = zoneIndex === 0 || (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0);
-        if (isTownZone && window.saveData.visitedZones && !window.saveData.visitedZones.includes(zoneIndex)) {
-            window.saveData.visitedZones.push(zoneIndex);
+        if (isTownZone && saveData.visitedZones && !saveData.visitedZones.includes(zoneIndex)) {
+            saveData.visitedZones.push(zoneIndex);
             const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIndex) : null;
             if (kingdom) {
                 console.log(`[WorldFactions] Discovered town in ${kingdom.name} (zone ${zoneIndex})`);
@@ -82,7 +82,7 @@ class WorldManager {
             }
         }
 
-        let zoneData = window.ZoneGenerator.validateZoneCache(zoneIndex, window.saveData.zones[zoneIndex]);
+        let zoneData = window.ZoneGenerator.validateZoneCache(zoneIndex, saveData.zones[zoneIndex]);
 
         if (!zoneData) {
             // Generate via Gemini (or rich fallback)
@@ -92,18 +92,18 @@ class WorldManager {
                 if (this.scene && !this.scene.isSceneDestroyed && this.scene.showLoading) this.scene.showLoading(false);
                 return;
             }
-            window.saveData.zones[zoneIndex] = JSON.parse(JSON.stringify(zoneData));
+            saveData.zones[zoneIndex] = JSON.parse(JSON.stringify(zoneData));
             
             // Save to localStorage
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            const saveIndex = saves.findIndex(s => s.id === window.saveData.id);
-            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            const saves = window.getSaves();
+            const saveIndex = saves.findIndex(s => s.id === saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(saveData));
             if (saveIndex > -1) {
                 saves[saveIndex] = clonedSave;
             } else {
                 saves.push(clonedSave);
             }
-            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+            window.saveSaves(saves);
         }
 
         // Apply zone data to scene
@@ -141,10 +141,10 @@ class WorldManager {
     }
 
     saveZoneState() {
-        if (!window.saveData) return;
-        if (!window.saveData.zones) window.saveData.zones = {};
+        if (!saveData) return;
+        if (!saveData.zones) saveData.zones = {};
         if (typeof this.currentZoneIndex === 'undefined') return;
-        const zoneData = window.saveData.zones[this.currentZoneIndex];
+        const zoneData = saveData.zones[this.currentZoneIndex];
         if (!zoneData || zoneData.type === 'Safe') return;
 
         const aliveEnemies = [];
@@ -182,9 +182,9 @@ class WorldManager {
             }
 
             // Play Capital Visit Cutscene (Phase 7)
-            window.saveData.visitedCapitals = window.saveData.visitedCapitals || {};
-            if (!window.saveData.visitedCapitals[currentZoneIdx]) {
-                window.saveData.visitedCapitals[currentZoneIdx] = true;
+            saveData.visitedCapitals = saveData.visitedCapitals || {};
+            if (!saveData.visitedCapitals[currentZoneIdx]) {
+                saveData.visitedCapitals[currentZoneIdx] = true;
                 
                 const rulingFactionId = kingdom ? kingdom.rulingFaction : null;
                 const factionName = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].name : "the Local Ruler";
@@ -214,12 +214,12 @@ class WorldManager {
         
         // Update HUD Zone Name
         if (this.scene.hudElements && this.scene.hudElements.zoneName) {
-            this.scene.hudElements.zoneName.innerText = zoneData.name || `Zone ${window.saveData.currentZone}`;
+            this.scene.hudElements.zoneName.innerText = zoneData.name || `Zone ${saveData.currentZone}`;
             
             // Set HUD zone faction emblem
             const emblemEl = document.getElementById('hud-zone-faction-emblem');
             if (emblemEl) {
-                const kingdomId = window.getKingdomForZone ? window.getKingdomForZone(window.saveData.currentZone) : null;
+                const kingdomId = window.getKingdomForZone ? window.getKingdomForZone(saveData.currentZone) : null;
                 const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
                 if (emblemSrc) {
                     emblemEl.src = emblemSrc;
@@ -565,11 +565,11 @@ class WorldManager {
                 }
 
                 zoneData.decorLayout = layout;
-                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                const idx = saves.findIndex(s => s.id === window.saveData.id);
-                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+                const saves = window.getSaves();
+                const idx = saves.findIndex(s => s.id === saveData.id);
+                const clonedSave = JSON.parse(JSON.stringify(saveData));
                 if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
-                localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                window.saveSaves(saves);
             }
 
             zoneData.decorLayout.forEach(item => {
@@ -621,7 +621,7 @@ class WorldManager {
                     'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'willowisp', 'bloated_damned', 'hellhound_1', 'hellhound_2', 'hellhound_3']
                 };
                 const validTypes = biomeEnemies[biome] || biomeEnemies['Forest'];
-                const playerLevel = (window.saveData && window.saveData.level) || 1;
+                const playerLevel = (saveData && saveData.level) || 1;
                 const absIdx = Math.abs(this.currentZoneIndex || 0);
                 const count = Math.max(3, Math.min(6, 3 + Math.floor(absIdx / 5)));
                 zoneData.enemies = [];
@@ -635,10 +635,18 @@ class WorldManager {
                 }
             }
 
+            // Make a deep clone of the enemies array for this specific session.
+            // This prevents random events (like rival encounters or spider boss injections) 
+            // from permanently mutating and corrupting the player's saved zone persistence!
+            let currentWave = [];
+            if (zoneData.enemies) {
+                currentWave = JSON.parse(JSON.stringify(zoneData.enemies));
+            }
+
             // 10% chance to spawn a Spider Boss if this is dangerous
-            if (zoneData.type !== 'Safe' && !zoneData.enemies.find(e => e.type === 'spider') && Math.random() < 0.10) {
-                const playerLevel = (window.saveData && window.saveData.level) || 1;
-                zoneData.enemies.push({
+            if (zoneData.type !== 'Safe' && !currentWave.find(e => e.type === 'spider') && Math.random() < 0.10) {
+                const playerLevel = (saveData && saveData.level) || 1;
+                currentWave.push({
                     type: 'spider',
                     x: 600 + Math.random() * 400,
                     hp: 400 + (playerLevel * 50),
@@ -650,7 +658,7 @@ class WorldManager {
             let rivalClass = 'knight_rival';
             let isMegaboss = false;
 
-            const defeatedCount = (window.saveData && window.saveData.defeatedRivals || []).length;
+            const defeatedCount = (saveData && saveData.defeatedRivals || []).length;
             
             // Base encounter chance for first rival is 25%, drops 5% per kill down to 5% for the Megaboss
             const encounterChance = Math.max(0.05, 0.25 - (defeatedCount * 0.05));
@@ -659,7 +667,7 @@ class WorldManager {
                 isRivalEncounter = true;
                 const rivalClasses = ['knight_rival', 'wizard_rival', 'samurai_rival', 'ranger_rival', 'elven_spellblade_rival', 'elven_longbowman_rival', 'elven_guard_rival'];
                 
-                if (defeatedCount >= 4 && !(window.saveData && window.saveData.isSavior)) {
+                if (defeatedCount >= 4 && !(saveData && saveData.isSavior)) {
                     isMegaboss = true;
                     rivalClass = 'megaboss_rival';
                 } else {
@@ -667,15 +675,15 @@ class WorldManager {
                 }
                 
                 // Clear the normal enemies or keep 1-2 as the "party"
-                if (zoneData.enemies.length > 2) {
-                    zoneData.enemies.length = 2; // Keep max 2 monsters as minions
+                if (currentWave.length > 2) {
+                    currentWave.length = 2; // Keep max 2 monsters as minions
                 }
             }
 
             // Spawning guarantee check for new/special enemies in target biomes
-            if (zoneData.type === 'Dangerous' && zoneData.enemies) {
+            if (zoneData.type === 'Dangerous' && currentWave) {
                 const targetBiome = zoneData.biome || 'Forest';
-                const currentEnemyTypes = zoneData.enemies.map(e => ((e.type || '').toLowerCase().replace(/\s+/g, '_')));
+                const currentEnemyTypes = currentWave.map(e => ((e.type || '').toLowerCase().replace(/\s+/g, '_')));
                 
                 // Determine what special/new enemies belong to this biome
                 const specialCandidates = [];
@@ -701,7 +709,7 @@ class WorldManager {
                     const hasSpecial = currentEnemyTypes.some(t => specialCandidates.includes(t));
                     if (!hasSpecial) {
                         const countToSpawn = Math.floor(Math.random() * 2) + 1; // 1 or 2
-                        const playerLevel = (window.saveData && window.saveData.level) || 1;
+                        const playerLevel = (saveData && saveData.level) || 1;
                         for (let i = 0; i < countToSpawn; i++) {
                             const chosenType = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
                             const spawnX = 300 + Math.random() * 3200;
@@ -709,10 +717,10 @@ class WorldManager {
                             const speed = 80 + (playerLevel * 5) + Math.floor(Math.random() * 20);
                             
                             // If we have existing enemies, overwrite one; otherwise push
-                            if (zoneData.enemies.length > i) {
-                                zoneData.enemies[i].type = chosenType;
+                            if (currentWave.length > i) {
+                                currentWave[i].type = chosenType;
                             } else {
-                                zoneData.enemies.push({
+                                currentWave.push({
                                     type: chosenType,
                                     x: spawnX,
                                     hp: hp,
@@ -726,8 +734,8 @@ class WorldManager {
 
             // Guarantee some heavenly enemies/angels are present to interact with/provoke in Heaven town
             if (zoneData.biome === 'Heaven') {
-                if (!zoneData.enemies || zoneData.enemies.length === 0) {
-                    zoneData.enemies = [
+                if (!currentWave || currentWave.length === 0) {
+                    currentWave = [
                         { type: 'heavenly_valkyrie', x: 400, hp: 400, speed: 100 },
                         { type: 'heavenly_seraph', x: 800, hp: 350, speed: 100 },
                         { type: 'heavenly_archangel', x: 1200, hp: 450, speed: 100 },
@@ -737,7 +745,7 @@ class WorldManager {
             }
 
             // Spawn Enemies
-            zoneData.enemies.forEach(eData => {
+            currentWave.forEach(eData => {
                 let type = (eData.type || 'slime').toLowerCase().replace(/\s+/g, '_');
                 if (type === 'tree_damned') type = 'lich_lord'; // Upgrade old saves and AI hallucinations
                 const validTypes = [
@@ -790,8 +798,8 @@ class WorldManager {
                 
                 // Determine rival faction affiliation (Phase 8)
                 let rivalFaction = null;
-                if (window.saveData && window.saveData.factionReputation) {
-                    const hostileFactions = Object.keys(window.saveData.factionReputation).filter(fid => window.saveData.factionReputation[fid] <= -20);
+                if (saveData && saveData.factionReputation) {
+                    const hostileFactions = Object.keys(saveData.factionReputation).filter(fid => saveData.factionReputation[fid] <= -20);
                     if (hostileFactions.length > 0) {
                         rivalFaction = hostileFactions[Math.floor(Math.random() * hostileFactions.length)];
                     }
@@ -892,12 +900,12 @@ class WorldManager {
             }
 
             // Inject quest-target enemies if player has active kill quests
-            if (zoneData.type === 'Dangerous' && window.saveData && window.saveData.quests && window.saveData.quests.length > 0) {
+            if (zoneData.type === 'Dangerous' && saveData && saveData.quests && saveData.quests.length > 0) {
                 const spawnedTypes = zoneData.enemies.map(e => (e.type || 'slime').toLowerCase().replace(/\s+/g, '_'));
-                window.saveData.quests.forEach(quest => {
+                saveData.quests.forEach(quest => {
                     if (quest.type === 'kill' || !quest.type) {
                         if (quest.targetType && !spawnedTypes.includes(quest.targetType)) {
-                            const playerLevel = window.saveData.level || 1;
+                            const playerLevel = saveData.level || 1;
                             const questEnemy = new EnemyController(
                                 this.scene, 400 + Math.floor(Math.random() * 500), 100,
                                 this.scene.player, this.geminiService, quest.targetType
@@ -913,8 +921,8 @@ class WorldManager {
             }
 
             // Spawn Rescuee NPC if this zone matches a rescue quest
-            if (zoneData.type === 'Dangerous' && window.saveData && window.saveData.quests) {
-                const rescueQuest = window.saveData.quests.find(q => 
+            if (zoneData.type === 'Dangerous' && saveData && saveData.quests) {
+                const rescueQuest = saveData.quests.find(q => 
                     q.type === 'rescue' && 
                     q.rescueeZone === zoneIndex && 
                     q.rescueState === 'captive'
@@ -945,10 +953,10 @@ class WorldManager {
             }
 
             // Re-spawn following rescuee if player has one (from zone transition)
-            if (window.saveData && window.saveData.activeRescuee && window.saveData.activeRescuee.state === 'following') {
+            if (saveData && saveData.activeRescuee && saveData.activeRescuee.state === 'following') {
                 if (typeof RescueeNPCFactory !== 'undefined' && typeof RescueeNPC !== 'undefined') {
                     try {
-                        const savedRescuee = window.saveData.activeRescuee;
+                        const savedRescuee = saveData.activeRescuee;
                         const factory = new RescueeNPCFactory(this.scene);
                         const rescueeConfig = factory.createRescuee(savedRescuee.config || {});
                         
@@ -978,8 +986,8 @@ class WorldManager {
             }
 
             // Check for rescue completion when entering a Safe zone
-            if (zoneData.type === 'Safe' && window.saveData && window.saveData.activeRescuee && window.saveData.activeRescuee.state === 'following') {
-                const savedRescuee = window.saveData.activeRescuee;
+            if (zoneData.type === 'Safe' && saveData && saveData.activeRescuee && saveData.activeRescuee.state === 'following') {
+                const savedRescuee = saveData.activeRescuee;
                 // Complete the rescue quest
                 if (this.scene.player && this.scene.player.progressQuest) {
                     this.scene.player.progressQuest('rescue_complete', savedRescuee.questId);
@@ -994,7 +1002,7 @@ class WorldManager {
                 if (this.scene.activeRescuee) {
                     this.scene.activeRescuee.completeRescue();
                 }
-                window.saveData.activeRescuee = null;
+                saveData.activeRescuee = null;
                 console.log(`Rescue complete: ${savedRescuee.name}`);
             }
 

@@ -164,6 +164,9 @@ class EnemyAnimationLoader {
         if (scene.textures.exists('heal_animation') && !scene.anims.exists('heal_animation_anim')) {
             scene.anims.create({ key: 'heal_animation_anim', frames: scene.anims.generateFrameNumbers('heal_animation', { start: 0, end: 15 }), frameRate: 16, repeat: 0 });
         }
+        if (scene.textures.exists('bless_buff') && !scene.anims.exists('bless_buff_anim')) {
+            scene.anims.create({ key: 'bless_buff_anim', frames: scene.anims.generateFrameNumbers('bless_buff', { start: 0, end: 15 }), frameRate: 16, repeat: 0 });
+        }
         if (scene.textures.exists('witch_debuff') && !scene.anims.exists('witch_debuff_anim')) {
             scene.anims.create({ key: 'witch_debuff_anim', frames: scene.anims.generateFrameNumbers('witch_debuff', { start: 0, end: 15 }), frameRate: 15, repeat: -1 });
         }

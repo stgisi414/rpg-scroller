@@ -1,5 +1,5 @@
-window.getReputationPriceMultiplier = function() {
-    const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+getReputationPriceMultiplier = function() {
+    const currentZone = (saveData && saveData.currentZone) || 0;
     const faction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
     if (!faction) return 1.0;
     
@@ -84,7 +84,7 @@ class ShopManager {
         // Set shop faction emblem
         const emblemEl = document.getElementById('shop-faction-emblem');
         if (emblemEl) {
-            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+            const currentZone = (saveData && saveData.currentZone) || 0;
             const kingdomId = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
             const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
             if (emblemSrc) {
@@ -244,8 +244,8 @@ class ShopManager {
         }
         
         let factionMultiplier = 1.0;
-        if (window.getReputationPriceMultiplier) {
-            factionMultiplier = window.getReputationPriceMultiplier();
+        if (getReputationPriceMultiplier) {
+            factionMultiplier = getReputationPriceMultiplier();
         }
         
         if (factionMultiplier === Infinity) {
@@ -375,196 +375,9 @@ class ShopManager {
         };
     }
 
-    openMarketplaceUI(npcName) {
-        const player = this.player;
-        const shopUI = document.getElementById('ui-shop');
-        const shopTitle = document.getElementById('shop-title');
-        
-        // Set shop faction emblem
-        const emblemEl = document.getElementById('shop-faction-emblem');
-        if (emblemEl) {
-            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-            const kingdomId = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
-            const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
-            if (emblemSrc) {
-                emblemEl.src = emblemSrc;
-                emblemEl.style.display = 'block';
-            } else {
-                emblemEl.style.display = 'none';
-            }
-        }
-
-        const itemsContainer = document.getElementById('shop-items-container');
-        itemsContainer.className = "flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-2 w-full";
-        
-        shopUI.style.display = 'flex';
-        shopTitle.innerText = npcName + " - Marketplace";
-        itemsContainer.innerHTML = ''; // clear
-        
-        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-        const faction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
-        const rep = faction ? (window.getFactionReputation ? window.getFactionReputation(faction.id) : 0) : 0;
-        if (rep <= -50) {
-            itemsContainer.innerHTML = `<div style="color: #ff4444; font-family: monospace; font-size: 14px; text-align: center; padding: 20px; width: 100%;">
-                "The Merchant League refuses to deal with a nemesis of the realm. Begone!"
-            </div>`;
-            return;
-        }
-
-        const self = this;
-        
-        function renderMarketContent() {
-            if (!window.saveData.cargo) window.saveData.cargo = {};
-            const totalCargo = Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0);
-            const playerGold = window.saveData.gold || 0;
-            const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZone) : null;
-            
-            itemsContainer.innerHTML = `
-                <div class="col-span-full flex flex-col gap-4 w-full text-on-surface">
-                    <div class="flex justify-between items-center bg-surface-container-high p-4 rounded border border-outline-variant">
-                        <div class="flex flex-col">
-                            <span class="text-[14px] font-bold uppercase tracking-wider text-tertiary">📦 International Trade Depot</span>
-                            <span class="text-[11px] text-on-surface-variant">Buy local exports cheap, sell them to importing kingdoms for high profits!</span>
-                        </div>
-                        <span class="text-[16px] font-bold" style="color: #4fc3f7;">Cargo hold: ${totalCargo} / 10 units</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-                        <!-- BUYING SECTION -->
-                        <div class="flex flex-col gap-3">
-                            <h4 class="text-[14px] font-bold text-primary border-b border-outline-variant pb-2 uppercase tracking-wide">Buy Cargo (Local Exports)</h4>
-                            <div id="buy-cargo-list" class="flex flex-col gap-2 overflow-y-auto max-h-[40vh] pr-2">
-                                <!-- Buy items inserted here -->
-                            </div>
-                        </div>
-                        
-                        <!-- SELLING SECTION -->
-                        <div class="flex flex-col gap-3">
-                            <h4 class="text-[14px] font-bold text-secondary border-b border-outline-variant pb-2 uppercase tracking-wide">Sell Cargo (Your Cargo Hold)</h4>
-                            <div id="sell-cargo-list" class="flex flex-col gap-2 overflow-y-auto max-h-[40vh] pr-2">
-                                <!-- Sell items inserted here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            const buyContainer = document.getElementById('buy-cargo-list');
-            const sellContainer = document.getElementById('sell-cargo-list');
-            
-            const localExports = currentKingdom ? currentKingdom.exportGoods || [] : [];
-            if (localExports.length === 0) {
-                buyContainer.innerHTML = `<span class="text-[11px] text-on-surface-variant italic">This kingdom exports no trade goods.</span>`;
-            } else {
-                localExports.forEach(itemId => {
-                    const good = window.TRADE_GOODS[itemId];
-                    if (!good) return;
-                    
-                    const buyPrice = window.getTradePrice(itemId, true, currentZone);
-                    const canAfford = playerGold >= buyPrice;
-                    const isFull = totalCargo >= 10;
-                    
-                    const itemRow = document.createElement('div');
-                    itemRow.className = `flex justify-between items-center p-3 rounded border border-outline-variant/40 bg-surface-container-highest/40`;
-                    itemRow.innerHTML = `
-                        <div class="flex flex-col gap-0.5">
-                            <span class="text-[12px] font-bold text-on-surface">${good.name}</span>
-                            <span class="text-[9px] text-on-surface-variant max-w-[200px] leading-tight">${good.desc}</span>
-                            <span class="text-[10px] font-bold text-primary">💰 ${buyPrice}g</span>
-                        </div>
-                        <button class="px-3 py-1.5 rounded text-[11px] font-bold uppercase transition-colors ${canAfford && !isFull ? 'bg-primary text-on-primary hover:bg-primary-hover' : 'bg-outline-variant/30 text-on-surface-variant/50 cursor-not-allowed'}" id="btn-buy-${itemId}">
-                            ${isFull ? 'Full' : 'Buy'}
-                        </button>
-                    `;
-                    buyContainer.appendChild(itemRow);
-                    
-                    if (canAfford && !isFull) {
-                        const btn = document.getElementById(`btn-buy-${itemId}`);
-                        if (btn) {
-                            btn.onclick = () => {
-                                window.saveData.gold -= buyPrice;
-                                window.saveData.cargo[itemId] = (window.saveData.cargo[itemId] || 0) + 1;
-                                if (player.scene && player.scene.showFloatingText) {
-                                    player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `+1 ${good.name}`, 0xFFD700);
-                                }
-                                if (player.scene && typeof player.scene.spawnCargoCompanion === 'function') {
-                                    player.scene.spawnCargoCompanion();
-                                }
-                                if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
-                                if (typeof player._persistToLocalStorage === 'function') {
-                                    player._persistToLocalStorage();
-                                }
-                                renderMarketContent();
-                            };
-                        }
-                    }
-                });
-            }
-            
-            let hasCarried = false;
-            for (const itemId in window.saveData.cargo) {
-                const count = window.saveData.cargo[itemId] || 0;
-                if (count <= 0) continue;
-                
-                hasCarried = true;
-                const good = window.TRADE_GOODS[itemId];
-                if (!good) continue;
-                
-                const sellPrice = window.getTradePrice(itemId, false, currentZone);
-                const isLocalImport = currentKingdom && currentKingdom.importGoods && currentKingdom.importGoods.includes(itemId);
-                
-                const itemRow = document.createElement('div');
-                itemRow.className = `flex justify-between items-center p-3 rounded border border-outline-variant/40 bg-surface-container-highest/40`;
-                itemRow.innerHTML = `
-                    <div class="flex flex-col gap-0.5">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-[12px] font-bold text-on-surface">${good.name}</span>
-                            <span class="text-[9px] px-1 bg-secondary/20 text-secondary border border-secondary/30 rounded font-bold">x${count}</span>
-                            ${isLocalImport ? `<span class="text-[9px] px-1 bg-tertiary/20 text-tertiary border border-tertiary/30 rounded font-bold">⭐ Import Demand</span>` : ''}
-                        </div>
-                        <span class="text-[9px] text-on-surface-variant max-w-[200px] leading-tight">${good.desc}</span>
-                        <span class="text-[10px] font-bold text-secondary">💰 ${sellPrice}g each</span>
-                    </div>
-                    <button class="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary-hover rounded text-[11px] font-bold uppercase transition-colors" id="btn-sell-${itemId}">
-                        Sell 1
-                    </button>
-                `;
-                sellContainer.appendChild(itemRow);
-                
-                const btn = document.getElementById(`btn-sell-${itemId}`);
-                if (btn) {
-                    btn.onclick = () => {
-                        window.saveData.gold += sellPrice;
-                        window.saveData.cargo[itemId]--;
-                        if (player.scene && player.scene.showFloatingText) {
-                            player.scene.showFloatingText(player.sprite.x, player.sprite.y - 40, `-${good.name} (+${sellPrice}g)`, 0x4ade80);
-                        }
-                        if (player.scene && typeof player.scene.spawnCargoCompanion === 'function') {
-                            player.scene.spawnCargoCompanion();
-                        }
-                        if (player.scene && player.scene.updateHUD) player.scene.updateHUD();
-                        if (typeof player._persistToLocalStorage === 'function') {
-                            player._persistToLocalStorage();
-                        }
-                        renderMarketContent();
-                    };
-                }
-            }
-            
-            if (!hasCarried) {
-                sellContainer.innerHTML = `<span class="text-[11px] text-on-surface-variant italic">No trade cargo currently in your caravan hold.</span>`;
-            }
-        }
-        
-        renderMarketContent();
-        
-        const closeBtn = document.getElementById('btn-close-shop');
-        closeBtn.onclick = () => {
-            player.scene.npcs.forEach(npc => {
-                if (npc.isShopOpen) npc.closeShop();
-            });
-        };
-    }
+openMarketplaceUI(npcName) {
+    return ShopManager_MarketplaceHelper.openMarketplaceUI.call(this, npcName);
+}
 
     buyItem(item) {
         const player = this.player;
@@ -670,8 +483,8 @@ class ShopManager {
             }
             
             let factionMultiplier = 1.0;
-            if (window.getReputationPriceMultiplier) {
-                factionMultiplier = window.getReputationPriceMultiplier();
+            if (getReputationPriceMultiplier) {
+                factionMultiplier = getReputationPriceMultiplier();
             }
             if (factionMultiplier === Infinity) return; // Nemesis cannot buy
             
@@ -687,13 +500,13 @@ class ShopManager {
             finalPrice = Math.max(1, Math.round(itemObj.price * mult));
         }
 
-        if (window.saveData) {
-            window.saveData = JSON.parse(JSON.stringify(window.saveData));
+        if (saveData) {
+            saveData = JSON.parse(JSON.stringify(saveData));
         }
-        if (!window.saveData) window.saveData = { gold: 0 };
-        if (window.saveData.gold === undefined || isNaN(window.saveData.gold)) window.saveData.gold = 0;
+        if (!saveData) saveData = { gold: 0 };
+        if (saveData.gold === undefined || isNaN(saveData.gold)) saveData.gold = 0;
 
-        if (window.saveData.gold < finalPrice) {
+        if (saveData.gold < finalPrice) {
             // Flash red for insufficient funds
             const ui = document.getElementById('hud-gold');
             if(ui) {
@@ -704,9 +517,9 @@ class ShopManager {
         }
 
         // Deduct gold
-        window.saveData.gold -= finalPrice;
+        saveData.gold -= finalPrice;
         const goldEl = document.getElementById('hud-gold');
-        if(goldEl) goldEl.innerText = `Gold: ${window.saveData.gold}`;
+        if(goldEl) goldEl.innerText = `Gold: ${saveData.gold}`;
 
         // Apply item effect
         if (itemObj.type === 'weapon') {
@@ -788,8 +601,8 @@ class ShopManager {
                 }
             } else {
                 alert(`You already own the ${itemObj.name}!`);
-                window.saveData.gold += itemObj.price; // refund
-                if(goldEl) goldEl.innerText = `Gold: ${window.saveData.gold}`;
+                saveData.gold += itemObj.price; // refund
+                if(goldEl) goldEl.innerText = `Gold: ${saveData.gold}`;
             }
         } else if (itemObj.type === 'chest') {
             // Random reward
@@ -797,8 +610,8 @@ class ShopManager {
             if (roll < 0.5) {
                 // Gold
                 const reward = 50 + Math.floor(Math.random() * 100);
-                window.saveData.gold += reward;
-                if(goldEl) goldEl.innerText = `Gold: ${window.saveData.gold}`;
+                saveData.gold += reward;
+                if(goldEl) goldEl.innerText = `Gold: ${saveData.gold}`;
                 alert(`The chest contained ${reward} gold!`);
             } else if (roll < 0.8) {
                 // Potions
@@ -868,17 +681,17 @@ class ShopManager {
 
     rollChestLoot(x, y) {
         const player = this.player;
-        if (!window.saveData) {
-            window.saveData = {};
+        if (!saveData) {
+            saveData = {};
         }
 
         // Calculate passive skill modifiers
-        const passives = player.passiveSkills || ( (!player.isAI && window.saveData) ? (window.saveData.passiveSkills || {}) : {} );
+        const passives = player.passiveSkills || ( saveData ? (saveData.passiveSkills || {}) : {} );
         const activeModifiers = {};
         for (const skillId in passives) {
             const rank = passives[skillId] || 0;
-            if (rank > 0 && window.PASSIVE_SKILLS_DATA) {
-                const skillDef = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+            if (rank > 0 && PASSIVE_SKILLS_DATA) {
+                const skillDef = PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
                 if (skillDef && skillDef.statsModifiers) {
                     for (const statKey in skillDef.statsModifiers) {
                         const val = skillDef.statsModifiers[statKey];
@@ -904,36 +717,36 @@ class ShopManager {
 
         if (roll < 0.30) {
             // Gold
-            window.saveData = JSON.parse(JSON.stringify(window.saveData));
-            const playerLevel = window.saveData ? window.saveData.level : 1;
-            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            saveData = JSON.parse(JSON.stringify(saveData));
+            const playerLevel = saveData ? saveData.level : 1;
+            const zoneIdx = saveData ? Math.abs(saveData.currentZone || 0) : 0;
             const baseAmount = 20 + Math.floor(Math.random() * 60) + (playerLevel * 5) + (zoneIdx * 15);
             
             // Scale gold with Luck and Hoarder's Instinct
             const goldMult = 1.0 + ((luckValue - 10) * 0.02) + (activeModifiers.gold_gain_mult_per_rank || 0);
             const amount = Math.floor(baseAmount * goldMult);
 
-            window.saveData.gold = (window.saveData.gold || 0) + amount;
-            document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
+            saveData.gold = (saveData.gold || 0) + amount;
+            document.getElementById('hud-gold').innerText = `Gold: ${saveData.gold}`;
             message = `+${amount} Gold`;
             color = 0xffd700;
         } else if (roll < 0.45) {
             // Health Potion
-            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const zoneIdx = saveData ? Math.abs(saveData.currentZone || 0) : 0;
             const qty = 1 + Math.floor(zoneIdx / 15);
             player.inventory.potions = (player.inventory.potions || 0) + qty;
             message = `+${qty} Health Potion${qty > 1 ? 's' : ''}`;
             color = 0xff6b6b;
         } else if (roll < 0.60) {
             // Mana Potion
-            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const zoneIdx = saveData ? Math.abs(saveData.currentZone || 0) : 0;
             const qty = 1 + Math.floor(zoneIdx / 15);
             player.inventory.mpPotions = (player.inventory.mpPotions || 0) + qty;
             message = `+${qty} Mana Potion${qty > 1 ? 's' : ''}`;
             color = 0x60a5fa;
         } else if (roll < 0.70) {
             // Stamina Potion
-            const zoneIdx = window.saveData ? Math.abs(window.saveData.currentZone || 0) : 0;
+            const zoneIdx = saveData ? Math.abs(saveData.currentZone || 0) : 0;
             const qty = 1 + Math.floor(zoneIdx / 15);
             player.inventory.spPotions = (player.inventory.spPotions || 0) + qty;
             message = `+${qty} Stamina Potion${qty > 1 ? 's' : ''}`;
@@ -955,8 +768,8 @@ class ShopManager {
             } else {
                 // Already have all artifacts, fallback to gold
                 const amount = 100 + Math.floor(Math.random() * 100);
-                window.saveData.gold = (window.saveData.gold || 0) + amount;
-                document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
+                saveData.gold = (saveData.gold || 0) + amount;
+                document.getElementById('hud-gold').innerText = `Gold: ${saveData.gold}`;
                 message = `+${amount} Gold`;
                 color = 0xffd700;
             }
@@ -976,8 +789,8 @@ class ShopManager {
             } else {
                 // Max level weapon already - give gold
                 const amount = 100 + Math.floor(Math.random() * 100);
-                window.saveData.gold = (window.saveData.gold || 0) + amount;
-                document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
+                saveData.gold = (saveData.gold || 0) + amount;
+                document.getElementById('hud-gold').innerText = `Gold: ${saveData.gold}`;
                 message = `+${amount} Gold`;
                 color = 0xffd700;
             }
@@ -1031,8 +844,8 @@ class ShopManager {
                 color = parseInt(droppedWeapon.color.replace('#', '0x'));
             } else {
                 const amount = 100 + (droppedWeapon.damageBonus * 10);
-                window.saveData.gold = (window.saveData.gold || 0) + amount;
-                document.getElementById('hud-gold').innerText = `Gold: ${window.saveData.gold}`;
+                saveData.gold = (saveData.gold || 0) + amount;
+                document.getElementById('hud-gold').innerText = `Gold: ${saveData.gold}`;
                 message = `Sold ${droppedWeapon.name} (+${amount}g)`;
                 color = 0xffd700;
             }

@@ -23,16 +23,16 @@ window.NPCCampaignHelper = {
         }
 
         return {
-            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
+            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome, zoneIndex: wm.currentZoneIndex } : null,
             weather: npc.scene.weatherManager ? npc.scene.weatherManager.currentWeather : 'clear',
             luckOverride: luckOverride,
             player: {
-                level: p.level || (window.saveData && window.saveData.level) || 1,
+                level: p.level || (saveData && saveData.level) || 1,
                 class: p.classData ? p.classData.id : "adventurer",
                 hp: `${p.hp}/${p.maxHp}`,
-                gold: p.inventory ? p.inventory.gold : 0,
+                gold: (saveData && typeof saveData.gold === 'number') ? saveData.gold : (p.inventory ? p.inventory.gold : 0),
                 alignment: p.alignment || 0,
-                isSavior: (window.saveData && window.saveData.isSavior) || false,
+                isSavior: (saveData && saveData.isSavior) || false,
                 inventory: p.inventory,
                 quests: p.quests,
                 coliseumReputation: p.coliseumReputation || 0
@@ -53,7 +53,7 @@ window.NPCCampaignHelper = {
     },
 
     getPoliticalContext(npc) {
-        const zoneIdx = (window.saveData && window.saveData.currentZone) || 0;
+        const zoneIdx = (saveData && saveData.currentZone) || 0;
         const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
         const rulingFaction = window.getFactionForZone ? window.getFactionForZone(zoneIdx) : null;
         
@@ -79,9 +79,9 @@ window.NPCCampaignHelper = {
         }
 
         const discovered = [];
-        if (window.saveData && window.saveData.discoveredKingdoms) {
-            for (const kId in window.saveData.discoveredKingdoms) {
-                discovered.push(window.saveData.discoveredKingdoms[kId].name);
+        if (saveData && saveData.discoveredKingdoms) {
+            for (const kId in saveData.discoveredKingdoms) {
+                discovered.push(saveData.discoveredKingdoms[kId].name);
             }
         }
 
@@ -98,7 +98,7 @@ window.NPCCampaignHelper = {
 
     checkDeliveryQuestCompletion(npc) {
         if (!npc.player || !npc.player.quests) return;
-        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+        const currentZone = (saveData && saveData.currentZone) || 0;
         
         for (const quest of npc.player.quests) {
             if (quest.type === 'delivery' && 
@@ -148,8 +148,8 @@ window.NPCCampaignHelper = {
     },
 
     handleProposal(npc) {
-        if (window.saveData && window.saveData.spouseData) {
-            npc.addMessageToUI("System", `<span style="color:#ff4444">You are already married to ${window.saveData.spouseData.name}!</span>`);
+        if (saveData && saveData.spouseData) {
+            npc.addMessageToUI("System", `<span style="color:#ff4444">You are already married to ${saveData.spouseData.name}!</span>`);
             return;
         }
 
@@ -185,7 +185,7 @@ window.NPCCampaignHelper = {
 
         if (npc.scene.cutsceneController) {
             npc.scene.cutsceneController.playCutscene(dialogue, () => {
-                window.saveData.spouseData = {
+                saveData.spouseData = {
                     name: npc.npcName,
                     spriteKey: npc.spriteKey,
                     faction: npc.faction || null
@@ -206,25 +206,25 @@ window.NPCCampaignHelper = {
     },
 
     handleSellIntel(npc) {
-        if (!window.saveData || !window.saveData.discoveredKingdoms) return;
+        if (!saveData || !saveData.discoveredKingdoms) return;
         
-        const unsoldKingdom = Object.values(window.saveData.discoveredKingdoms).find(k => {
-            const soldList = (window.saveData.soldIntel && window.saveData.soldIntel[npc.faction]) || [];
+        const unsoldKingdom = Object.values(saveData.discoveredKingdoms).find(k => {
+            const soldList = (saveData.soldIntel && saveData.soldIntel[npc.faction]) || [];
             return !soldList.includes(k.id);
         });
         
         if (!unsoldKingdom) return;
         
-        window.saveData.soldIntel = window.saveData.soldIntel || {};
-        window.saveData.soldIntel[npc.faction] = window.saveData.soldIntel[npc.faction] || [];
-        window.saveData.soldIntel[npc.faction].push(unsoldKingdom.id);
+        saveData.soldIntel = saveData.soldIntel || {};
+        saveData.soldIntel[npc.faction] = saveData.soldIntel[npc.faction] || [];
+        saveData.soldIntel[npc.faction].push(unsoldKingdom.id);
         
         const rewardGold = 250;
         const rewardRep = 15;
-        window.saveData.gold += rewardGold;
+        saveData.gold += rewardGold;
         
         const goldDisplay = document.getElementById('hud-gold');
-        if (goldDisplay) goldDisplay.innerText = `Gold: ${window.saveData.gold}`;
+        if (goldDisplay) goldDisplay.innerText = `Gold: ${saveData.gold}`;
         
         if (window.changeFactionReputation) {
             window.changeFactionReputation(npc.faction, rewardRep, true);
@@ -370,7 +370,7 @@ window.NPCCampaignHelper = {
                 rewardText = "Received 1 HP Potion!";
                 break;
             case 'contracts':
-                const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+                const currentZone = (saveData && saveData.currentZone) || 0;
                 const localFaction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
                 const factionId = localFaction ? localFaction.id : null;
 
@@ -430,23 +430,26 @@ window.NPCCampaignHelper = {
             case 'pray':
                 const healCost = 25;
                 let didHeal = false;
-                if (npc.player.gold >= healCost) {
-                    npc.player.gold -= healCost;
-                    npc.player.hp = npc.player.maxHp;
-                    npc.player.mp = npc.player.maxMp;
-                    didHeal = true;
-                }
                 const stats = ['vit', 'str', 'dex', 'int'];
                 const randomStat = stats[Math.floor(Math.random() * stats.length)];
-                if (npc.player.classData && npc.player.classData.stats) {
-                    npc.player.classData.stats[randomStat]++;
-                    npc.player.recalculateStats();
+                if (saveData && typeof saveData.gold === 'number' && saveData.gold >= healCost) {
+                    saveData.gold -= healCost;
+                    if (npc.player) {
+                        npc.player.gold = saveData.gold;
+                        npc.player.hp = npc.player.maxHp;
+                        npc.player.mp = npc.player.maxMp;
+                        if (npc.player.classData && npc.player.classData.stats) {
+                            npc.player.classData.stats[randomStat]++;
+                            npc.player.recalculateStats();
+                        }
+                    }
+                    didHeal = true;
                 }
                 if (npc.scene && npc.scene.updateHUD) npc.scene.updateHUD();
                 if (didHeal) {
                     rewardText = `Healed & Blessed (+1 ${randomStat.toUpperCase()})! -${healCost}g`;
                 } else {
-                    rewardText = `Blessing (+1 ${randomStat.toUpperCase()})! Need ${healCost}g for healing`;
+                    rewardText = `Need ${healCost}g for healing and blessing!`;
                 }
                 break;
             case 'study':

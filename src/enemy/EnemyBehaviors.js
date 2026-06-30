@@ -137,7 +137,7 @@ window.EnemyBehaviors = {
         } else if (this.type.startsWith('dark_elf_')) {
             const isQueen = this.type.includes('queen');
             const isMinion = this.type.includes('minion');
-            const baseScale = isQueen ? 0.85 : (isMinion ? 0.75 : 1.066);
+            const baseScale = isQueen ? 0.85 : (isMinion ? 0.75 : 1.05);
             this.sprite.setScale(baseScale * this.scaleMultiplier);
             this.sprite.setSize(48, 104);
             this.sprite.setOffset(40, 24);
@@ -146,7 +146,7 @@ window.EnemyBehaviors = {
             this.sprite.setSize(56, 50);
             this.sprite.setOffset(36, 78);
         } else if (this.type.startsWith('gorgon_')) {
-            this.sprite.setScale(1.066 * this.scaleMultiplier);
+            this.sprite.setScale(1.05 * this.scaleMultiplier);
             this.sprite.setSize(48, 96);
             this.sprite.setOffset(40, 32);
         } else if (this.type.includes('_golem')) {

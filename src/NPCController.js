@@ -12,13 +12,13 @@ class NPCController {
         this.npcId = spriteKey + "_" + npcName.replace(/\s+/g, '');
         
         // Load social score
-        if (!window.saveData) window.saveData = {};
-        if (!window.saveData.npcRelations) window.saveData.npcRelations = {};
-        this.socialScore = window.saveData.npcRelations[this.npcId] || 0;
+        if (!saveData) saveData = {};
+        if (!saveData.npcRelations) saveData.npcRelations = {};
+        this.socialScore = saveData.npcRelations[this.npcId] || 0;
 
         // Load or assign persistent NPC alignment
-        if (!window.saveData.npcAlignments) window.saveData.npcAlignments = {};
-        if (!window.saveData.npcAlignments[this.npcId]) {
+        if (!saveData.npcAlignments) saveData.npcAlignments = {};
+        if (!saveData.npcAlignments[this.npcId]) {
             let alignment = 'Neutral';
             const nameLower = npcName.toLowerCase();
             const personaLower = persona.toLowerCase();
@@ -30,17 +30,17 @@ class NPCController {
                 const choices = ['Good', 'Neutral', 'Evil'];
                 alignment = choices[Math.floor(Math.random() * choices.length)];
             }
-            window.saveData.npcAlignments[this.npcId] = alignment;
+            saveData.npcAlignments[this.npcId] = alignment;
         }
-        this.alignment = window.saveData.npcAlignments[this.npcId];
+        this.alignment = saveData.npcAlignments[this.npcId];
         
         // Load or assign persistent NPC personality
-        if (!window.saveData.npcPersonalities) window.saveData.npcPersonalities = {};
-        if (!window.saveData.npcPersonalities[this.npcId]) {
+        if (!saveData.npcPersonalities) saveData.npcPersonalities = {};
+        if (!saveData.npcPersonalities[this.npcId]) {
             const choices = ['chatty', 'wise', 'gruff', 'greedy', 'timid'];
-            window.saveData.npcPersonalities[this.npcId] = choices[Math.floor(Math.random() * choices.length)];
+            saveData.npcPersonalities[this.npcId] = choices[Math.floor(Math.random() * choices.length)];
         }
-        this.personality = window.saveData.npcPersonalities[this.npcId];
+        this.personality = saveData.npcPersonalities[this.npcId];
         
         // Faction awareness fields (Phase 5)
         this.faction = null;
@@ -149,7 +149,13 @@ class NPCController {
                 const oldH = oldFrame ? oldFrame.height : 64;
                 const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
                 
-                const res = originalSetFrame.call(this, frame, updateSize, updateArea);
+                let res = null;
+                try {
+                    res = originalSetFrame.call(this, frame, updateSize, updateArea);
+                } catch (err) {
+                    console.warn("Phaser error in setFrame:", err);
+                    return this;
+                }
                 
                 const newFrame = this.frame;
                 if (newFrame && newFrame !== oldFrame) {
@@ -167,7 +173,13 @@ class NPCController {
                     const oldH = oldFrame ? oldFrame.height : 64;
                     const oldIdx = oldFrame ? ((typeof oldFrame.name === 'number') ? oldFrame.name : parseInt(oldFrame.name, 10)) : 0;
                     
-                    const res = originalSetCurrentFrame.call(this, parentFrame);
+                    let res = null;
+                    try {
+                        res = originalSetCurrentFrame.call(this, parentFrame);
+                    } catch (err) {
+                        console.warn("Phaser error setting current animation frame:", err);
+                        return this;
+                    }
                     
                     const newFrame = self.sprite.frame;
                     if (newFrame && newFrame !== oldFrame) {
@@ -294,9 +306,23 @@ class NPCController {
                     config = { start: 0, end: 4 };
                 }
                 
+                let animFrames = [];
+                const texture = this.scene.textures.get(spriteKey);
+                if (texture && texture.getFrameNames().length > 0) {
+                    for (let f = config.start; f <= config.end; f++) {
+                        if (texture.has(f) || texture.has(f.toString())) {
+                            animFrames.push({ key: spriteKey, frame: f });
+                        }
+                    }
+                }
+                
+                if (animFrames.length === 0) {
+                    animFrames = this.scene.anims.generateFrameNumbers(spriteKey, config);
+                }
+                
                 animConfig = {
                     key: idleKey,
-                    frames: this.scene.anims.generateFrameNumbers(spriteKey, config),
+                    frames: animFrames,
                     frameRate: 6,
                     repeat: -1
                 };
@@ -360,9 +386,23 @@ class NPCController {
                     config = { start: 0, end: 4 };
                 }
                 
+                let animFrames = [];
+                const texture = this.scene.textures.get(spriteKey);
+                if (texture && texture.getFrameNames().length > 0) {
+                    for (let f = config.start; f <= config.end; f++) {
+                        if (texture.has(f) || texture.has(f.toString())) {
+                            animFrames.push({ key: spriteKey, frame: f });
+                        }
+                    }
+                }
+                
+                if (animFrames.length === 0) {
+                    animFrames = this.scene.anims.generateFrameNumbers(spriteKey, config);
+                }
+                
                 this.scene.anims.create({
                     key: walkKey,
-                    frames: this.scene.anims.generateFrameNumbers(spriteKey, config),
+                    frames: animFrames,
                     frameRate: 10,
                     repeat: -1
                 });
@@ -546,19 +586,20 @@ class NPCController {
             if (!isNaN(newIdx) && fd[newIdx] != null) newFootY = fd[newIdx] + 1;
         }
         const newOffset = newFootY - bodyH;
-        
+             const yDiff = scale * (0.5 * (fh - oldH) - (newOffset - oldOffset));
+
         // Adjust sprite Y immediately to prevent body.position.y from jumping in preUpdate
-        this.sprite.y += scale * (0.5 * (fh - oldH) - (newOffset - oldOffset));
+        this.sprite.y += yDiff;
         
         // Update body offset only if it has changed to prevent visual artifacts
         if (body.offset.x !== (fw / 2 - bodyW / 2) || body.offset.y !== newOffset) {
             body.setOffset(fw / 2 - bodyW / 2, newOffset);
         }
     }
-
+ 
     update(time, delta) {
         if (!this.player || !this.player.sprite) return;
-
+ 
         // Floor clamp for custom NPCs — safety net against Phaser canvas-texture collision bug
         if (this.isCustom && this.sprite.body) {
             const floorBodyTop = 672;
@@ -583,11 +624,9 @@ class NPCController {
             this.emojiSprite.setPosition(this.sprite.x, topOfHeadY - 55);
         }
 
-        // Calculate distance to player
-        const distanceToPlayer = Phaser.Math.Distance.Between(
-            this.sprite.x, this.sprite.y,
-            this.player.sprite.x, this.player.sprite.y
-        );
+        // Calculate distance to player (horizontal 1D distance)
+        const distanceToPlayer = Math.abs(this.sprite.x - this.player.sprite.x);
+        const yDiff = Math.abs(this.sprite.y - this.player.sprite.y);
 
         // Face the player. Modular (composite) NPCs use the GandalfHardcore Character Asset
         // Pack, whose sprites face LEFT by default — same as the fixed left-facing keys below.
@@ -606,7 +645,7 @@ class NPCController {
 
         const interactDistance = 80;
 
-        if (distanceToPlayer < interactDistance) {
+        if (distanceToPlayer < interactDistance && yDiff < 50) {
             let statueCloser = false;
             const scene = this.scene;
             const dirUi = document.getElementById('ui-town-directory');
@@ -614,15 +653,18 @@ class NPCController {
 
             if (scene.angelStatue && scene.angelStatue.active && !scene.isIndoors && !isDirOpen) {
                 const distToStatue = Phaser.Math.Distance.Between(
-                    scene.angelStatue.x, scene.angelStatue.y,
+                    scene.angelStatue.x, this.player.sprite.y,
                     this.player.sprite.x, this.player.sprite.y
                 );
-                if (distToStatue < 100 && distToStatue < distanceToPlayer) {
+                 if (distToStatue < 100 && (distToStatue < distanceToPlayer || distToStatue < 20)) {
                     statueCloser = true;
                 }
             }
 
-            if (!statueCloser && !isDirOpen) {
+            const ai = this.player.companionAI;
+            const wantsStatue = ai && (ai._wantsToTravel || ai._wantsGuildHall);
+
+            if (!statueCloser && !isDirOpen && !wantsStatue) {
                 if (!this.isChatOpen) {
                     this.promptText.setVisible(true);
                 } else {
@@ -774,113 +816,13 @@ class NPCController {
         }
     }
 
-    openChat(isIntro = false) {
-        this.isChatOpen = true;
-        this.isIntroCutscene = isIntro;
-        this.player.isTalking = true;
-        this.uiContainer.style.display = 'block';
-        this.registerChatListeners();
+openChat(isIntro = false) {
+    return NPCController_Helper.openChat.call(this, isIntro);
+}
 
-        // Show faction emblem (both absolute top-right and inline next to the name)
-        const emblemImg = document.getElementById('chat-faction-emblem');
-        const emblemSrc = this.getFactionEmblemSrc();
-        if (emblemSrc) {
-            if (emblemImg) {
-                emblemImg.src = emblemSrc;
-                emblemImg.style.display = 'block';
-            }
-            this.npcNameDiv.innerHTML = `<img src="${emblemSrc}" style="width:22px; height:22px; vertical-align:middle; image-rendering:pixelated; margin-right:8px; display:inline-block; border:1px solid rgba(45,219,222,0.2); padding:1px; background:rgba(0,0,0,0.3); border-radius:2px;" /><span>${this.npcName}</span>`;
-        } else {
-            if (emblemImg) {
-                emblemImg.style.display = 'none';
-            }
-            this.npcNameDiv.innerText = this.npcName;
-        }
-
-        // Release Phaser's key capture so ALL keys flow through to the HTML input
-        if (this.player.inputManager) {
-            this.scene.input.keyboard.removeCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT');
-            this.player.inputManager.disableForInput();
-        }
-
-        if (this.chatHistory.length === 0) {
-            if (isIntro) {
-                this.chatInput.disabled = true;
-                this.chatSubmitBtn.disabled = true;
-                const hiddenPrompt = `*The player has just started a new game. Welcome them to the town of Willowbrook, explain the lore of the Elden Soul, and introduce yourself as their Game Master. Give a unique, personalized greeting.*`;
-                this.triggerHiddenPrompt(hiddenPrompt, this.npcName);
-            } else {
-                this.chatInput.disabled = true;
-                this.chatSubmitBtn.disabled = true;
-                const hiddenPrompt = `*The player has just approached you. Give a short, unique, in-character greeting based on your persona. Mention their class or something random to make it feel alive! Keep it under 2 sentences.*`;
-                this.triggerHiddenPrompt(hiddenPrompt, this.npcName);
-            }
-        }
-
-        const luckOverride = this.checkLuckOverride();
-        const isMismatched = !luckOverride && ((this.alignment === 'Good' && this.player.alignment <= -40) ||
-                             (this.alignment === 'Evil' && this.player.alignment >= 40));
-
-        if (this.chatTradeBtn) {
-            const isMerchant = ['blacksmith', 'alchemist', 'ranger', 'wizard', 'samurai', 'knight'].includes(this.spriteKey);
-            this.chatTradeBtn.style.display = (isMerchant && !isMismatched) ? 'inline-block' : 'none';
-        }
-
-        if (this.chatActivityBtn) {
-            if (this.indoorAction && this.indoorAction !== 'spar' && !isMismatched) {
-                const actionNames = {
-                    'rest': 'Rest (Full Heal)',
-                    'forge': 'Forge (+5 Dmg)',
-                    'brew': 'Brew Potion',
-                    'contracts': 'Bounty Board',
-                    'pray': 'Pray (Heal + Bless)',
-                    'study': 'Study Riddles',
-                    'train': 'Train (Fight)',
-                    'arena': 'Fight in Arena'
-                };
-                this.chatActivityBtn.innerText = actionNames[this.indoorAction] || 'Activity';
-                this.chatActivityBtn.style.display = 'inline-block';
-            } else {
-                this.chatActivityBtn.style.display = 'none';
-            }
-        }
-        
-        // Add Sell Frontier Intel button if talking to a ruler and player has unsold kingdoms (Phase 10)
-        if (this.factionRank === 'leader' && window.saveData && window.saveData.discoveredKingdoms) {
-            const hasUnsoldIntel = Object.keys(window.saveData.discoveredKingdoms).some(kId => {
-                const soldList = (window.saveData.soldIntel && window.saveData.soldIntel[this.faction]) || [];
-                return !soldList.includes(kId);
-            });
-            if (hasUnsoldIntel) {
-                this._addIntelButton();
-            }
-        }
-
-        setTimeout(() => this.chatInput.focus(), 100);
-    }
-
-    closeChat() {
-        this.isChatOpen = false;
-        this.isIntroCutscene = false;
-        this.player.isTalking = false;
-        this.activeActivity = null;
-        this.unregisterChatListeners();
-        this.uiContainer.style.display = 'none';
-        this.chatInput.blur();
-        this._luckOverride = undefined;
-
-        // Hide faction emblem
-        const emblemImg = document.getElementById('chat-faction-emblem');
-        if (emblemImg) {
-            emblemImg.style.display = 'none';
-        }
-
-        // Re-enable Phaser key capture for game input
-        if (this.player.inputManager) {
-            this.player.inputManager.enableForInput();
-            this.scene.input.keyboard.addCapture('W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT');
-        }
-    }
+closeChat() {
+    return NPCController_Helper.closeChat.call(this);
+}
 
     getFactionEmblemSrc() {
         if (!this.faction) return null;
@@ -889,10 +831,10 @@ class NPCController {
         let kingdomId = null;
         if (window.WORLD_FACTIONS && window.WORLD_FACTIONS[this.faction]) {
             kingdomId = window.WORLD_FACTIONS[this.faction].kingdom;
-        } else if (window.saveData && window.saveData.discoveredKingdoms) {
+        } else if (saveData && saveData.discoveredKingdoms) {
             // Check dynamic kingdoms
-            for (const kId in window.saveData.discoveredKingdoms) {
-                const k = window.saveData.discoveredKingdoms[kId];
+            for (const kId in saveData.discoveredKingdoms) {
+                const k = saveData.discoveredKingdoms[kId];
                 if (k.rulingFaction === this.faction) {
                     kingdomId = kId;
                     break;
@@ -903,500 +845,29 @@ class NPCController {
         return window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
     }
 
-    startActivity() {
-        if (!this.indoorAction) return;
-        
-        if (this.indoorAction === 'train' || this.indoorAction === 'arena') {
-            this.closeChat();
-            this.executeActivityEffect();
-            return;
-        }
-
-        const prompts = {
-            'rest': "The player wants to rest at your tavern. Roleplay asking them to sit by the fire and tell a short tale of their travels before they sleep. If they reply well, end your next message with the exact string [ACTION_SUCCESS].",
-            'forge': "The player wants to forge and upgrade their weapon. Roleplay asking them to help pump the bellows or strike the hot iron. If they describe helping successfully, end your next message with the exact string [ACTION_SUCCESS].",
-            'brew': "The player wants to brew a free potion. Roleplay asking them to help by stirring the cauldron clockwise, whispering a magical phrase, or regulating the heat. If they describe helping successfully in their reply, end your next message with the exact string [ACTION_SUCCESS].",
-            'contracts': "The player wants to check the bounty board. Roleplay presenting a small bounty and asking them how they plan to defeat the target. If their plan is good, end your next message with the exact string [ACTION_SUCCESS].",
-            'pray': "The player wants to pray for a blessing. Roleplay asking them to chant a short holy phrase or make an offering. If they do, end your next message with the exact string [ACTION_SUCCESS].",
-            'study': "The player wants to study in the library. Roleplay giving them a short riddle. If they answer correctly, end your next message with the exact string [ACTION_SUCCESS]."
-        };
-
-        let prompt = prompts[this.indoorAction];
-        
-        if (this.indoorAction === 'contracts') {
-            // Roll the quest type: 50% kill, 30% rescue, 20% delivery
-            const questRoll = Math.random();
-            const currentZone = (window.saveData && window.saveData.currentZone) || 0;
-            const playerLevel = (window.saveData && window.saveData.level) || 1;
-
-            if (questRoll < 0.50) {
-                this.pendingQuestType = 'kill';
-                
-                // Select dynamic target based on current biome
-                const zoneData = this.scene.worldManager && this.scene.worldManager.currentZoneData;
-                const currentBiome = zoneData ? zoneData.biome : 'Forest';
-                const biomeEnemies = {
-                    'Forest': ['slime', 'goblin', 'mushroom', 'spider', 'bat', 'bandit', 'wolfen', 'coyle', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_orc_male', 'special_enemy_orc_female', 'troll', 'ogre', 'willowisp'],
-                    'Plains': ['slime', 'goblin', 'orc', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'ogre', 'willowisp'],
-                    'Cave': ['bat', 'spider', 'slime', 'goblin', 'skeleton', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'troll', 'willowisp'],
-                    'Desert': ['mummy', 'scarab_beetle', 'orc', 'spider', 'bat', 'bandit', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp'],
-                    'Coastal': ['slime', 'bat', 'plague_flies', 'bandit', 'willowisp'],
-                    'Winter': ['slime', 'orc', 'burning_skull_blue', 'frost_giant', 'special_enemy_orc_male', 'special_enemy_orc_female', 'giant', 'willowisp'],
-                    'Dungeon': ['slime', 'bat', 'spider', 'old_demon', 'male_damned', 'female_damned', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'ogre', 'willowisp'],
-                    'Deadwoods': ['slime', 'bat', 'spider', 'tree_damned', 'twisted_damned', 'plague_flies', 'wolfen', 'coyle', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_zombie_male', 'special_enemy_zombie_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'troll', 'ogre', 'willowisp'],
-                    'Hell': ['slime', 'bat', 'burning_damned', 'burning_skull', 'imp', 'cheeky_devil', 'the_devil', 'special_enemy_demon_male', 'special_enemy_demon_female', 'special_enemy_devil_male', 'special_enemy_devil_female', 'special_enemy_ghost_male', 'special_enemy_ghost_female', 'willowisp', 'bloated_damned'],
-                    'Heaven': ['heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub', 'special_enemy_ghost_male', 'special_enemy_ghost_female']
-                };
-                
-                let targets = biomeEnemies[currentBiome] || ['slime', 'bat', 'spider', 'goblin', 'bandit'];
-                const absZone = Math.abs(currentZone);
-                if (playerLevel >= 15 || absZone >= 15) {
-                    targets = targets.concat(['dragon', 'lich_lord', 'the_devil', 'frost_giant']);
-                }
-                
-                this.pendingQuestTarget = targets[Math.floor(Math.random() * targets.length)];
-                prompt = `The player is interacting with the bounty board. You are granting them a contract to hunt 3 ${this.pendingQuestTarget}s in the wilderness. Roleplay handing them the bounty parchment and wishing them luck or giving a tip. You MUST include the exact string [ACTION_SUCCESS] at the end of your response to formally grant the quest. Do not wait for the player to reply.`;
-            } else if (questRoll < 0.80) {
-                this.pendingQuestType = 'rescue';
-                
-                const maleNames = ['Aldric', 'Theron', 'Cedric', 'Rowan', 'Gareth', 'Eldon', 'Bram', 'Osric', 'Leif', 'Darian'];
-                const femaleNames = ['Lyra', 'Mira', 'Seraphina', 'Isolde', 'Rowena', 'Brynn', 'Astrid', 'Elowen', 'Calista', 'Thea'];
-                this.pendingQuestGender = Math.random() < 0.5 ? 'male' : 'female';
-                const namePool = this.pendingQuestGender === 'male' ? maleNames : femaleNames;
-                this.pendingQuestName = namePool[Math.floor(Math.random() * namePool.length)];
-                
-                // Target a nearby dangerous zone (1-3 zones away from current, NOT a town)
-                let targetZone = currentZone + (Math.random() < 0.5 ? 1 : -1) * Phaser.Math.Between(1, 3);
-                // Make sure it's not a town zone (towns are at multiples of 4)
-                while (Math.abs(targetZone) % 4 === 0) {
-                    targetZone += (targetZone >= 0 ? 1 : -1);
-                }
-                this.pendingQuestZone = targetZone;
-                
-                prompt = `The player is interacting with the bounty board. You are granting them a contract to rescue ${this.pendingQuestName} who is held captive by enemies in Zone ${this.pendingQuestZone}. Roleplay describing the dire situation of this captive and asking the player to bring them back safely. You MUST include the exact string [ACTION_SUCCESS] at the end of your response to formally grant the quest. Do not wait for the player to reply.`;
-            } else {
-                this.pendingQuestType = 'delivery';
-                
-                const items = ['Ancient Scroll', 'Sacred Relic', 'Healing Herbs', 'Royal Decree', 'Enchanted Gem', 'Trade Goods', 'Sealed Letter', 'Rare Ore'];
-                const npcTargets = ['Elder', 'Master Smith', 'Apothecary', 'Sage'];
-                this.pendingQuestItem = items[Math.floor(Math.random() * items.length)];
-                this.pendingQuestTargetNPC = npcTargets[Math.floor(Math.random() * npcTargets.length)];
-                
-                // Target the next town (towns every 4 zones)
-                let targetTownZone = currentZone + (Math.random() < 0.5 ? 4 : -4);
-                if (targetTownZone === currentZone) {
-                    targetTownZone += 4;
-                }
-                this.pendingQuestZone = targetTownZone;
-                
-                prompt = `The player is interacting with the bounty board. You are granting them a contract to deliver a ${this.pendingQuestItem} to the ${this.pendingQuestTargetNPC} in Zone ${this.pendingQuestZone}. Roleplay handing them the package and telling them where and who it needs to go to. You MUST include the exact string [ACTION_SUCCESS] at the end of your response to formally grant the quest. Do not wait for the player to reply.`;
-            }
-        }
-
-        if (!prompt) return;
- 
-        this.activeActivity = this.indoorAction;
-        this.addMessageToUI("System", "Activity Started! Wait for the NPC's response...");
-        this.chatInput.disabled = true;
-        this.chatSubmitBtn.disabled = true;
-        this.chatActivityBtn.disabled = true;
-
-        const loadingId = "loading-" + Date.now();
-        this.addMessageToUI(this.npcName, "...", loadingId);
-
-        const state = this.getGameState();
-
-        this.geminiService.getNpcResponse(this.persona, this.chatHistory, `[SYSTEM ACTIVITY TRIGGER] ${prompt}`, state)
-            .then(res => {
-                if (!this.scene || this.scene.isSceneDestroyed) return;
-                if (!this.sprite || !this.sprite.active) return;
-                const reply = res.response;
-                const cleanReply = reply.replace(/\[ACTION_SUCCESS\]/g, '').trim();
-                if (reply.includes('[ACTION_SUCCESS]')) {
-                    this.executeActivityEffect();
-                }
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) {
-                    loadingElement.innerText = cleanReply;
-                }
-                this.chatHistory.push({ sender: this.npcName, text: cleanReply });
-                if (this.chatInput) this.chatInput.disabled = false;
-                if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
-                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
-                if (this.chatInput) this.chatInput.focus();
-                // If there's a UI scroll method
-                const chatHistoryDiv = document.getElementById('chat-history');
-                if (chatHistoryDiv) chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
-            })
-            .catch(err => {
-                if (!this.scene || this.scene.isSceneDestroyed) return;
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) {
-                    loadingElement.innerText = "[Error generating response]";
-                }
-                if (this.chatInput) this.chatInput.disabled = false;
-                if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
-                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
-                console.error(err);
-            });
-    }
+startActivity() {
+    return NPCController_Helper.startActivity.call(this);
+}
 
     executeActivityEffect() {
         window.NPCCampaignHelper.executeActivityEffect(this);
     }
 
-    async handlePlayerMessage() {
-        const text = this.chatInput.value.trim();
-        if (!text) return;
+async handlePlayerMessage() {
+    return NPCController_Helper.handlePlayerMessage.call(this);
+}
 
-        // Personality behavior overrides (Phase 13)
-        const hasActiveQuests = this.player.quests && this.player.quests.length > 0;
-        if (hasActiveQuests && this.personality !== 'chatty' && Math.random() < 0.35) {
-            let scoldReply = "";
-            let emojiKey = "emoji_neutral";
-            if (this.personality === 'wise') {
-                scoldReply = "Why are you standing here speaking loosely, youngster? You have duties to fulfill! Go tend to your active quests and return when they are done.";
-                emojiKey = "emoji_angry";
-                this.socialScore = Math.max(-100, this.socialScore - 1);
-            } else if (this.personality === 'gruff') {
-                scoldReply = "Stop wasting breath. Get back to your task.";
-                emojiKey = "emoji_neutral";
-            } else if (this.personality === 'greedy') {
-                scoldReply = "Time is gold, wanderer. Unless you have completed your task or seek to pay me, move along.";
-                emojiKey = "emoji_sad";
-            } else if (this.personality === 'timid') {
-                scoldReply = "Oh! P-please... shouldn't you be focusing on your active quest? It sounds so frightfully dangerous...";
-                emojiKey = "emoji_sad";
-            }
+_parseAndExecuteRoleplayAction(text) {
+    return NPCController_Helper._parseAndExecuteRoleplayAction.call(this, text);
+}
 
-            if (scoldReply) {
-                this.addMessageToUI("Player", text);
-                this.chatInput.value = "";
-                const loadingId = "loading-" + Date.now();
-                this.addMessageToUI(this.npcName, "...", loadingId);
-                
-                this.scene.time.delayedCall(600, () => {
-                    const loadingElement = document.getElementById(loadingId);
-                    if (loadingElement) loadingElement.remove();
-                    this.addMessageToUI(this.npcName, scoldReply);
-                    this.chatHistory.push({ sender: "Player", text: text });
-                    this.chatHistory.push({ sender: this.npcName, text: scoldReply });
-                    this.playEmoji(emojiKey);
-                    
-                    this.chatInput.disabled = false;
-                    this.chatSubmitBtn.disabled = false;
-                    if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
-                    if (this.chatInput) this.chatInput.focus();
-                });
-                return;
-            }
-        }
+removeFromWorld() {
+    return NPCController_Helper.removeFromWorld.call(this);
+}
 
-        if (this.personality === 'wise' && text.length < 12 && !text.includes('*')) {
-            const scoldReply = "Watch your manner of speech, child! Speak with proper gravity and respect, or do not speak to me at all.";
-            this.addMessageToUI("Player", text);
-            this.chatInput.value = "";
-            const loadingId = "loading-" + Date.now();
-            this.addMessageToUI(this.npcName, "...", loadingId);
-            
-            this.scene.time.delayedCall(600, () => {
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) loadingElement.remove();
-                this.addMessageToUI(this.npcName, scoldReply);
-                this.chatHistory.push({ sender: "Player", text: text });
-                this.chatHistory.push({ sender: this.npcName, text: scoldReply });
-                this.playEmoji("emoji_angry");
-                this.socialScore = Math.max(-100, this.socialScore - 1);
-                
-                this.chatInput.disabled = false;
-                this.chatSubmitBtn.disabled = false;
-                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
-                if (this.chatInput) this.chatInput.focus();
-            });
-            return;
-        }
-
-        // Parse and execute *roleplay actions* typed with asterisks e.g. *give 500 gold*
-        const roleplayResult = this._parseAndExecuteRoleplayAction(text);
-        let actionContext = '';
-        if (roleplayResult) {
-            if (!roleplayResult.success) {
-                // Can't execute (e.g. not enough gold) — show feedback and abort
-                this.addMessageToUI('System', `<span style="color:#ff8800">${roleplayResult.reason}</span>`);
-                this.chatInput.disabled = false;
-                this.chatSubmitBtn.disabled = false;
-                if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
-                return;
-            }
-            actionContext = roleplayResult.contextNote;
-            // Update HUD to reflect any gold changes immediately
-            if (this.scene.updateHUD) this.scene.updateHUD();
-        }
-
-        if (this.activeActivity) {
-            const activityPrompts = {
-                'rest': "The player is currently trying to rest at your tavern. They are telling you a tale or interacting with you. If they reply/roleplay well or describe resting, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to successfully trigger their healing/rest.",
-                'forge': "The player is trying to forge/upgrade their weapon with you. If they describe helping successfully, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to successfully trigger their weapon upgrade.",
-                'brew': "The player is trying to brew a potion with you. If they describe helping successfully in their reply, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to successfully grant the potion.",
-                'contracts': "The player is checking the bounty board. If they answer/roleplay well, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to grant the quest.",
-                'pray': "The player is praying. If they roleplay/pray well, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to bless them.",
-                'study': "The player is studying riddles with you. If they answer correctly, you MUST append the exact string [ACTION_SUCCESS] at the end of your response to grant the buff."
-            };
-            const activePrompt = activityPrompts[this.activeActivity];
-            if (activePrompt) {
-                actionContext = actionContext ? actionContext + '\n' + activePrompt : activePrompt;
-            }
-        }
-
-        // 1. Display player message
-        this.addMessageToUI("Player", text);
-        this.chatInput.value = "";
-        
-        // Disable input while generating
-        this.chatInput.disabled = true;
-        this.chatSubmitBtn.disabled = true;
-        if (this.chatActivityBtn) this.chatActivityBtn.disabled = true;
-
-        // 2. Add loading indicator
-        const loadingId = "loading-" + Date.now();
-        this.addMessageToUI(this.npcName, "...", loadingId);
-
-        const state = this.getGameState();
-
-        // 3. Ask Gemini
-        const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, text, state, actionContext);
-        if (!this.scene || this.scene.isSceneDestroyed) return;
-        if (!this.sprite || !this.sprite.active) return;
-        
-        // Handle activity success from normal chat
-        const cleanReply = response.response.replace(/\[ACTION_SUCCESS\]/g, '').trim();
-        if (response.response.includes('[ACTION_SUCCESS]')) {
-            this.executeActivityEffect();
-        }
-        
-        response.response = cleanReply;
-
-        // 4. Update UI and History
-        const loadingElement = document.getElementById(loadingId);
-        if (loadingElement) loadingElement.remove();
-
-        this.addMessageToUI(this.npcName, response.response);
-        
-        // Store in history for context
-        this.chatHistory.push({ sender: "Player", text: text });
-        this.chatHistory.push({ sender: this.npcName, text: response.response });
-
-        // 5. Apply Alignment Shift & Social Score
-        if (response.alignmentShift !== 0) {
-            this.player.updateAlignment(response.alignmentShift);
-            
-            // Show a visual notification
-            const sign = response.alignmentShift > 0 ? "+" : "";
-            const color = response.alignmentShift > 0 ? "#00ff00" : "#ff0000";
-            this.addMessageToUI("System", `<span style="color:${color}">Alignment Shifted: ${sign}${response.alignmentShift}</span>`);
-        }
-        
-        if (response.socialShift && typeof response.socialShift === 'number' && response.socialShift !== 0) {
-            this.socialScore += response.socialShift;
-            // Cap it between -100 and 100
-            this.socialScore = Math.max(-100, Math.min(100, this.socialScore));
-            
-            // Save it
-            window.saveData.npcRelations[this.npcId] = this.socialScore;
-            
-            // Update UI/Emoji
-            this.updateEmojiDisplay();
-            
-            const sign = response.socialShift > 0 ? "+" : "";
-            const color = response.socialShift > 0 ? "#ff69b4" : "#8b0000";
-            this.addMessageToUI("System", `<span style="color:${color}">Social Score ${sign}${response.socialShift} (Total: ${this.socialScore})</span>`);
-            
-            // Phase 6: Propagate a portion of socialShift to faction standing
-            if (this.faction && window.changeFactionReputation) {
-                const repShift = Math.round(response.socialShift * 0.5);
-                if (repShift !== 0) {
-                    window.changeFactionReputation(this.faction, repShift, true);
-                    const factionName = window.WORLD_FACTIONS[this.faction] ? window.WORLD_FACTIONS[this.faction].name : this.faction;
-                    const repColor = repShift > 0 ? "#88aaff" : "#ff4444";
-                    const repSign = repShift > 0 ? "+" : "";
-                    this.addMessageToUI("System", `<span style="color:${repColor}">Standing with ${factionName} changed: ${repSign}${repShift}</span>`);
-                }
-            }
-            
-            // Trigger marriage button if >= 100 (Phase 9)
-            if (this.socialScore >= 100 && !document.getElementById('chat-propose') && (!window.saveData || !window.saveData.spouseData)) {
-                const isLeader = this.factionRank === 'leader';
-                const rep = this.faction && window.getFactionReputation ? window.getFactionReputation(this.faction) : 0;
-                if (!isLeader || rep >= 75) {
-                    this._addMarriageButton();
-                }
-            }
-        }
-
-        // 6. Accept Quests
-        if (response.quest && this.player.addQuest) {
-            response.quest.giverName = this.npcName;
-            response.quest.giverAlignment = this.alignment;
-            response.quest.factionId = this.faction || null;
-            this.player.addQuest(response.quest);
-            this.addMessageToUI("System", `<span style="color:#f6be3b">Quest Added: ${response.quest.title}</span>`);
-        }
-
-        // Re-enable input
-        this.chatInput.disabled = false;
-        this.chatSubmitBtn.disabled = false;
-        if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
-        this.chatInput.focus();
-
-        // 7. Handle Party / Hostile Morphs
-        const isSafeZone = this.scene.worldManager && this.scene.worldManager.currentZoneData && this.scene.worldManager.currentZoneData.type === 'Safe';
-        
-        if (response.turnsHostile) {
-            if (isSafeZone) {
-                this.addMessageToUI("System", `<span style="color:#ff0000">They refuse to fight in town, but will remember this.</span>`);
-                this.player.updateAlignment(-5);
-            } else {
-                setTimeout(() => {
-                    this.closeChat();
-                    if (this.scene.spawnHeroAI) {
-                        this.player.updateAlignment(-10);
-                        this.addMessageToUI("System", `<span style="color:#ff0000">Alignment Shifted: -10</span>`);
-                        let combatClass = 'knight';
-                        const lowerName = this.npcName.toLowerCase();
-                        if (this.spriteKey === 'alchemist' || this.spriteKey === 'npc' || lowerName.includes('sage') || lowerName.includes('wizard') || lowerName.includes('mage')) combatClass = 'wizard';
-                        else if (this.spriteKey === 'ranger' || lowerName.includes('scout') || lowerName.includes('ranger') || lowerName.includes('hunter')) combatClass = 'ranger';
-                        else if (this.spriteKey === 'samurai' || lowerName.includes('samurai') || lowerName.includes('thief') || lowerName.includes('rogue')) combatClass = 'samurai';
-                        else if (this.spriteKey === 'elven_spellblade' || lowerName.includes('spellblade') || lowerName.includes('elf')) combatClass = 'elven_spellblade';
-                        this.scene.spawnHeroAI(combatClass, this.sprite.x, this.sprite.y, 'hostile');
-                    }
-                    this.removeFromWorld();
-                    this.destroy();
-                }, 1500);
-            }
-        } else if (response.joinsParty) {
-            if (isSafeZone && !this.isCustom) {
-                this.addMessageToUI("System", `<span style="color:#00ff00">They will not leave the safety of the town, but they consider you a friend.</span>`);
-                this.player.updateAlignment(5);
-            } else {
-                setTimeout(() => {
-                    this.closeChat();
-                    if (this.scene.spawnHeroAI) {
-                        if (this.isCustom) {
-                            this.scene.spawnHeroAI(this.spriteKey, this.sprite.x, this.sprite.y, 'party', this.npcName, this.persona, 0, this.combatClass);
-                        } else {
-                            let combatClass = 'knight';
-                            const lowerName = this.npcName.toLowerCase();
-                            if (this.spriteKey === 'alchemist' || this.spriteKey === 'npc' || lowerName.includes('sage') || lowerName.includes('wizard') || lowerName.includes('mage')) combatClass = 'wizard';
-                            else if (this.spriteKey === 'ranger' || lowerName.includes('scout') || lowerName.includes('ranger') || lowerName.includes('hunter')) combatClass = 'ranger';
-                            else if (this.spriteKey === 'samurai' || lowerName.includes('samurai') || lowerName.includes('thief') || lowerName.includes('rogue')) combatClass = 'samurai';
-                            else if (this.spriteKey === 'elven_spellblade' || lowerName.includes('spellblade') || lowerName.includes('elf')) combatClass = 'elven_spellblade';
-                            this.scene.spawnHeroAI(combatClass, this.sprite.x, this.sprite.y, 'party', this.npcName, this.persona);
-                        }
-                    }
-                    this.removeFromWorld();
-                    this.destroy();
-                }, 1500);
-            }
-        }
-    }
-
-    _parseAndExecuteRoleplayAction(text) {
-        // Only parse if the entire message is an *action*
-        const match = text.match(/^\*(.+)\*$/);
-        if (!match) return null; // Normal chat message, no action
-        
-        const action = match[1].trim().toLowerCase();
-        
-        // Give gold: *give 500 gold* or *give gold 500*
-        const giveGoldMatch = action.match(/give\s+(\d+)\s*gold/) || action.match(/give\s+gold\s+(\d+)/);
-        if (giveGoldMatch) {
-            const amount = parseInt(giveGoldMatch[1]);
-            if (!this.player.gold || this.player.gold < amount) {
-                return { success: false, reason: `You don't have enough gold. (Have: ${Math.floor(this.player.gold || 0)} gold)` };
-            }
-            this.player.gold -= amount;
-            return {
-                success: true,
-                contextNote: `[PLAYER ACTION]: *${match[1]}*\n(The player physically handed you ${amount} gold coins. Their remaining gold: ${Math.floor(this.player.gold)}. React warmly or suspiciously based on your persona. This is a generous gesture — consider increasing social score via socialShift.)`
-            };
-        }
-        
-        // Give item: *give [item name]*
-        const giveItemMatch = action.match(/^give\s+(.+)$/);
-        if (giveItemMatch && !giveGoldMatch) {
-            const itemName = giveItemMatch[1].trim();
-            const inventory = this.player.inventory || [];
-            const itemIdx = inventory.findIndex(i => (i.name || '').toLowerCase().includes(itemName));
-            if (itemIdx === -1) {
-                return { success: false, reason: `You don't have "${itemName}" in your inventory.` };
-            }
-            const item = inventory.splice(itemIdx, 1)[0];
-            return {
-                success: true,
-                contextNote: `[PLAYER ACTION]: *${match[1]}*\n(The player handed you their "${item.name}". React based on the item's value and your persona. Consider a socialShift bonus.)`
-            };
-        }
-        
-        // Emotes / physical actions (bow, kneel, attack, draw sword, etc.)
-        return {
-            success: true,
-            contextNote: `[PLAYER ACTION]: *${match[1]}*\n(The player performed this physical action in front of you. React naturally and in character — if it's aggressive, consider turnsHostile. If respectful, consider a socialShift bonus.)`
-        };
-    }
-
-    removeFromWorld() {
-        if (window.saveData && window.saveData.zones && window.saveData.currentZone !== undefined) {
-            const currentZone = window.saveData.currentZone;
-            const zoneData = window.saveData.zones[currentZone];
-            if (zoneData) {
-                if (zoneData.npcs) {
-                    zoneData.npcs = zoneData.npcs.filter(n => n.name !== this.npcName);
-                }
-                if (zoneData.ambientNpcs) {
-                    zoneData.ambientNpcs = zoneData.ambientNpcs.filter(n => n.name !== this.npcName);
-                }
-                
-                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                const idx = saves.findIndex(s => s.id === window.saveData.id);
-                if (idx > -1) {
-                    saves[idx] = window.saveData;
-                    localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
-                }
-            }
-        }
-    }
-
-    async triggerHiddenPrompt(hiddenPrompt, displayName) {
-        const loadingId = "loading-" + Date.now();
-        this.addMessageToUI(displayName, "...", loadingId);
-
-        const state = this.getGameState();
-        
-        try {
-            const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
-            if (!this.scene || this.scene.isSceneDestroyed) return;
-            if (!this.sprite || !this.sprite.active) return;
-            
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) loadingElement.remove();
-
-            this.addMessageToUI(displayName, response.response);
-            
-            this.chatHistory.push({ sender: displayName, text: response.response });
-            
-        } catch (err) {
-            if (!this.scene || this.scene.isSceneDestroyed) return;
-            if (!this.sprite || !this.sprite.active) return;
-            console.error("AI Intro failed:", err);
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) loadingElement.remove();
-            this.addMessageToUI(displayName, "Greetings.");
-        }
-
-        if (this.chatInput) this.chatInput.disabled = false;
-        if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
-        if (this.chatInput) this.chatInput.focus();
-    }
+async triggerHiddenPrompt(hiddenPrompt, displayName) {
+    return NPCController_Helper.triggerHiddenPrompt.call(this, hiddenPrompt, displayName);
+}
 
     addMessageToUI(sender, text, id = null) {
         const msgDiv = document.createElement('div');
@@ -1424,7 +895,7 @@ class NPCController {
     }
 
     getLanguageInfo() {
-        const zoneIdx = (window.saveData && window.saveData.currentZone) || 0;
+        const zoneIdx = (saveData && saveData.currentZone) || 0;
         const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
         
         let language = 'common';
@@ -1524,7 +995,7 @@ class NPCController {
 
     checkPlayerUnderstanding() {
         const langInfo = this.getLanguageInfo();
-        const known = (window.saveData && window.saveData.knownLanguages) || ['common'];
+        const known = (saveData && saveData.knownLanguages) || ['common'];
         
         if (known.includes(langInfo.language)) {
             return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };

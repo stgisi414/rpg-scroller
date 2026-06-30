@@ -31,6 +31,7 @@ class GeminiService {
 
         this.ai = null;
         this.model = null;
+        this.modelWithTools = null;
         this.isReady = false;
     }
 
@@ -87,28 +88,31 @@ class GeminiService {
             // We use the JSON response mimeType to ensure structured data back to our game engine
             const tools = [{
                 functionDeclarations: [{
-                    name: "rollChartopiaChart",
-                    description: "Rolls a random result from a specified Chartopia public chart/table ID. Use this to generate fantasy names for characters, towns, items, or lore details.",
+                    name: "rollFantasyName",
+                    description: "Pulls a randomized selection of pre-generated high-quality fantasy names from the game's offline database. Use this tool whenever you need to generate a new name for a kingdom, town, NPC, or character. Pick your favorite name from the returned list and use it.",
                     parameters: {
                         type: "OBJECT",
                         properties: {
-                            chartId: { 
-                                type: "INTEGER", 
-                                description: "The Chartopia public chart ID to roll on (e.g. 19449)." 
+                            category: { 
+                                type: "STRING", 
+                                description: "The category of names to pull. Valid options are: 'kingdoms', 'towns', 'elf_female', 'elf_male', 'human_male', 'human_female', 'dwarf_male', 'dwarf_female', 'human_last', 'elf_last', 'dwarf_last', 'high_sage', 'alchemist', 'blacksmith', 'merchant'." 
                             },
-                            variables: {
-                                type: "STRING",
-                                description: "Optional key-value parameters/variables to pass to the generator chart, formatted as a JSON-serialized string (e.g. '{\"gender\":\"female\"}')."
+                            count: {
+                                type: "INTEGER",
+                                description: "The number of random names to pull to choose from (default is 10, max is 20)."
                             }
                         },
-                        required: ["chartId"]
+                        required: ["category"]
                     }
                 }]
             }];
 
             this.model = this.ai.getGenerativeModel({ 
                 model: "gemini-3.5-flash",
-                generationConfig: { responseMimeType: "application/json" },
+                generationConfig: { responseMimeType: "application/json" }
+            });
+            this.modelWithTools = this.ai.getGenerativeModel({ 
+                model: "gemini-3.5-flash",
                 tools: tools
             });
             this.isReady = true;
@@ -118,56 +122,28 @@ class GeminiService {
         }
     }
 
-    async rollChartopia(chartId, variables) {
-        const apiKey = localStorage.getItem("chartopia_api_key") || "";
-        console.log(`[ChartopiaDebug] Attempting to roll chartId ${chartId}. API key present in localStorage: ${!!apiKey}`);
+    rollFantasyName(category, count = 10) {
+        if (!window.FANTASY_NAMES || !window.FANTASY_NAMES[category]) {
+            return `Error: Category '${category}' not found in database.`;
+        }
         
-        const headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        };
-        if (apiKey) {
-            headers["X-Api-Key"] = apiKey;
-        }
-
-        let varsObj = {};
-        if (typeof variables === 'string' && variables.trim()) {
-            try {
-                varsObj = JSON.parse(variables);
-            } catch (e) {
-                console.warn("[ChartopiaDebug] Failed to parse variables JSON string:", variables);
-            }
-        } else if (typeof variables === 'object' && variables !== null) {
-            varsObj = variables;
-        }
-
-        const body = JSON.stringify({ variables: varsObj });
-        const url = `https://chartopia.d12dev.com/api/charts/${chartId}/roll/`;
-        console.log(`[ChartopiaDebug] Sending POST to ${url}`);
+        const list = window.FANTASY_NAMES[category];
+        if (list.length === 0) return "Error: Name database is empty. Waiting for user to populate it.";
         
-        const response = await fetch(url, {
-            method: "POST",
-            headers: headers,
-            body: body
-        });
-
-        if (!response.ok) {
-            console.error(`[ChartopiaDebug] HTTP Error: status=${response.status}`);
-            throw new Error(`Chartopia HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.results && Array.isArray(data.results)) {
-            return data.results.join("\n");
-        }
-        return JSON.stringify(data);
+        // Shuffle the array to ensure Gemini gets random options
+        const shuffled = [...list].sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, Math.min(count, 20, list.length));
+        
+        return selected.join(", ");
     }
 
     async generateContentWithTools(prompt) {
         if (!this.isReady) throw new Error("GeminiService is not ready");
         
-        const chat = this.model.startChat();
+        console.log("[GEMINI_DBG] startChat with modelWithTools. Prompt starts with:", prompt.substring(0, 150) + "...");
+        const chat = this.modelWithTools.startChat();
         let result = await chat.sendMessage(prompt);
+        console.log("[GEMINI_DBG] Initial result:", result);
         
         let attempts = 0;
         const maxAttempts = 10;
@@ -176,17 +152,12 @@ class GeminiService {
             const functionCalls = result.functionCalls;
             if (functionCalls && functionCalls.length > 0) {
                 const call = functionCalls[0];
+                console.log(`[GEMINI_DBG] Tool call requested (attempt ${attempts}): ${call.name} with args:`, call.args);
                 let resultStr = "";
-                if (call.name === "rollChartopiaChart") {
-                    const chartId = call.args.chartId;
-                    const variables = call.args.variables || {};
-                    try {
-                        resultStr = await this.rollChartopia(chartId, variables);
-                    } catch (e) {
-                        console.error("GeminiService: Chartopia roll failed", e);
-                        resultStr = `Error: ${e.message}`;
-                    }
+                if (call.name === "rollFantasyName") {
+                    resultStr = this.rollFantasyName(call.args.category, call.args.count || 10);
                 }
+                console.log("[GEMINI_DBG] Tool execution result:", resultStr);
                 
                 result = await chat.sendMessage([{
                     functionResponse: {
@@ -194,8 +165,10 @@ class GeminiService {
                         response: { result: resultStr }
                     }
                 }]);
+                console.log(`[GEMINI_DBG] Chat result after tool call response (attempt ${attempts}):`, result);
                 attempts++;
             } else {
+                console.log("[GEMINI_DBG] Final non-tool result returned successfully.");
                 return result;
             }
         }
@@ -206,6 +179,15 @@ class GeminiService {
         if (!this.isReady) {
             return { tactic: "IDLE", dialogue: "" };
         }
+
+        // Global Rate Limiting: prevent API exhaustion (max 1 request every 4s globally)
+        const now = Date.now();
+        if (!this.lastRequestTime) this.lastRequestTime = 0;
+        if (now - this.lastRequestTime < 4000) {
+            // Quietly fall back to CHASE without hitting the API
+            return { tactic: "CHASE", dialogue: "" };
+        }
+        this.lastRequestTime = now;
 
         const prompt = `You are an advanced Director AI controlling an enemy (${battleState.enemyType}) in an Action-RPG game.
 You must choose the best tactical action based on the current battle state and roleplay as this enemy by providing a short taunt or piece of battle chatter.
@@ -292,6 +274,9 @@ Return ONLY a valid JSON object:
 
     async getNpcResponse(npcPersona, chatHistory, playerMessage, state, actionContext = '') {
         if (!this.isReady) {
+            if (actionContext) {
+                return { response: `Very well, let us proceed with the ${actionContext}. [ACTION_SUCCESS]`, alignmentShift: 0 };
+            }
             return { response: "I cannot speak right now, my mind is disconnected.", alignmentShift: 0 };
         }
 
@@ -345,6 +330,17 @@ Return ONLY a valid JSON object:
                 }
                 if (pc.discoveredFrontierKingdoms && pc.discoveredFrontierKingdoms.length > 0) {
                     contextText += `- Discovered Frontier Kingdoms (Rumors): ${pc.discoveredFrontierKingdoms.join(', ')}\n`;
+                }
+                if (window.getKingdomForZone && window.getKingdomTownName && state.zone && state.zone.zoneIndex !== undefined) {
+                    const z = state.zone.zoneIndex;
+                    const dir = z < 0 ? -4 : 4;
+                    const baseZ = Math.floor(Math.abs(z) / 4) * 4 * (z < 0 ? -1 : 1);
+                    const nearbyTowns = [baseZ, baseZ + dir, baseZ + dir * 2];
+                    const k = window.getKingdomForZone(z);
+                    if (k) {
+                        const townStrs = nearbyTowns.map(tz => `Zone ${tz} is ${window.getKingdomTownName(k.id, tz)}`);
+                        contextText += `- Known Nearby Towns (CRITICAL: You MUST use these exact names if you create a delivery quest): ${townStrs.join(', ')}\n`;
+                    }
                 }
             }
             contextText += `-------------------------------\n`;
@@ -422,10 +418,10 @@ If you offer a quest, include a "quest" object in the JSON. Supported quest type
 For kill quests, pick an enemy that fits the current biome. Supported enemy targetTypes: "slime", "goblin", "bat", "mushroom", "orc", "bandit", "skeleton", "troll", "ogre", "giant", "frost_giant", "dragon", "spider", "mummy".
 For rescue quests, rescueeZone should be a non-town zone near the current area (current zone ± 1-3, but NOT a multiple of 4 since those are towns). Pick a creative name for the rescuee.
 For delivery quests, deliveryTargetZone should be a nearby town zone (a multiple of 4). deliveryTargetNPC should be a role like "Elder", "Sage", "Apothecary", or "Master Smith".
-The current zone number is: ${(window.saveData && window.saveData.currentZone) || 0}.
+The current zone number is: ${(saveData && saveData.currentZone) || 0}.
 
 If the player's message is extremely insulting, threatening, or completely pisses you off, you can choose to attack them. If you decide to attack, set "turnsHostile" to true in the JSON.
-If the player's message is extremely kind, impressive, or they befriend you, you can choose to join their party and fight alongside them. If you decide to join them, set "joinsParty" to true in the JSON.
+If the player's message is extremely kind, impressive, or they befriend you, you can choose to join their party and fight alongside them. (Special Rule: If you are a King's Guard, you SHOULD join their party if they have high reputation with your faction and request your aid). If you decide to join them, set "joinsParty" to true in the JSON.
 (Do not set both to true).
 
 Return ONLY a valid JSON object in this format (showing all 3 quest examples — pick ONE type per response):
@@ -632,16 +628,10 @@ Generate data for Zone Index ${zoneIndex}. Note: Negative zoneIndex values indic
 The player is Level ${playerLevel}.
 
 TOOL INSTRUCTION:
-You are equipped with the 'rollChartopiaChart' tool. To respect API rate limits, please call 'rollChartopiaChart' at most ONCE or TWICE (e.g., roll once for a town name on chartId 14967, and once for an NPC name). If generating multiple NPCs, roll once and extrapolate or adapt them cohesively.
-Recommended Chart IDs to call:
-- Fantasy Town/City Names: 14967
-- Fantasy Human Character Names: 12493
-- Sylvan/Elven Names: 13576
-- Dwarven Stronghold/Character Names: 14092
-- General Townsfolk/NPC Names: 18671
-
-If you are naming this zone (whether it is a town or wilderness area), call 'rollChartopiaChart' with chartId 14967 or another appropriate table.
-If you are generating names for NPCs, call 'rollChartopiaChart' with the appropriate name chart ID to get their name.
+You are equipped with the 'rollFantasyName' tool which pulls randomized names from our massive offline fantasy database.
+You MUST call this tool whenever you need to name a Town, Kingdom, Region, or NPC.
+Example: If you need to name an elven guard, call rollFantasyName with category="elf_male" and then call it again with category="elf_last". Combine the best first and last names from the returned lists and use it in your response.
+DO NOT invent generic names yourself—always rely on the options returned by the 'rollFantasyName' tool!
 
 ${elvenPromptInstruction}
 
@@ -810,9 +800,9 @@ Return ONLY a valid JSON object in this exact format:
     async getGameMasterResponse(player, promptText, zoneData) {
         if (!this.model) return { storyText: "Prepare to die!" }; // Fallback
 
-        const playerLevel = window.saveData ? (window.saveData.level || 1) : 1;
+        const playerLevel = saveData ? (saveData.level || 1) : 1;
         const className = player.classData ? player.classData.id : 'adventurer';
-        const isSavior = window.saveData && window.saveData.isSavior ? 'Savior of the Realm' : 'Unknown wanderer';
+        const isSavior = saveData && saveData.isSavior ? 'Savior of the Realm' : 'Unknown wanderer';
         const zoneName = zoneData ? zoneData.name : 'Unknown lands';
 
         const prompt = `You are an AI Game Master in a dark fantasy 2D RPG.
@@ -846,7 +836,7 @@ Keep it short, punchy, and atmospheric.`;
     async getHeroAutoPlayResponse(classId, npcName, chatContext) {
         if (!this.model) return "Interesting.";
 
-        let persona = (window.autoplayConfig && window.autoplayConfig.heroPersonality) ? window.autoplayConfig.heroPersonality : "";
+        let persona = (autoplayConfig && autoplayConfig.heroPersonality) ? autoplayConfig.heroPersonality : "";
         if (!persona) {
             if (classId === 'knight') persona = "A brave knight who was forced into exile but continues to bring justice to the realm.";
             else if (classId === 'wizard') persona = "A mysterious wizard who came from a rift of a foreign land.";
@@ -909,39 +899,27 @@ Return ONLY a valid JSON object in this format:
         });
         const townNamesJsonStr = JSON.stringify(townNamesTemplate);
 
-        let rolledName = "";
-        try {
-            console.log("[ChartopiaDebug] Initiating Chartopia roll for kingdom name on chartId 19449...");
-            rolledName = await this.rollChartopia(19449);
-            // Clean up name: strip HTML tags and trim whitespace
-            rolledName = rolledName.replace(/<[^>]*>/g, '').trim();
-            console.log(`[ChartopiaDebug] Chartopia roll succeeded! Rolled candidate: "${rolledName}"`);
-        } catch (e) {
-            console.error("[ChartopiaDebug] Failed to roll Chartopia for kingdom name, will fall back to using default template seeds:", e);
-        }
-        if (!rolledName) {
-            rolledName = "Kingdom of Vaelgard";
-            console.log("[ChartopiaDebug] No name rolled, using fallback seed: 'Kingdom of Vaelgard'");
-        }
-
         const existingKingdomNames = [];
-        for (const key in window.WORLD_KINGDOMS) {
-            existingKingdomNames.push(window.WORLD_KINGDOMS[key].name);
+        for (const key in WORLD_KINGDOMS) {
+            existingKingdomNames.push(WORLD_KINGDOMS[key].name);
         }
-        if (window.saveData && window.saveData.discoveredKingdoms) {
-            for (const key in window.saveData.discoveredKingdoms) {
-                existingKingdomNames.push(window.saveData.discoveredKingdoms[key].name);
+        if (saveData && saveData.discoveredKingdoms) {
+            for (const key in saveData.discoveredKingdoms) {
+                existingKingdomNames.push(saveData.discoveredKingdoms[key].name);
             }
         }
 
+        let defaultCapital = start + Math.floor((end - start) / 2);
+        if (townZones.length > 0) {
+            defaultCapital = townZones.reduce((prev, curr) => Math.abs(curr - defaultCapital) < Math.abs(prev - defaultCapital) ? curr : prev);
+        }
+
         const prompt = `Generate a completely unique and procedurally drafted fantasy kingdom located in the wild frontier of the world between zones ${zoneRange[0]} and ${zoneRange[1]}.
-The candidate kingdom name rolled from Chartopia is: "${rolledName}"
 The list of existing kingdoms in the world is: ${JSON.stringify(existingKingdomNames)}
 
 YOUR CRITICAL INSTRUCTIONS:
-1. Check if the candidate name "${rolledName}" is identical to, or highly similar to, any kingdom name in the existing list.
-2. If it already exists or conflicts, modify/tweak it to be a unique fantasy name. If it is unique, keep "${rolledName}". Let's call the finalized name "name".
-3. Generate a creative faction name ("factionName") representing the ruling order of the kingdom, which must be themed and designed directly based on the finalized kingdom name.
+1. Make up a highly creative and immersive fantasy name for this kingdom. It must not be identical or highly similar to any existing kingdom name. Let's call the finalized name "name".
+2. Generate a creative faction name ("factionName") representing the ruling order of the kingdom, which must be themed and designed directly based on the finalized kingdom name.
 4. Keep the biomes, descriptions, ruler details, imports/exports, and town names cohesive with this kingdom's theme.
 
 Return ONLY a valid JSON object in this format (no markdown formatting, no backticks, just the raw JSON):
@@ -949,7 +927,7 @@ Return ONLY a valid JSON object in this format (no markdown formatting, no backt
   "id": "frontier_kingdom_${Math.abs(zoneRange[0])}",
   "name": "Finalized unique fantasy name of the Kingdom",
   "desc": "A highly detailed, creative, and immersive fantasy history and lore paragraph describing the kingdom's origins, its rise in the frontier, and its current state.",
-  "capital": ${zoneRange[0] + Math.floor(Math.random() * (zoneRange[1] - zoneRange[0] + 1))},
+  "capital": ${defaultCapital},
   "zoneRange": [${zoneRange[0]}, ${zoneRange[1]}],
   "biomes": ["Biome1", "Biome2"], // Pick two different biomes from: Forest, Plains, Coastal, Desert, Winter, Deadwoods, Hell, Cave, Dungeon
   "rulingFaction": "faction_frontier_${Math.abs(zoneRange[0])}",
@@ -985,29 +963,21 @@ Return ONLY a valid JSON object in this format (no markdown formatting, no backt
             }
             
             // Programmatically align capital to nearest multiple of 4 (town zone) in range
-            const start = parsed.zoneRange[0];
-            const end = parsed.zoneRange[1];
-            const townZones = [];
-            for (let z = start; z <= end; z++) {
-                if (z === 0 || (Math.abs(z) > 0 && Math.abs(z) % 4 === 0)) {
-                    townZones.push(z);
-                }
-            }
             if (townZones.length > 0 && Math.abs(parsed.capital) % 4 !== 0) {
                 parsed.capital = townZones.reduce((prev, curr) => Math.abs(curr - parsed.capital) < Math.abs(prev - parsed.capital) ? curr : prev);
             }
 
             // Save and log town names in saveData.zones
             if (parsed.townNames) {
-                if (!window.saveData.zones) window.saveData.zones = {};
+                if (!saveData.zones) saveData.zones = {};
                 for (const zIdx in parsed.townNames) {
                     const z = parseInt(zIdx);
                     let name = parsed.townNames[zIdx];
                     if (z === parsed.capital && !name.toLowerCase().includes('capital')) {
                         name = `${name} Capital`;
                     }
-                    if (!window.saveData.zones[zIdx]) {
-                        window.saveData.zones[zIdx] = {
+                    if (!saveData.zones[zIdx]) {
+                        saveData.zones[zIdx] = {
                             name: name,
                             biome: (z === parsed.capital) ? 'Capital' : 'Town'
                         };
@@ -1098,13 +1068,13 @@ Return ONLY a valid JSON object in this format (no markdown formatting, no backt
 
             const fallbackTownNames = {};
             townZones.forEach((z, i) => {
-                const name = (z === capital) ? `${template.name} Capital` : template.townNames[i % template.townNames.length];
+                const name = (z === defaultCapital) ? `${template.name} Capital` : template.townNames[i % template.townNames.length];
                 fallbackTownNames[z] = name;
-                if (!window.saveData.zones) window.saveData.zones = {};
-                if (!window.saveData.zones[z]) {
-                    window.saveData.zones[z] = {
+                if (!saveData.zones) saveData.zones = {};
+                if (!saveData.zones[z]) {
+                    saveData.zones[z] = {
                         name: name,
-                        biome: (z === capital) ? 'Capital' : 'Town'
+                        biome: (z === defaultCapital) ? 'Capital' : 'Town'
                     };
                 }
             });
@@ -1119,7 +1089,7 @@ Return ONLY a valid JSON object in this format (no markdown formatting, no backt
                 id: `frontier_kingdom_${Math.abs(zoneRange[0])}`,
                 name: template.name,
                 desc: template.desc,
-                capital: capital,
+                capital: defaultCapital,
                 zoneRange: [zoneRange[0], zoneRange[1]],
                 biomes: template.biomes,
                 rulingFaction: fid || `faction_frontier_${Math.abs(zoneRange[0])}`,

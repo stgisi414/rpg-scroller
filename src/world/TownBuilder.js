@@ -17,13 +17,13 @@ window.TownBuilder = {
                 { name: "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 1000, spriteKey: "alchemist" }
             ];
             // Update cache
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            if (window.saveData && window.saveData.zones) {
-                window.saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
-                const idx = saves.findIndex(s => s.id === window.saveData.id);
-                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            const saves = window.getSaves();
+            if (saveData && saveData.zones) {
+                saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
+                const idx = saves.findIndex(s => s.id === saveData.id);
+                const clonedSave = JSON.parse(JSON.stringify(saveData));
                 if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
-                localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                window.saveSaves(saves);
             }
         }
 
@@ -158,11 +158,11 @@ window.TownBuilder = {
 
             zoneData.decorLayout = layout;
             
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            const idx = saves.findIndex(s => s.id === window.saveData.id);
-            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            const saves = window.getSaves();
+            const idx = saves.findIndex(s => s.id === saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(saveData));
             if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
-            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+            window.saveSaves(saves);
         }
 
         if (!zoneData.decorLayout.some(item => item.isAngelStatue)) {
@@ -345,7 +345,7 @@ window.TownBuilder = {
         }
 
         // --- KINGS GUARD HOSTILITY SYSTEM ---
-        const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZoneIdx, window.saveData.alignment) : { shouldAttack: false, reason: null };
+        const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZoneIdx, saveData.alignment) : { shouldAttack: false, reason: null };
         
         if (hostility.shouldAttack) {
             const isCapitalZone = window.isCapitalCity ? window.isCapitalCity(currentZoneIdx) : false;
@@ -399,7 +399,7 @@ window.TownBuilder = {
                 const spawnX = positions[i];
                 const faction = window.getFactionForZone(currentZoneIdx);
                 const factionName = faction ? faction.name : "the Realm";
-                let guardSprite = 'knight_rival';
+                let guardSprite = 'heavy_knight';
                 let guardName = `King's Guard`;
                 let guardPersona = `A disciplined soldier sworn to protect the peace of ${factionName}. They watch for criminals and rebels.`;
                 let guardClass = 'sword';
@@ -435,6 +435,9 @@ window.TownBuilder = {
                     guardSprite,
                     guardClass
                 );
+                guardNPC.faction = faction ? faction.id : null;
+                guardNPC.factionRank = 'guard';
+                guardNPC.politicalTitle = 'Guard';
                 scene.physics.add.collider(guardNPC.sprite, scene.platforms);
                 scene.npcs.push(guardNPC);
                 scene.decorGroup.add(guardNPC.nameText);
@@ -443,13 +446,13 @@ window.TownBuilder = {
         }
 
         // Persist updated zone configurations
-        if (window.saveData && window.saveData.zones) {
-            window.saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            const idx = saves.findIndex(s => s.id === window.saveData.id);
+        if (saveData && saveData.zones) {
+            saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
+            const saves = window.getSaves();
+            const idx = saves.findIndex(s => s.id === saveData.id);
             if (idx > -1) {
-                saves[idx] = window.saveData;
-                localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                saves[idx] = saveData;
+                window.saveSaves(saves);
             }
         }
     }

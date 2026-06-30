@@ -460,6 +460,12 @@ class InventoryManager {
             if (artifactDef) {
                 if (aBg) {
                     aBg.style.backgroundImage = `url('${artifactDef.iconSrc}')`;
+                    aBg.style.width = '40px';
+                    aBg.style.height = '40px';
+                    aBg.style.backgroundSize = 'contain';
+                    aBg.style.backgroundPosition = 'center';
+                    aBg.style.backgroundRepeat = 'no-repeat';
+                    aBg.style.transform = 'none';
                 }
                 if (aIcon) {
                     aIcon.style.display = 'flex';
@@ -606,7 +612,7 @@ class InventoryManager {
                     bgEl.style.height = fbH;
                     bgEl.style.backgroundSize = fbSz;
                     bgEl.style.backgroundPosition = fbPos;
-                    bgEl.style.transform = `scale(${fbSc})`;
+                    bgEl.style.transform = fbSc === 1 ? 'none' : `scale(${fbSc})`;
                 }
             } else {
                 // If list is empty, reset to default fallback
@@ -615,14 +621,14 @@ class InventoryManager {
                 bgEl.style.height = fbH;
                 bgEl.style.backgroundSize = fbSz;
                 bgEl.style.backgroundPosition = fbPos;
-                bgEl.style.transform = `scale(${fbSc})`;
+                bgEl.style.transform = fbSc === 1 ? 'none' : `scale(${fbSc})`;
             }
         };
 
-        updateSlotBg(player.inventory.potionList, 'inv-bg-2', 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png', '16px', '16px', '48px 128px', '-16px 0px', 2);
-        updateSlotBg(player.inventory.mpPotionList, 'inv-bg-3', 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png', '16px', '16px', '16px 128px', '0px 0px', 2);
-        updateSlotBg(player.inventory.meatList, 'inv-bg-4', 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png', '16px', '16px', 'auto', 'left top', 2.5);
-        updateSlotBg(player.inventory.spPotionList, 'inv-bg-5', 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png', '16px', '16px', '16px 128px', '0px 0px', 2);
+        updateSlotBg(player.inventory.potionList, 'inv-bg-2', 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png', '40px', '40px', '96px 256px', '-28px 4px', 1);
+        updateSlotBg(player.inventory.mpPotionList, 'inv-bg-3', 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png', '40px', '40px', '32px 256px', '4px 4px', 1);
+        updateSlotBg(player.inventory.meatList, 'inv-bg-4', 'src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png', '40px', '40px', '40px 40px', 'center', 1);
+        updateSlotBg(player.inventory.spPotionList, 'inv-bg-5', 'src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png', '40px', '40px', '32px 256px', '4px 4px', 1);
         updateSlotBg(player.inventory.miscPotionList, 'inv-bg-6', 'src/assets/48 Magic Artifacts Pixel Art Icons/PNG/Transperent/Icon9.png', '40px', '40px', 'contain', 'center', 1);
 
         // Setup click listeners for popup if not already done

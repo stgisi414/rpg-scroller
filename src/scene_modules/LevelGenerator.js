@@ -34,7 +34,7 @@ class LevelGenerator {
     setBiomeVisuals(biomeOrZoneData, zoneType = 'Hostile') {
         let biome = biomeOrZoneData;
         let type = zoneType;
-        let zoneIndex = (window.saveData && window.saveData.currentZone) || 0;
+        let zoneIndex = (saveData && saveData.currentZone) || 0;
         if (biomeOrZoneData && typeof biomeOrZoneData === 'object') {
             biome = biomeOrZoneData.biome;
             type = biomeOrZoneData.type || zoneType;

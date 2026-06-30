@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ELDEN SOUL - Party Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;700&amp;family=Courier+Prime:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-tint": "#ffb4a8",
+                        "surface-variant": "#353535",
+                        "outline": "#aa8984",
+                        "on-error": "#690005",
+                        "on-secondary": "#402d00",
+                        "surface-bright": "#393939",
+                        "surface-container-high": "#2a2a2a",
+                        "on-secondary-container": "#433000",
+                        "surface-dim": "#131313",
+                        "secondary-fixed-dim": "#f6be3b",
+                        "secondary-fixed": "#ffdea0",
+                        "on-surface": "#e4e2e1",
+                        "outline-variant": "#5a403c",
+                        "surface-container-highest": "#353535",
+                        "tertiary-container": "#004b4c",
+                        "inverse-on-surface": "#303030",
+                        "surface-container-low": "#1b1c1c",
+                        "on-primary-container": "#ff907f",
+                        "on-background": "#e4e2e1",
+                        "tertiary-fixed-dim": "#2ddbde",
+                        "secondary": "#f6be3b",
+                        "on-tertiary-fixed": "#002020",
+                        "on-surface-variant": "#e3beb8",
+                        "on-secondary-fixed-variant": "#5c4300",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#ffb4a8",
+                        "on-tertiary-container": "#00c3c6",
+                        "tertiary": "#2ddbde",
+                        "primary-container": "#8b0000",
+                        "inverse-primary": "#b52619",
+                        "primary-fixed": "#ffdad4",
+                        "on-primary-fixed-variant": "#920703",
+                        "on-tertiary-fixed-variant": "#004f51",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0e0e0e",
+                        "background": "#131313",
+                        "tertiary-fixed": "#5af8fb",
+                        "surface-container": "#1f2020",
+                        "on-error-container": "#ffdad6",
+                        "secondary-container": "#c69302",
+                        "on-secondary-fixed": "#261900",
+                        "on-primary-fixed": "#410000",
+                        "on-tertiary": "#003738",
+                        "surface": "#131313",
+                        "primary": "#ffb4a8",
+                        "inverse-surface": "#e4e2e1",
+                        "on-primary": "#690000"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "gutter": "16px",
+                        "pixel-unit": "4px",
+                        "panel-padding": "12px",
+                        "margin-edge": "32px"
+                    },
+                    fontFamily: {
+                        "headline-md": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "body-sm": ["JetBrains Mono"],
+                        "body-lg": ["JetBrains Mono"],
+                        "label-caps": ["Courier Prime"]
+                    },
+                    fontSize: {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "fontWeight": "700" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-caps": ["10px", { "lineHeight": "12px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        
+        /* Custom Scrollbar for immersive feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #131313; 
+            border-left: 1px solid #5a403c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #353535; 
+            border: 1px solid #aa8984;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a403c; 
+        }
+
+        .iron-border {
+            border: 2px solid #5a403c;
+            box-shadow: inset 0 0 0 1px rgba(246, 190, 59, 0.2);
+        }
+        
+        .glow-hover:hover {
+            box-shadow: 0 0 8px rgba(255, 180, 168, 0.4);
+            border-color: #ffb4a8;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen relative overflow-hidden font-body-lg">
+<div class="noise-overlay"></div>
+<!-- Background Shader -->
+<div class="absolute inset-0 z-0 opacity-40">
+
+</div>
+<!-- Letterbox Overlay (Level 1) -->
+<div class="absolute inset-0 bg-black/60 z-10 pointer-events-none"></div>
+<main class="relative z-20 flex flex-col items-center min-h-screen p-margin-edge">
+<!-- Main Panel (Level 2) -->
+<div class="w-full max-w-5xl bg-surface-container/90 backdrop-blur-md iron-border p-gutter flex flex-col h-[calc(100vh-64px)]">
+<!-- Header Section -->
+<header class="flex justify-between items-start mb-gutter relative">
+<div class="flex gap-gutter">
+<!-- Character Portrait -->
+<div class="w-24 h-24 iron-border bg-surface-dim flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-outline-variant text-4xl">face</span>
+</div>
+<div class="flex flex-col justify-center">
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-widest uppercase mb-1">
+                            Stepanos
+                        </h1>
+<h2 class="font-headline-md text-headline-md text-secondary uppercase mb-2">
+                            Level 7 Priest
+                        </h2>
+<!-- Badges -->
+<div class="flex gap-pixel-unit flex-wrap">
+<span class="px-2 py-1 iron-border bg-surface-dim font-label-caps text-label-caps text-outline flex items-center gap-1">
+                                Neutral (1)
+                            </span>
+<span class="px-2 py-1 iron-border bg-surface-dim font-label-caps text-label-caps text-tertiary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">payments</span>
+                                851 Gold
+                            </span>
+<span class="px-2 py-1 iron-border bg-surface-dim font-label-caps text-label-caps text-on-surface flex items-center gap-1">
+                                287 / 700 XP
+                            </span>
+<span class="px-2 py-1 iron-border bg-surface-dim font-label-caps text-label-caps text-primary flex items-center gap-1">
+                                HP: 280/280 | MP: 72/76
+                            </span>
+</div>
+</div>
+</div>
+<button class="font-label-caps text-label-caps text-outline hover:text-primary transition-colors flex items-center gap-1">
+                    CLOSE (ESC)
+                </button>
+</header>
+<!-- Navigation Tabs -->
+<nav class="flex border-b border-outline-variant mb-gutter">
+<button class="px-4 py-2 font-label-caps text-label-caps text-outline-variant hover:text-primary transition-colors uppercase">
+                    Attributes &amp; Gear
+                </button>
+<button class="px-4 py-2 font-label-caps text-label-caps text-outline-variant hover:text-primary transition-colors uppercase">
+                    Passive Skills
+                </button>
+<button class="px-4 py-2 font-label-caps text-label-caps text-outline-variant hover:text-primary transition-colors uppercase">
+                    Political Standing
+                </button>
+<button class="px-4 py-2 font-label-caps text-label-caps text-primary border-b-2 border-primary transition-colors uppercase">
+                    Party Management
+                </button>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col min-h-0">
+<!-- Party Summary Header -->
+<div class="flex justify-between items-center mb-4 px-2">
+<h3 class="font-headline-md text-headline-md text-secondary flex items-center gap-2">
+<span class="material-symbols-outlined">group</span>
+                        Party Members
+                    </h3>
+<div class="flex gap-gutter font-body-sm text-body-sm text-on-surface-variant">
+<span>Party Size: <span class="text-on-surface">3 / 6</span></span>
+<span>Total Combat Rating: <span class="text-tertiary">4,850</span></span>
+</div>
+</div>
+<!-- Party Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter overflow-y-auto pr-2 pb-4">
+<!-- Card 1: Lyra -->
+<div class="bg-surface-dim iron-border p-panel-padding flex flex-col gap-4 glow-hover transition-all group">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 iron-border bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-outline-variant">person</span>
+</div>
+<div>
+<div class="font-headline-md text-[18px] text-on-surface uppercase">Lyra</div>
+<div class="font-body-sm text-body-sm text-outline">Ranger</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary cursor-pointer">more_vert</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-label-caps text-label-caps">
+<span class="text-outline">HP</span>
+<span class="text-on-surface">120/120</span>
+</div>
+<div class="h-1 bg-surface-variant w-full rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500/80 w-full"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2 font-body-sm text-body-sm">
+<div class="bg-surface p-1 iron-border flex justify-between">
+<span class="text-outline">DEX</span>
+<span class="text-secondary">18</span>
+</div>
+<div class="bg-surface p-1 iron-border flex justify-between">
+<span class="text-outline">ATK</span>
+<span class="text-primary">45</span>
+</div>
+</div>
+<div class="flex justify-between items-center text-body-sm mt-auto">
+<span class="text-outline">Behavior:</span>
+<span class="text-primary uppercase font-label-caps">Aggressive</span>
+</div>
+<div class="grid grid-cols-3 gap-1 mt-2">
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-on-surface transition-colors active:translate-y-[1px]">Set</button>
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-on-surface transition-colors active:translate-y-[1px]">Inspect</button>
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-error transition-colors active:translate-y-[1px]">Dismiss</button>
+</div>
+</div>
+<!-- Card 2: Cassian -->
+<div class="bg-surface-dim iron-border p-panel-padding flex flex-col gap-4 glow-hover transition-all group">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 iron-border bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-outline-variant">person</span>
+</div>
+<div>
+<div class="font-headline-md text-[18px] text-on-surface uppercase">Cassian</div>
+<div class="font-body-sm text-body-sm text-outline">Warrior</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary cursor-pointer">more_vert</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-label-caps text-label-caps">
+<span class="text-outline">HP</span>
+<span class="text-on-surface">280/300</span>
+</div>
+<div class="h-1 bg-surface-variant w-full rounded-full overflow-hidden">
+<div class="h-full bg-secondary/80 w-[93%]"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2 font-body-sm text-body-sm">
+<div class="bg-surface p-1 iron-border flex justify-between">
+<span class="text-outline">STR</span>
+<span class="text-secondary">20</span>
+</div>
+<div class="bg-surface p-1 iron-border flex justify-between">
+<span class="text-outline">DEF</span>
+<span class="text-tertiary">60</span>
+</div>
+</div>
+<div class="flex justify-between items-center text-body-sm mt-auto">
+<span class="text-outline">Behavior:</span>
+<span class="text-tertiary uppercase font-label-caps">Defensive</span>
+</div>
+<div class="grid grid-cols-3 gap-1 mt-2">
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-on-surface transition-colors active:translate-y-[1px]">Set</button>
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-on-surface transition-colors active:translate-y-[1px]">Inspect</button>
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-error transition-colors active:translate-y-[1px]">Dismiss</button>
+</div>
+</div>
+<!-- Card 3: Valerius -->
+<div class="bg-surface-dim iron-border p-panel-padding flex flex-col gap-4 glow-hover transition-all group">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 iron-border bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-outline-variant">person</span>
+</div>
+<div>
+<div class="font-headline-md text-[18px] text-on-surface uppercase">Valerius</div>
+<div class="font-body-sm text-body-sm text-outline">Mage</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary cursor-pointer">more_vert</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-label-caps text-label-caps">
+<span class="text-outline">HP</span>
+<span class="text-on-surface">85/90</span>
+</div>
+<div class="h-1 bg-surface-variant w-full rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500/80 w-[94%]"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2 font-body-sm text-body-sm">
+<div class="bg-surface p-1 iron-border flex justify-between">
+<span class="text-outline">INT</span>
+<span class="text-secondary">22</span>
+</div>
+<div class="bg-surface p-1 iron-border flex justify-between">
+<span class="text-outline">MAG</span>
+<span class="text-primary">75</span>
+</div>
+</div>
+<div class="flex justify-between items-center text-body-sm mt-auto">
+<span class="text-outline">Behavior:</span>
+<span class="text-on-surface uppercase font-label-caps">Follow</span>
+</div>
+<div class="grid grid-cols-3 gap-1 mt-2">
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-on-surface transition-colors active:translate-y-[1px]">Set</button>
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-on-surface transition-colors active:translate-y-[1px]">Inspect</button>
+<button class="bg-surface hover:bg-surface-variant iron-border font-label-caps text-label-caps py-1 text-error transition-colors active:translate-y-[1px]">Dismiss</button>
+</div>
+</div>
+<!-- Card 4: Empty -->
+<div class="bg-surface/50 border border-dashed border-outline-variant p-panel-padding flex flex-col items-center justify-center gap-2 hover:bg-surface-variant/50 transition-colors cursor-pointer group min-h-[220px]">
+<span class="material-symbols-outlined text-outline-variant text-4xl group-hover:text-secondary transition-colors">person_add</span>
+<span class="font-label-caps text-label-caps text-outline group-hover:text-on-surface transition-colors uppercase">Recruit Companion</span>
+</div>
+<!-- Card 5: Empty -->
+<div class="bg-surface/50 border border-dashed border-outline-variant p-panel-padding flex flex-col items-center justify-center gap-2 hover:bg-surface-variant/50 transition-colors cursor-pointer group min-h-[220px]">
+<span class="material-symbols-outlined text-outline-variant text-4xl group-hover:text-secondary transition-colors">person_add</span>
+<span class="font-label-caps text-label-caps text-outline group-hover:text-on-surface transition-colors uppercase">Recruit Companion</span>
+</div>
+<!-- Card 6: Empty -->
+<div class="bg-surface/50 border border-dashed border-outline-variant p-panel-padding flex flex-col items-center justify-center gap-2 hover:bg-surface-variant/50 transition-colors cursor-pointer group min-h-[220px]">
+<span class="material-symbols-outlined text-outline-variant text-4xl group-hover:text-secondary transition-colors">person_add</span>
+<span class="font-label-caps text-label-caps text-outline group-hover:text-on-surface transition-colors uppercase">Recruit Companion</span>
+</div>
+</div>
+</div>
+<!-- Footer Prompts -->
+<footer class="mt-gutter pt-gutter border-t border-outline-variant flex justify-end gap-gutter font-label-caps text-label-caps">
+<div class="flex items-center gap-1 text-outline">
+<span class="border border-outline px-1 rounded-sm bg-surface">TAB</span> Switch Panel
+                </div>
+<div class="flex items-center gap-1 text-outline">
+<span class="border border-outline px-1 rounded-sm bg-surface">ESC</span> Close Menu
+                </div>
+</footer>
+</div>
+</main>
+</body></html>

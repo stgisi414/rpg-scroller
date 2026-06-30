@@ -179,16 +179,22 @@ class RescueeNPCFactory {
 
         // Find foot Y line per frame
         const footData = [];
+        const fullImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const fullData = fullImageData.data;
+        const canvasW = canvas.width;
+
         const findFootY = (fx, fy, fw, fh) => {
             const cx = Math.max(0, Math.round(fx));
             const cy = Math.max(0, Math.round(fy));
-            const cw = Math.min(canvas.width - cx, Math.round(fw));
+            const cw = Math.min(canvasW - cx, Math.round(fw));
             const ch = Math.min(canvas.height - cy, Math.round(fh));
             if (cw <= 0 || ch <= 0) return Math.round(fh) - 1;
-            const data = ctx.getImageData(cx, cy, cw, ch).data;
             for (let yy = ch - 1; yy >= 0; yy--) {
+                const absoluteY = cy + yy;
                 for (let xx = 0; xx < cw; xx++) {
-                    if (data[(yy * cw + xx) * 4 + 3] > 16) return yy;
+                    const absoluteX = cx + xx;
+                    const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                    if (fullData[idx] > 16) return yy;
                 }
             }
             return ch - 1; // fully transparent -> assume feet at frame bottom
@@ -215,13 +221,21 @@ class RescueeNPCFactory {
                 // Scan if this frame has any visible pixels
                 const cx = Math.max(0, Math.round(x));
                 const cy = Math.max(0, Math.round(y));
-                const cw = Math.min(canvas.width - cx, Math.round(w));
+                const cw = Math.min(canvasW - cx, Math.round(w));
                 const ch = Math.min(canvas.height - cy, Math.round(h));
                 let hasPixels = false;
                 if (cw > 0 && ch > 0) {
-                    const pxData = ctx.getImageData(cx, cy, cw, ch).data;
-                    for (let i = 3; i < pxData.length; i += 4) {
-                        if (pxData[i] > 16) { hasPixels = true; break; }
+                    for (let yy = 0; yy < ch; yy++) {
+                        const absoluteY = cy + yy;
+                        for (let xx = 0; xx < cw; xx++) {
+                            const absoluteX = cx + xx;
+                            const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                            if (fullData[idx] > 16) {
+                                hasPixels = true;
+                                break;
+                            }
+                        }
+                        if (hasPixels) break;
                     }
                 }
                 if (hasPixels) nonEmpty = c + 1;
@@ -272,4 +286,4 @@ class RescueeNPCFactory {
     }
 }
 
-window.RescueeNPCFactory = RescueeNPCFactory;
+RescueeNPCFactory = RescueeNPCFactory;

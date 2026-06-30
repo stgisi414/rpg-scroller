@@ -29,14 +29,14 @@ window.ZoneGenerator = {
         
         const kingdomData = await scene.geminiService.generateFrontierKingdom([startZone, endZone]);
         
-        window.saveData.discoveredKingdoms = window.saveData.discoveredKingdoms || {};
-        window.saveData.discoveredKingdoms[kingdomData.id] = kingdomData;
+        saveData.discoveredKingdoms = saveData.discoveredKingdoms || {};
+        saveData.discoveredKingdoms[kingdomData.id] = kingdomData;
         
         if (kingdomData.townNames) {
-            if (!window.saveData.zones) window.saveData.zones = {};
+            if (!saveData.zones) saveData.zones = {};
             for (const zIdx in kingdomData.townNames) {
-                if (!window.saveData.zones[zIdx]) {
-                    window.saveData.zones[zIdx] = {
+                if (!saveData.zones[zIdx]) {
+                    saveData.zones[zIdx] = {
                         name: kingdomData.townNames[zIdx],
                         biome: (parseInt(zIdx) === kingdomData.capital) ? 'Capital' : 'Town'
                     };
@@ -63,7 +63,7 @@ window.ZoneGenerator = {
             return null;
         }
 
-        const isTownIndex = Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0;
+        const isTownIndex = (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0) || zoneIndex === 777 || zoneIndex === -666;
         if (isTownIndex && zoneData.type !== 'Safe') {
             return null;
         }
@@ -96,9 +96,9 @@ window.ZoneGenerator = {
     },
 
     async generateZoneWithGemini(scene, zoneIndex) {
-        const playerLevel = (window.saveData && window.saveData.level) || 1;
-        const playerClassId = (window.saveData && window.saveData.classId) || 'knight';
-        const forceTown = zoneIndex === 0 || (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0);
+        const playerLevel = (saveData && saveData.level) || 1;
+        const playerClassId = (saveData && saveData.classId) || 'knight';
+        const forceTown = zoneIndex === 0 || (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0) || zoneIndex === 777 || zoneIndex === -666;
 
         const kingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIndex) : null;
         let selectedBiome = null;
@@ -116,47 +116,70 @@ window.ZoneGenerator = {
             if (!zoneData.enemies) zoneData.enemies = [];
             if (!zoneData.platforms) zoneData.platforms = [];
 
-            // Guarantee court members in capital cities (Phase 5)
-            if (zoneData.type === 'Safe') {
-                const isCapitalCity = window.isCapitalCity ? window.isCapitalCity(zoneIndex) : false;
-                const faction = window.getFactionForZone ? window.getFactionForZone(zoneIndex) : null;
-                if (faction) {
-                    if (isCapitalCity && faction.court) {
-                        const standardNpcs = zoneData.npcs || [];
-                        const courtNpcs = faction.court.map((cMember, idx) => ({
-                            name: cMember.name,
-                            persona: cMember.persona,
-                            x: 600 + idx * 350,
-                            spriteKey: cMember.spriteKey || 'custom_townsfolk',
-                            faction: faction.id,
-                            factionRank: cMember.role || 'courtier',
-                            politicalTitle: cMember.title || 'Noble'
-                        }));
-                        
-                        const merchants = standardNpcs.filter(n => 
-                            n.name.toLowerCase().includes('merchant') || 
-                            n.name.toLowerCase().includes('blacksmith') || 
-                            n.name.toLowerCase().includes('alchemist')
-                        );
-                        zoneData.npcs = [...merchants.slice(0, 1), ...courtNpcs];
-                    } else {
-                        // Normal town: promote one of the generic NPCs to a local official
-                        if (zoneData.npcs && zoneData.npcs.length > 0) {
-                            const candidate = zoneData.npcs[0];
-                            candidate.faction = faction.id;
-                            candidate.factionRank = 'officer';
-                            candidate.politicalTitle = `Guard Officer`;
-                            candidate.persona += ` They represent ${faction.name} in this region.`;
-                        }
-                    }
-                }
-            }
+             // Guarantee court members in capital cities (Phase 5)
+             if (zoneData.type === 'Safe') {
+                 const isCapitalCity = window.isCapitalCity ? window.isCapitalCity(zoneIndex) : false;
+                 const faction = window.getFactionForZone ? window.getFactionForZone(zoneIndex) : null;
+                 if (faction) {
+                     if (isCapitalCity && faction.court) {
+                         const standardNpcs = zoneData.npcs || [];
+                         const courtNpcs = faction.court.map((cMember, idx) => ({
+                             name: cMember.name,
+                             persona: cMember.persona,
+                             x: 600 + idx * 350,
+                             spriteKey: cMember.spriteKey || 'custom_townsfolk',
+                             faction: faction.id,
+                             factionRank: cMember.role || 'courtier',
+                             politicalTitle: cMember.title || 'Noble'
+                         }));
+                         
+                         const merchants = standardNpcs.filter(n => 
+                             n.name.toLowerCase().includes('merchant') || 
+                             n.name.toLowerCase().includes('blacksmith') || 
+                             n.name.toLowerCase().includes('alchemist')
+                         );
+                         merchants.forEach(m => {
+                             m.faction = faction.id;
+                             m.factionRank = 'citizen';
+                             m.politicalTitle = 'Merchant';
+                         });
+                         zoneData.npcs = [...merchants.slice(0, 1), ...courtNpcs];
+                     } else {
+                         // Normal town: promote one of the generic NPCs to a local official, assign citizen faction to others
+                         if (zoneData.npcs && zoneData.npcs.length > 0) {
+                             zoneData.npcs.forEach((npc, index) => {
+                                 npc.faction = faction.id;
+                                 if (index === 0) {
+                                     npc.factionRank = 'officer';
+                                     npc.politicalTitle = `Guard Officer`;
+                                     npc.persona += ` They represent ${faction.name} in this region.`;
+                                 } else {
+                                     npc.factionRank = 'citizen';
+                                     npc.politicalTitle = `Merchant`;
+                                 }
+                             });
+                         }
+                     }
+                 }
+             } else {
+                 // Wilderness: wandering NPCs belong to the local faction by default
+                 const faction = window.getFactionForZone ? window.getFactionForZone(zoneIndex) : null;
+                 if (faction && zoneData.npcs && zoneData.npcs.length > 0) {
+                     zoneData.npcs.forEach(npc => {
+                         if (!npc.faction) {
+                             npc.faction = faction.id;
+                             npc.factionRank = 'citizen';
+                             npc.politicalTitle = 'Adventurer';
+                         }
+                     });
+                 }
+             }
             
             return zoneData;
         } catch (err) {
             console.error("Gemini zone generation error:", err);
             
-            const isTownIndex = Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0;
+            const isTownIndex = (Math.abs(zoneIndex) > 0 && Math.abs(zoneIndex) % 4 === 0) || zoneIndex === 777 || zoneIndex === -666;
             const fallbackType = (zoneIndex === 0 || isTownIndex) ? 'Safe' : 'Dangerous';
             const defaultName = (fallbackType === 'Safe') ? `Town of Oakhaven (${zoneIndex})` : `Wilderness of Zone ${zoneIndex}`;
             

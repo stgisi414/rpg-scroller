@@ -42,9 +42,11 @@ window.HUDCharacterSheet = {
                 </div>
 
                 <!-- Tab Navigation Bar -->
-                <div class="flex gap-4 border-b border-outline-variant mb-6 relative z-10">
-                    <button id="cs-tab-stats" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-primary text-primary transition-colors cursor-pointer focus:outline-none">Attributes & Gear</button>
-                    <button id="cs-tab-skills" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer focus:outline-none">Passive Skills</button>
+                <div class="flex gap-4 border-b border-outline-variant mb-6 relative z-10 overflow-x-auto no-scrollbar">
+                    <button id="cs-tab-stats" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-primary text-primary transition-colors cursor-pointer focus:outline-none whitespace-nowrap">Attributes & Gear</button>
+                    <button id="cs-tab-skills" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer focus:outline-none whitespace-nowrap">Passive Skills</button>
+                    <button id="cs-tab-political" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer focus:outline-none whitespace-nowrap">Political Standing</button>
+                    <button id="cs-tab-party" class="px-6 py-2 text-[14px] font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer focus:outline-none whitespace-nowrap">Party Management</button>
                 </div>
 
                 <!-- Tab 1 Panel: Attributes & Gear -->
@@ -55,24 +57,6 @@ window.HUDCharacterSheet = {
                         <div>
                             <h3 class="font-headline-sm text-secondary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">psychology</span> Core Attributes</h3>
                             <div id="cs-core-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-info uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">explore</span> Exploration</h3>
-                            <div id="cs-exploration-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-tertiary uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">military_tech</span> Arena Status</h3>
-                            <div id="cs-arena-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
-                                <!-- Injected -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]" style="color: #4fc3f7;"><span class="material-symbols-outlined text-[22px]">inventory_2</span> Caravan Cargo Hold</h3>
-                            <div id="cs-cargo" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
                                 <!-- Injected -->
                             </div>
                         </div>
@@ -103,11 +87,18 @@ window.HUDCharacterSheet = {
                             </div>
                         </div>
                         <div>
-                            <h3 class="font-headline-sm text-success uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">group</span> Party Members</h3>
-                            <div id="cs-party" class="space-y-2 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
+                            <h3 class="font-headline-sm text-info uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]"><span class="material-symbols-outlined text-[22px]">explore</span> Exploration</h3>
+                            <div id="cs-exploration-stats" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
                                 <!-- Injected -->
                             </div>
                         </div>
+                        <div>
+                            <h3 class="font-headline-sm uppercase border-b border-outline-variant pb-2 mb-4 flex items-center gap-2 text-[18px]" style="color: #4fc3f7;"><span class="material-symbols-outlined text-[22px]">inventory_2</span> Caravan Cargo Hold</h3>
+                            <div id="cs-cargo" class="space-y-3 bg-surface-container-highest/50 p-4 rounded border border-outline-variant/50 shadow-inner">
+                                <!-- Injected -->
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -126,35 +117,83 @@ window.HUDCharacterSheet = {
                     </div>
                 </div>
 
+                <!-- Tab 3 Panel: Political Standing -->
+                <div id="cs-panel-political" style="display: none; max-height: 50vh;" class="relative z-10 overflow-y-auto pr-2">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <section class="bg-surface-container-lowest p-6 rounded-lg border border-outline-variant/40 flex flex-col">
+                            <h2 class="font-headline-md text-[20px] text-on-surface mb-8 flex items-center gap-3">
+                                <span class="material-symbols-outlined text-secondary">public</span> Overall Social Standing
+                            </h2>
+                            <div class="flex-1 flex flex-col items-center justify-center mb-8">
+                                <div class="relative w-48 h-48 flex items-center justify-center">
+                                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                                        <circle class="text-surface-variant" cx="60" cy="60" fill="transparent" r="50" stroke="currentColor" stroke-width="10"></circle>
+                                        <circle id="cs-renown-gauge" class="text-secondary drop-shadow-[0_0_8px_rgba(246,190,59,0.5)]" cx="60" cy="60" fill="transparent" r="50" stroke="currentColor" stroke-dasharray="314.15" stroke-dashoffset="314.15" stroke-width="10" style="transition: stroke-dashoffset 1s ease-in-out;"></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span id="cs-renown-percent" class="font-headline-lg text-[32px] font-bold text-secondary mb-1">0%</span>
+                                        <span class="font-label-caps text-on-surface-variant uppercase tracking-widest text-[10px]">Renown</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-surface-container p-4 border border-outline-variant/60 rounded flex items-center justify-between mt-auto">
+                                <div>
+                                    <p class="font-label-caps text-on-surface-variant mb-1 uppercase tracking-widest">Gladiator Rank</p>
+                                    <p id="cs-political-arena-rank" class="font-headline-md text-xl text-on-surface font-bold text-[18px]">None</p>
+                                </div>
+                                <span class="material-symbols-outlined text-[36px] text-secondary/80">swords</span>
+                            </div>
+                        </section>
+                        <section class="bg-surface-container-lowest p-6 rounded-lg border border-outline-variant/40">
+                            <h2 class="font-headline-md text-[20px] text-on-surface mb-8 flex items-center gap-3">
+                                <span class="material-symbols-outlined text-tertiary">groups</span> Faction Reputations
+                            </h2>
+                            <div id="cs-factions-list" class="space-y-6">
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+                <!-- Tab 4 Panel: Party Management -->
+                <div id="cs-panel-party" style="display: none; max-height: 50vh;" class="relative z-10 overflow-y-auto pr-2 flex flex-col">
+                    <div class="flex justify-between items-center mb-4 px-2 shrink-0 border-b border-outline-variant pb-2">
+                        <h3 class="font-headline-md text-[20px] text-secondary flex items-center gap-2">
+                            <span class="material-symbols-outlined">group</span> Active Companions
+                        </h3>
+                        <div class="flex gap-4 font-body-sm text-[12px] text-on-surface-variant">
+                            <span id="cs-party-size-summary">Party Size: <span class="text-on-surface">0 / 6</span></span>
+                        </div>
+                    </div>
+                    <div id="cs-party-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    </div>
+                </div>
+
             </div>
         `;
         document.body.appendChild(modal);
 
         // Tab Switching Event Bindings
-        const tabStats = document.getElementById('cs-tab-stats');
-        const tabSkills = document.getElementById('cs-tab-skills');
-        const panelStats = document.getElementById('cs-panel-stats');
-        const panelSkills = document.getElementById('cs-panel-skills');
+        const tabs = [
+            { btn: document.getElementById('cs-tab-stats'), panel: document.getElementById('cs-panel-stats') },
+            { btn: document.getElementById('cs-tab-skills'), panel: document.getElementById('cs-panel-skills') },
+            { btn: document.getElementById('cs-tab-political'), panel: document.getElementById('cs-panel-political') },
+            { btn: document.getElementById('cs-tab-party'), panel: document.getElementById('cs-panel-party') }
+        ];
 
-        if (tabStats && tabSkills) {
-            tabStats.addEventListener('click', () => {
-                tabStats.classList.add('border-primary', 'text-primary');
-                tabStats.classList.remove('border-transparent', 'text-on-surface-variant');
-                tabSkills.classList.remove('border-primary', 'text-primary');
-                tabSkills.classList.add('border-transparent', 'text-on-surface-variant');
-                panelStats.style.display = 'grid';
-                panelSkills.style.display = 'none';
+        tabs.forEach(tab => {
+            if (!tab.btn) return;
+            tab.btn.addEventListener('click', () => {
+                tabs.forEach(t => {
+                    t.btn.classList.remove('border-primary', 'text-primary');
+                    t.btn.classList.add('border-transparent', 'text-on-surface-variant');
+                    t.panel.style.display = 'none';
+                });
+                tab.btn.classList.add('border-primary', 'text-primary');
+                tab.btn.classList.remove('border-transparent', 'text-on-surface-variant');
+                tab.panel.style.display = tab.panel === document.getElementById('cs-panel-stats') ? 'grid' : 'flex';
+                if (tab.btn.id === 'cs-tab-skills') this.renderPassiveSkillsTab(hudManager);
             });
-            tabSkills.addEventListener('click', () => {
-                tabSkills.classList.add('border-primary', 'text-primary');
-                tabSkills.classList.remove('border-transparent', 'text-on-surface-variant');
-                tabStats.classList.remove('border-primary', 'text-primary');
-                tabStats.classList.add('border-transparent', 'text-on-surface-variant');
-                panelStats.style.display = 'none';
-                panelSkills.style.display = 'flex';
-                this.renderPassiveSkillsTab(hudManager);
-            });
-        }
+        });
 
         document.getElementById('cs-close').addEventListener('click', () => {
             modal.style.display = 'none';
@@ -187,12 +226,12 @@ window.HUDCharacterSheet = {
         
         const stats = p.classData.stats;
         const cd = p.classData;
-        const level = window.saveData ? window.saveData.level : 1;
-        const name = window.saveData ? window.saveData.name : 'Unknown';
-        const xp = window.saveData ? window.saveData.xp : 0;
+        const level = saveData ? saveData.level : 1;
+        const name = saveData ? saveData.name : 'Unknown';
+        const xp = saveData ? saveData.xp : 0;
         const nextXp = level * 100;
-        const gold = window.saveData ? window.saveData.gold : 0;
-        const align = window.saveData ? window.saveData.alignment : 0;
+        const gold = saveData ? saveData.gold : 0;
+        const align = saveData ? saveData.alignment : 0;
         
         // --- Header Panel ---
         document.getElementById('cs-name').innerText = name;
@@ -225,7 +264,7 @@ window.HUDCharacterSheet = {
         else if (cd.id === 'ranger') spritePath = 'GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png';
         
         spriteImg.style.backgroundImage = `url('src/assets/${spritePath}')`;
-        spriteImg.style.backgroundPosition = `-${cd.idleRow === undefined ? 0 : cd.idleRow * frameW}px 0px`;
+        spriteImg.style.backgroundPosition = `0px -${cd.idleRow === undefined ? 0 : cd.idleRow * frameH}px`;
         spriteImg.style.backgroundRepeat = 'no-repeat';
         
         // --- Core Stats ---
@@ -260,8 +299,51 @@ window.HUDCharacterSheet = {
         const dmgMult = typeof p.getDamageMultiplier === 'function' ? p.getDamageMultiplier() : 1.0;
         const finalDmg = Math.floor(rawDmg * dmgMult);
 
-        const drMult = typeof p.getDamageReduction === 'function' ? p.getDamageReduction() : 0.0;
-        const lifesteal = typeof p.getLifesteal === 'function' ? p.getLifesteal() : 0.0;
+        let drMult = typeof p.getDamageReduction === 'function' ? p.getDamageReduction() : 0.0;
+        let lifesteal = typeof p.getLifesteal === 'function' ? p.getLifesteal() : 0.0;
+        let dynamicCrit = p.critChance || 0;
+        
+        if (p.combatController && typeof p.combatController.getPlayerCritChance === 'function') {
+            dynamicCrit = p.combatController.getPlayerCritChance();
+        }
+        
+        // Calculate explicit DR from status effects / active modifiers for UI if getDamageReduction doesn't have it
+        if (p.statsManager) {
+            const activeModifiers = {};
+            if (p.passiveSkills) {
+                p.passiveSkills.forEach(ps => {
+                    const skillDef = window.SKILLS_DATA ? window.SKILLS_DATA[ps.id] : null;
+                    if (skillDef && skillDef.effects) {
+                        for (let statKey in skillDef.effects) {
+                            activeModifiers[statKey] = (activeModifiers[statKey] || 0) + skillDef.effects[statKey] * ps.rank;
+                        }
+                    }
+                });
+            }
+            drMult = (activeModifiers.damage_reduction || 0) + (activeModifiers.damageReduction || 0);
+        }
+        if (p.inventory && p.inventory.artifacts && p.inventory.equippedArtifact >= 0) {
+            const artifactKey = p.inventory.artifacts[p.inventory.equippedArtifact];
+            const artifactDef = window.ARTIFACTS_DATA ? window.ARTIFACTS_DATA[artifactKey] : null;
+            if (artifactDef && artifactDef.statBoosts && artifactDef.statBoosts.damageReduction) {
+                let alignmentValid = true;
+                if (artifactDef.alignmentReq) {
+                    const align = p.alignment || 0;
+                    if (align < artifactDef.alignmentReq.min || align > artifactDef.alignmentReq.max) alignmentValid = false;
+                }
+                if (alignmentValid) drMult += artifactDef.statBoosts.damageReduction;
+            }
+        }
+        if (p.statusEffects) {
+            const blessEffect = p.statusEffects.find(e => e.type === 'bless');
+            if (blessEffect) drMult += (blessEffect.strength / 100);
+        }
+
+        let hitChanceBase = 100;
+        if (p.statusEffects) {
+            const blessEffect = p.statusEffects.find(e => e.type === 'bless');
+            if (blessEffect) hitChanceBase += blessEffect.strength;
+        }
 
         document.getElementById('cs-combat-stats').innerHTML = `
             <div class="flex justify-between items-center mb-1"><span class="font-bold text-on-surface-variant">Max Output Damage</span><span class="font-bold text-primary text-[20px]">~${finalDmg}</span></div>
@@ -271,7 +353,8 @@ window.HUDCharacterSheet = {
                 Multipliers: <span class="text-info">x${dmgMult.toFixed(2)}</span>
             </div>
             
-            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Critical Hit Chance</span><span class="font-bold text-secondary text-[16px]">${(p.critChance || 0).toFixed(1)}%</span></div>
+            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Hit / Accuracy</span><span class="font-bold text-success text-[16px]">${hitChanceBase}%</span></div>
+            <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Critical Hit Chance</span><span class="font-bold text-secondary text-[16px]">${dynamicCrit.toFixed(1)}%</span></div>
             <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Damage Reduction</span><span class="font-bold text-info text-[16px]">${(drMult * 100).toFixed(0)}%</span></div>
             <div class="flex justify-between items-center mb-1 mt-2"><span class="font-bold text-on-surface-variant">Lifesteal</span><span class="font-bold text-error text-[16px]">${(lifesteal * 100).toFixed(0)}%</span></div>
         `;
@@ -283,13 +366,59 @@ window.HUDCharacterSheet = {
             <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Jump Power</span><span class="font-bold text-[16px]">${Math.abs(p.jumpVelocity)} px/s</span></div>
         `;
 
-        // --- Arena Status ---
+        // --- Political Status & Arena ---
         const highestWave = p.coliseumHighestWave || 0;
         const colRep = p.coliseumReputation || 0;
-        document.getElementById('cs-arena-stats').innerHTML = `
-            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Coliseum Reputation</span><span class="font-bold text-[16px]">${colRep}</span></div>
-            <div class="flex justify-between items-center mb-2"><span class="font-bold text-on-surface-variant">Highest Wave Cleared</span><span class="font-bold text-[16px]">Wave ${highestWave}</span></div>
-        `;
+        let rankStr = "Unranked";
+        if (colRep > 1000) rankStr = "Champion";
+        else if (colRep > 500) rankStr = "Centurion";
+        else if (colRep > 200) rankStr = "Gladiator";
+        else if (colRep > 50) rankStr = "Pit Fighter";
+        document.getElementById('cs-political-arena-rank').innerText = rankStr;
+
+        // Calculate overall renown (alignment + overall fame)
+        const famePct = Math.min(100, Math.max(0, 50 + (align * 0.5) + (colRep * 0.05)));
+        document.getElementById('cs-renown-percent').innerText = `${Math.round(famePct)}%`;
+        const renownGauge = document.getElementById('cs-renown-gauge');
+        if (renownGauge) {
+            // Circle is 314.15 circumference, offset = 314.15 - (pct * 314.15)
+            renownGauge.style.strokeDashoffset = 314.15 - ((famePct / 100) * 314.15);
+        }
+
+        let factionsHtml = "";
+        const playerReputations = saveData && saveData.factionReputation ? saveData.factionReputation : {};
+        if (window.WORLD_FACTIONS) {
+            for (const factionId in window.WORLD_FACTIONS) {
+                const f = window.WORLD_FACTIONS[factionId];
+                if (!f.hidden) {
+                    const rep = playerReputations[factionId] || 0;
+                    let statusLabel = "NEUTRAL";
+                    let textColor = "#e3beb8"; // on-surface-variant
+                    let barColor = "#e3beb8";
+                    let pct = 50 + (rep / 2); // -100 to 100 maps to 0 to 100
+                    pct = Math.max(0, Math.min(100, pct));
+                    
+                    if (rep >= 50) { statusLabel = "EXALTED"; textColor = "#5af8fb"; barColor = "#5af8fb"; }
+                    else if (rep >= 20) { statusLabel = "HONORED"; textColor = "#4ade80"; barColor = "#4ade80"; }
+                    else if (rep <= -50) { statusLabel = "NEMESIS"; textColor = "#ffb4ab"; barColor = "#ffb4ab"; }
+                    else if (rep <= -20) { statusLabel = "UNFRIENDLY"; textColor = "#ff9800"; barColor = "#ff9800"; }
+                    else if (rep <= -10) { statusLabel = "DISTRUSTED"; textColor = "#e8a09b"; barColor = "#e8a09b"; }
+
+                    factionsHtml += `
+                    <div class="mb-4">
+                        <div class="flex justify-between items-end mb-1 gap-2">
+                            <h3 class="font-headline-md text-[14px] text-on-surface truncate flex-1" title="${f.name}">${f.name}</h3>
+                            <span class="font-label-caps tracking-widest shrink-0 text-right" style="color: ${textColor}">${statusLabel} (${Math.round(pct)}%)</span>
+                        </div>
+                        <div class="h-2 w-full bg-surface-variant rounded-full overflow-hidden border border-outline-variant/30">
+                            <div class="h-full transition-all duration-1000" style="width: ${pct}%; background-color: ${barColor}; box-shadow: 0 0 5px ${barColor}80;"></div>
+                        </div>
+                    </div>`;
+                }
+            }
+        }
+        if (factionsHtml === "") factionsHtml = `<div class="text-on-surface-variant italic text-[14px]">No known factions.</div>`;
+        document.getElementById('cs-factions-list').innerHTML = factionsHtml;
 
         // --- Equipment ---
         let equipHtml = "";
@@ -363,7 +492,9 @@ window.HUDCharacterSheet = {
 
         // --- Party ---
         let partyHtml = "";
+        let partySize = 0;
         if (hudManager.scene.partyMembers && hudManager.scene.partyMembers.length > 0) {
+            partySize = hudManager.scene.partyMembers.length;
             partyHtml = hudManager.scene.partyMembers.map((member, idx) => {
                 const memberMult = typeof member.getDamageMultiplier === 'function' ? member.getDamageMultiplier() : 1.0;
                 const isMagic = member.classData.id === 'wizard' || (member.classData.id && member.classData.id.startsWith('custom_npc_') && member.classData.weaponType === 'magic');
@@ -378,52 +509,88 @@ window.HUDCharacterSheet = {
                     mBaseDmg = isMagic ? (member.classData.stats.int*2) : (member.classData.stats.str*3);
                 }
                 const mFinalDmg = Math.floor(mBaseDmg * memberMult);
-                const mBuffStr = memberMult > 1.0 ? ` <span style="color:#f6be3b">(+${Math.round((memberMult-1)*100)}%)</span>` : '';
                 
                 const isCustom = member.classData.id && member.classData.id.startsWith('custom_npc_');
-                const classLabel = isCustom ? `Companion (${member.classData.weaponType || 'sword'})` : member.classData.id;
-                
-                // Fetch kingdom emblem for the member's faction
-                const factionId = member.faction;
-                let kingdomId = null;
-                if (factionId) {
-                    if (window.WORLD_FACTIONS && window.WORLD_FACTIONS[factionId]) {
-                        kingdomId = window.WORLD_FACTIONS[factionId].kingdom;
-                    } else if (window.saveData && window.saveData.discoveredKingdoms) {
-                        for (const kId in window.saveData.discoveredKingdoms) {
-                            if (window.saveData.discoveredKingdoms[kId].rulingFaction === factionId) {
-                                kingdomId = kId;
-                                break;
-                            }
-                        }
-                    }
-                }
-                const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kingdomId) : null;
-                const emblemImgHtml = emblemSrc ? `<img src="${emblemSrc}" style="width:16px; height:16px; vertical-align:middle; image-rendering:pixelated; border:1px solid rgba(45,219,222,0.2); padding:1px; background:rgba(0,0,0,0.3); border-radius:2px; margin-right:6px;" />` : '';
+                const classLabel = isCustom ? (member.classData.weaponType || 'sword') : member.classData.id;
+                const displayName = member.npcName ? member.npcName : (member.classData.id === 'knight' ? 'Warrior' : member.classData.id);
 
+                const hpPct = Math.max(0, Math.min(100, (member.hp / member.maxHp) * 100));
+                let hpColor = "bg-emerald-500/80";
+                if (hpPct < 30) hpColor = "bg-error";
+                else if (hpPct < 60) hpColor = "bg-secondary";
+
+                let mainStatName = "STR";
+                let mainStatVal = member.classData.stats.str;
+                let mainStatColor = "text-secondary";
+                if (isMagic) { mainStatName = "INT"; mainStatVal = member.classData.stats.int; mainStatColor = "text-tertiary-fixed"; }
+                else if (member.classData.id === 'ranger' || member.classData.id === 'samurai') { mainStatName = "DEX"; mainStatVal = member.classData.stats.dex; mainStatColor = "text-[#ff9800]"; }
+
+                const spriteSrc = member.classData.image || `src/assets/${member.classData.id}.png`;
+                const frameW = member.classData.frameWidth || 64;
+                const frameH = member.classData.frameHeight || 64;
+                const idleRow = member.classData.idleRow || 0;
+                
                 return `
-                <div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:8px;border:1px solid #3a3020;box-shadow:inset 0 0 10px rgba(0,0,0,0.5); position:relative;">
-                    <button onclick="window._gameScene.dismissPartyMember(${idx})" style="position:absolute; top:8px; right:8px; background:rgba(255,50,50,0.3); border:1px solid #ff6b6b; color:#fff; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:10px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,50,50,0.6)'" onmouseout="this.style.background='rgba(255,50,50,0.3)'">Dismiss</button>
-                    <div style="display:flex; align-items:center; margin-bottom:4px;">
-                        ${emblemImgHtml}
-                        <div style="color:#a0832b;font-weight:bold;text-transform:capitalize;font-size:16px;line-height:1;">${member.npcName ? member.npcName : (member.classData.id === 'knight' ? 'Warrior' : member.classData.id)}</div>
+                <div class="bg-surface-container-highest/60 border border-outline-variant/60 p-4 rounded-lg flex flex-col gap-4 hover:border-primary/50 transition-all group">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-surface-lowest border border-outline-variant/40 rounded flex items-center justify-center overflow-hidden">
+                                <div style="width: ${frameW}px; height: ${frameH}px; background-image: url('${spriteSrc}'); background-position: 0px -${idleRow * frameH}px; background-repeat: no-repeat; transform: scale(1.5); image-rendering: pixelated;"></div>
+                            </div>
+                            <div>
+                                <div class="font-headline-md text-[18px] text-on-surface uppercase leading-tight">${displayName}</div>
+                                <div class="font-body-sm text-[12px] text-outline capitalize">${classLabel}</div>
+                            </div>
+                        </div>
+                        <button onclick="window._gameScene.startPartyChat(${idx})" class="material-symbols-outlined text-outline-variant hover:text-primary cursor-pointer transition-colors" title="Chat with Companion">chat</button>
                     </div>
-                    <div style="color:#888;font-size:11px;margin-bottom:8px;text-transform:uppercase;">${classLabel}</div>
-                    <div style="color:#ff6b6b;font-size:14px;margin-bottom:4px;">❤ HP: ${Math.round(member.hp)}/${member.maxHp}</div>
-                    <div style="color:#bbb;font-size:13px;margin-bottom:4px;">⚔️ Dmg: ~${mFinalDmg}${mBuffStr}</div>
-                    <div style="color:#f6be3b;font-size:13px;margin-bottom:12px;">🤝 Camaraderie: ${member.camaraderie || 0}</div>
-                    <button onclick="window._gameScene.startPartyChat(${idx})" style="width:100%; background:rgba(45,219,222,0.2); border:1px solid #2ddbde; color:#fff; border-radius:4px; padding:4px 0; cursor:pointer; font-size:12px; transition: background 0.2s;" onmouseover="this.style.background='rgba(45,219,222,0.5)'" onmouseout="this.style.background='rgba(45,219,222,0.2)'">💬 Chat</button>
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between font-label-caps text-[10px]">
+                            <span class="text-outline">HP</span>
+                            <span class="text-on-surface">${Math.round(member.hp)}/${member.maxHp}</span>
+                        </div>
+                        <div class="h-1.5 bg-surface-variant w-full rounded-full overflow-hidden">
+                            <div class="h-full ${hpColor}" style="width:${hpPct}%"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 font-body-sm text-[12px]">
+                        <div class="bg-surface p-1 border border-outline-variant/30 rounded flex justify-between px-2">
+                            <span class="text-outline">${mainStatName}</span>
+                            <span class="${mainStatColor} font-bold">${mainStatVal}</span>
+                        </div>
+                        <div class="bg-surface p-1 border border-outline-variant/30 rounded flex justify-between px-2">
+                            <span class="text-outline">ATK</span>
+                            <span class="text-primary font-bold">${mFinalDmg}</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-auto">
+                        <button onclick="window._gameScene.dismissPartyMember(${idx})" class="bg-surface-lowest hover:bg-error/20 border border-outline-variant/50 hover:border-error/50 rounded font-label-caps text-[11px] py-2 text-error transition-colors uppercase tracking-widest flex items-center justify-center gap-1">
+                            <span class="material-symbols-outlined text-[14px]">person_remove</span> Dismiss
+                        </button>
+                        <button class="bg-surface-lowest hover:bg-surface-variant border border-outline-variant/50 hover:border-outline-variant rounded font-label-caps text-[11px] py-2 text-on-surface transition-colors uppercase tracking-widest opacity-50 cursor-not-allowed">
+                            Inspect
+                        </button>
+                    </div>
                 </div>
                 `;
             }).join('');
         }
-        if (partyHtml === "") {
-            partyHtml = `<div class="text-on-surface-variant italic">No active party members</div>`;
+        
+        // Add empty recruit slots
+        for (let i = partySize; i < 6; i++) {
+            partyHtml += `
+            <div class="bg-surface/30 border border-dashed border-outline-variant/50 rounded-lg p-4 flex flex-col items-center justify-center gap-2 hover:bg-surface-variant/30 transition-colors opacity-50 min-h-[200px]">
+                <span class="material-symbols-outlined text-outline-variant text-4xl">person_add</span>
+                <span class="font-label-caps text-[10px] text-outline uppercase tracking-widest">Empty Slot</span>
+            </div>
+            `;
         }
-        document.getElementById('cs-party').innerHTML = partyHtml;
+        
+        document.getElementById('cs-party-size-summary').innerHTML = `Party Size: <span class="text-on-surface">${partySize} / 6</span>`;
+        document.getElementById('cs-party-grid').innerHTML = partyHtml;
 
         // --- Caravan Cargo Hold ---
-        const cargoHold = window.saveData && window.saveData.cargo ? window.saveData.cargo : {};
+        const cargoHold = saveData && saveData.cargo ? saveData.cargo : {};
         const totalCargoVal = Object.values(cargoHold).reduce((a, b) => a + b, 0);
         let cargoHtml = `<div class="flex justify-between items-center mb-2"><span class="font-bold text-[#4fc3f7] uppercase tracking-wider">Total Cargo</span><span class="font-bold text-[16px] text-[#4fc3f7]">${totalCargoVal} / 10 units</span></div>`;
         
@@ -482,18 +649,18 @@ window.HUDCharacterSheet = {
     renderPassiveSkillsTab(hudManager) {
         const grid = document.getElementById('cs-skills-list-grid');
         const pointsDisplay = document.getElementById('cs-unspent-points-display');
-        if (!grid || !window.PASSIVE_SKILLS_DATA || !window.saveData) return;
+        if (!grid || !PASSIVE_SKILLS_DATA || !saveData) return;
 
-        const classId = window.saveData.classId || 'knight';
-        const unspentPoints = window.saveData.skillPoints || 0;
+        const classId = saveData.classId || 'knight';
+        const unspentPoints = saveData.skillPoints || 0;
         if (pointsDisplay) pointsDisplay.innerText = unspentPoints;
 
         // Filter skills for this class
-        const classSkills = window.PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
+        const classSkills = PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
         
         // Render each skill card
         grid.innerHTML = classSkills.map(skill => {
-            const currentRank = (window.saveData.passiveSkills && window.saveData.passiveSkills[skill.id]) || 0;
+            const currentRank = (saveData.passiveSkills && saveData.passiveSkills[skill.id]) || 0;
             const maxRank = skill.maxRank || 5;
             const isMax = currentRank >= maxRank;
             
@@ -548,19 +715,19 @@ window.HUDCharacterSheet = {
     },
 
     upgradeSkill(hudManager, skillId) {
-        if (!window.saveData || (window.saveData.skillPoints || 0) <= 0) return;
+        if (!saveData || (saveData.skillPoints || 0) <= 0) return;
         
-        window.saveData.passiveSkills = window.saveData.passiveSkills || {};
-        const skill = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+        saveData.passiveSkills = saveData.passiveSkills || {};
+        const skill = PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
         if (!skill) return;
 
-        const currentRank = window.saveData.passiveSkills[skillId] || 0;
+        const currentRank = saveData.passiveSkills[skillId] || 0;
         const maxRank = skill.maxRank || 5;
         if (currentRank >= maxRank) return;
 
         // Spend point
-        window.saveData.skillPoints--;
-        window.saveData.passiveSkills[skillId] = currentRank + 1;
+        saveData.skillPoints--;
+        saveData.passiveSkills[skillId] = currentRank + 1;
 
         // Recalculate stats immediately
         if (hudManager.scene.player) {
@@ -591,7 +758,7 @@ window.HUDCharacterSheet = {
 
         banner.innerHTML = `
             <h4 style="color:#2ddbde; margin:0; text-transform:uppercase; font-size:14px; font-weight:bold; letter-spacing:1.5px;">Unspent Skill Points!</h4>
-            <p style="margin:0; font-size:11px; line-height:1.4; color:#aaa;">A new passive skills system is active! You have <span style="color:#f6be3b; font-weight:bold;">${window.saveData.skillPoints}</span> unallocated skill points.</p>
+            <p style="margin:0; font-size:11px; line-height:1.4; color:#aaa;">A new passive skills system is active! You have <span style="color:#f6be3b; font-weight:bold;">${saveData.skillPoints}</span> unallocated skill points.</p>
             <div style="display:flex; gap:8px; width:100%; margin-top:8px; justify-content:center;">
                 <button id="btn-banner-open-skills" style="padding:6px 16px; background-color:#2ddbde; color:#121212; border:none; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; border-radius:4px; cursor:pointer;">Allocate</button>
                 <button id="btn-banner-close-skills" style="padding:6px 16px; background-color:#333; color:#ccc; border:none; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; border-radius:4px; cursor:pointer;">Dismiss</button>

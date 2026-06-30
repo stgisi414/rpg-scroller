@@ -115,3 +115,62 @@ Please completely rewrite the procedural 2D platforming logic to generate cohesi
 3. Change elevation between entire platforms, not block by block.
 4. Ensure the max height difference between adjacent platforms is easily clearable by a single or double jump (e.g., max 150 pixels up or down).
 5. Add a solid bottom floor across the entire zone at `y = 800` (or make the death plane less punishing) so falling isn't an instant run-ender, or at least make sure the gaps aren't impossible.
+
+## Follow-up — 2026-06-29T14:05:27-05:00
+
+Resolve the 8 critical issues identified in the recent codebase audit (`audit_report.md`), with a strict focus on resolving global namespace pollution, fixing gameplay exploits, and addressing stability bugs.
+
+Working directory: c:\Code2\rpg-scroller
+Integrity mode: development
+
+## Requirements
+
+### R1. Architecture & Modularity
+- Eliminate global namespace pollution by removing `window.*` assignments (e.g., `window.saveData`, `window.WORLD_KINGDOMS`, `window.RescueeNPC`) and migrating them to proper modular exports or an injected context.
+- Address the monolithic file structures as outlined in the audit report.
+- Resolve the synchronous `getImageData` performance bottleneck during NPC generation.
+
+### R2. Gameplay Mechanics
+- Fix the double-jump exploit in `PlayerController.js` by resetting jumps to 1 when falling off a ledge.
+- Fix the temple healing logic and free stat blessing exploit in `NPCCampaignHelper.js`.
+
+### R3. Stability & Crashes
+- Prevent GPU memory leaks by properly destroying dynamically generated textures in Phaser when scenes shut down.
+- Fix the `setTimeout` death sequence crash by migrating to Phaser's internal `scene.time.delayedCall`.
+- Wrap all scattered `JSON.parse(localStorage)` calls in secure `try-catch` blocks.
+- Fix the HP reset exploit in `StatsManager.js`.
+
+## Acceptance Criteria
+
+### Codebase Health Verification
+- [ ] No application state, lookup tables, or utility functions are attached to the global `window` object.
+- [ ] The automated test suites (`test_logic_constraints.js` and `test_mechanics.js`) must pass successfully.
+- [ ] The game must boot locally without throwing unhandled exceptions.
+- [ ] All 8 issues cited in `audit_report.md` are demonstrably resolved.
+
+## Follow-up — 2026-06-30T04:22:22Z
+
+Refine, debug, and expand the game's AI autoplay system to enable robust autonomous grinding (combat, potion/resource management, and hazard navigation) across aggressive, defensive, and passive presets.
+
+Working directory: c:/Code2/rpg-scroller
+Integrity mode: development
+
+## Requirements
+
+### R1. Autoplay Grinding and Combat AI Refinement
+Debug the combat and survival state machine in `CompanionAI.js` and `CompanionAI_Helper.js` to ensure the player character handles fighting, fleeing, potion consumption, and movement seamlessly. The AI must successfully grind without getting stuck, freezing, or dying prematurely under combat presets (`aggressive`, `potion_saver`, `pacifist`).
+
+### R2. Automated Multi-Browser Autoplay Test Suite
+Create a Node-based automated test runner script (using Puppeteer or Playwright) that can launch multiple browser instances in parallel. Each instance should load the local dev server (`http://localhost:3000`), enable autoplay with a different preset (e.g., Aggressive, Potion Saver, Pacifist), and run for a target time duration (e.g., 5 minutes).
+
+## Acceptance Criteria
+
+### Test Runner Execution
+- [ ] A Node script (e.g. `npm run test:autoplay`) can launch multiple headless/headful browser instances concurrently.
+- [ ] Each instance connects to the running game server and triggers the Autoplay AI.
+
+### Autoplay Performance & Stability
+- [ ] Autoplay instances run for at least 5 minutes in dangerous zones without dying.
+- [ ] The player character successfully gains XP and Gold during the test runs.
+- [ ] No unhandled JavaScript console errors or stuck loops (e.g. opening/closing menus, getting stuck in walls) occur during the grinding session.
+

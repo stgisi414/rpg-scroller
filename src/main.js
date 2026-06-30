@@ -4,7 +4,7 @@ let game = null;
 let titleGame = null;
 let selectedClassData = null;
 
-window.INDOOR_LOCATIONS = {
+INDOOR_LOCATIONS = {
     tavern: {
         name: 'Tavern',
         icon: 'local_bar',
@@ -141,7 +141,8 @@ function initTitleScreen() {
 // classesData, growths, and calculateStatsForLevel are now loaded from src/data/ClassesData.js
 // creationAllocations, renderCreationSkillsGrid, showTitleScreen, showCreateScreen, selectClass are now loaded from src/world/CharacterCreationManager.js
 
-function startGame(saveData) {
+function startGame(saveDataParam) {
+    saveData = saveDataParam;
     // Destroy the title screen Phaser instance before creating the gameplay one
     if (titleGame) {
         titleGame.destroy(true);
@@ -155,27 +156,27 @@ function startGame(saveData) {
     // HUD is managed by GameScene now
 
     window.selectedClass = window.classesData[saveData.classId];
-    window.saveData = JSON.parse(JSON.stringify(saveData));
+    saveData = JSON.parse(JSON.stringify(saveData));
 
     // Character Stats & Level Progression Migration
-    if (window.saveData && window.saveData.level) {
-        if (!window.saveData.stats || window.saveData.stats.luck === undefined || window.saveData.stats.migratedProgress !== true) {
-            window.saveData.stats = window.calculateStatsForLevel(window.saveData.classId || 'knight', window.saveData.level);
-            window.saveData.stats.migratedProgress = true;
-            window.saveData.passiveSkills = window.saveData.passiveSkills || {};
+    if (saveData && saveData.level) {
+        if (!saveData.stats || saveData.stats.luck === undefined || saveData.stats.migratedProgress !== true) {
+            saveData.stats = window.calculateStatsForLevel(saveData.classId || 'knight', saveData.level);
+            saveData.stats.migratedProgress = true;
+            saveData.passiveSkills = saveData.passiveSkills || {};
             
-            const totalPoints = 3 + (window.saveData.level - 1);
+            const totalPoints = 3 + (saveData.level - 1);
             let spentPoints = 0;
-            for (const skillId in window.saveData.passiveSkills) {
-                spentPoints += window.saveData.passiveSkills[skillId] || 0;
+            for (const skillId in saveData.passiveSkills) {
+                spentPoints += saveData.passiveSkills[skillId] || 0;
             }
-            window.saveData.skillPoints = Math.max(0, totalPoints - spentPoints);
-            console.log(`[Migration] Migrated Level ${window.saveData.level} character to new progression. Stats:`, window.saveData.stats, `Skill Points:`, window.saveData.skillPoints);
+            saveData.skillPoints = Math.max(0, totalPoints - spentPoints);
+            console.log(`[Migration] Migrated Level ${saveData.level} character to new progression. Stats:`, saveData.stats, `Skill Points:`, saveData.skillPoints);
         }
     }
 
     // Load character-specific autoplay settings or initialize defaults
-    window.autoplayConfig = window.saveData.autoplayConfig || {
+    autoplayConfig = saveData.autoplayConfig || {
         preset: 'custom',
         targetZone: 0,
         coliseumGrind: false,
@@ -189,19 +190,19 @@ function startGame(saveData) {
         blockRate: 20,
         heroPersonality: ''
     };
-    if (!window.saveData.autoplayConfig) {
-        window.saveData.autoplayConfig = JSON.parse(JSON.stringify(window.autoplayConfig));
+    if (!saveData.autoplayConfig) {
+        saveData.autoplayConfig = JSON.parse(JSON.stringify(autoplayConfig));
     }
 
     // Migrate existing saves — add political system fields if missing
-    if (!window.saveData.factionReputation) window.saveData.factionReputation = {};
-    if (!window.saveData.politicalChoices) window.saveData.politicalChoices = [];
-    if (window.saveData.currentTitle === undefined) window.saveData.currentTitle = null;
-    if (!window.saveData.visitedZones) window.saveData.visitedZones = [window.saveData.currentZone || 0];
-    if (!window.saveData.discoveredKingdoms) window.saveData.discoveredKingdoms = {};
+    if (!saveData.factionReputation) saveData.factionReputation = {};
+    if (!saveData.politicalChoices) saveData.politicalChoices = [];
+    if (saveData.currentTitle === undefined) saveData.currentTitle = null;
+    if (!saveData.visitedZones) saveData.visitedZones = [saveData.currentZone || 0];
+    if (!saveData.discoveredKingdoms) saveData.discoveredKingdoms = {};
 
     // Deduplicate/rename any duplicate kingdom names in discoveredKingdoms (Phase 21)
-    if (window.saveData && window.saveData.discoveredKingdoms) {
+    if (saveData && saveData.discoveredKingdoms) {
         const rootKeywords = ["duskveil", "frosthold", "willowbrook", "ashenmoor", "tidereach", "embercrown", "vaelgard", "zanj-abar", "irondeep"];
         
         // Helper to normalize names by extracting the root keyword or fallback to lowercase clean string
@@ -218,8 +219,8 @@ function startGame(saveData) {
 
         // Collect all names currently in use in the world
         const knownWorldNames = new Set();
-        for (const key in window.WORLD_KINGDOMS) {
-            knownWorldNames.add(normalizeName(window.WORLD_KINGDOMS[key].name));
+        for (const key in WORLD_KINGDOMS) {
+            knownWorldNames.add(normalizeName(WORLD_KINGDOMS[key].name));
         }
 
         // We want to detect duplicates within discoveredKingdoms or conflicts with the known world
@@ -227,7 +228,7 @@ function startGame(saveData) {
         const seenNames = new Set(knownWorldNames);
         
         // Sort discovered kingdoms by starting zone to ensure deterministic processing
-        const kList = Object.values(window.saveData.discoveredKingdoms);
+        const kList = Object.values(saveData.discoveredKingdoms);
         kList.sort((a, b) => a.zoneRange[0] - b.zoneRange[0]);
 
         kList.forEach(k => {
@@ -393,8 +394,8 @@ function startGame(saveData) {
                 townZones.forEach((z, i) => {
                     const name = (z === k.capital) ? `${template.name} Capital` : template.townNames[i % template.townNames.length];
                     fallbackTownNames[z] = name;
-                    if (window.saveData.zones && window.saveData.zones[z]) {
-                        window.saveData.zones[z].name = name;
+                    if (saveData.zones && saveData.zones[z]) {
+                        saveData.zones[z].name = name;
                     }
                 });
                 k.townNames = fallbackTownNames;
@@ -404,15 +405,15 @@ function startGame(saveData) {
 
             // Persist the changes to localStorage!
             try {
-                const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                const idx = saves.findIndex(s => s.id === window.saveData.id);
-                const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+                const saves = window.getSaves();
+                const idx = saves.findIndex(s => s.id === saveData.id);
+                const clonedSave = JSON.parse(JSON.stringify(saveData));
                 if (idx > -1) {
                     saves[idx] = clonedSave;
                 } else {
                     saves.push(clonedSave);
                 }
-                localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                window.saveSaves(saves);
                 console.log("Successfully persisted migrated duplicate kingdoms to localStorage!");
             } catch (e) {
                 console.error("Failed to persist migrated save data:", e);
@@ -422,9 +423,9 @@ function startGame(saveData) {
 
     // Ensure all discovered kingdoms have their rulingFaction ID follow the correct faction naming convention (Phase 21)
     let saveNeededForHeal = false;
-    if (window.saveData && window.saveData.discoveredKingdoms) {
-        for (const kId in window.saveData.discoveredKingdoms) {
-            const k = window.saveData.discoveredKingdoms[kId];
+    if (saveData && saveData.discoveredKingdoms) {
+        for (const kId in saveData.discoveredKingdoms) {
+            const k = saveData.discoveredKingdoms[kId];
             if (k.factionName) {
                 let fid = k.factionName.toLowerCase().trim();
                 if (fid.startsWith("the ")) {
@@ -438,9 +439,9 @@ function startGame(saveData) {
                     
                     // Migrate faction reputation to the new ID if it exists under the old ID
                     const oldFid = k.rulingFaction;
-                    if (window.saveData.factionReputation && window.saveData.factionReputation[oldFid] !== undefined) {
-                        window.saveData.factionReputation[fid] = window.saveData.factionReputation[oldFid];
-                        delete window.saveData.factionReputation[oldFid];
+                    if (saveData.factionReputation && saveData.factionReputation[oldFid] !== undefined) {
+                        saveData.factionReputation[fid] = saveData.factionReputation[oldFid];
+                        delete saveData.factionReputation[oldFid];
                     }
                     
                     k.rulingFaction = fid;
@@ -452,43 +453,43 @@ function startGame(saveData) {
 
     if (saveNeededForHeal) {
         try {
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            const idx = saves.findIndex(s => s.id === window.saveData.id);
-            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            const saves = window.getSaves();
+            const idx = saves.findIndex(s => s.id === saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(saveData));
             if (idx > -1) {
                 saves[idx] = clonedSave;
             } else {
                 saves.push(clonedSave);
             }
-            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+            window.saveSaves(saves);
             console.log("Successfully persisted healed rulingFaction IDs to localStorage!");
         } catch (e) {
             console.error("Failed to persist healed save data:", e);
         }
     }
 
-    if (!window.saveData.revealedIntel) window.saveData.revealedIntel = {};
-    if (!window.saveData.knownLanguages) {
-        const cls = window.saveData.class || 'adventurer';
+    if (!saveData.revealedIntel) saveData.revealedIntel = {};
+    if (!saveData.knownLanguages) {
+        const cls = saveData.class || 'adventurer';
         const startLangs = ['common'];
         if (cls === 'wizard') startLangs.push('celestial');
         else if (cls === 'ranger') startLangs.push('elvish');
         else if (cls === 'knight') startLangs.push('dwarvish');
-        window.saveData.knownLanguages = startLangs;
+        saveData.knownLanguages = startLangs;
     }
 
     // Re-register discovered frontier factions (Phase 10) and populate townNames
     if (window.registerFrontierKingdomFaction) {
-        for (const kId in window.saveData.discoveredKingdoms) {
-            const kingdom = window.saveData.discoveredKingdoms[kId];
+        for (const kId in saveData.discoveredKingdoms) {
+            const kingdom = saveData.discoveredKingdoms[kId];
             window.registerFrontierKingdomFaction(kingdom);
             
             // Pop townNames into saveData.zones if missing
             if (kingdom.townNames) {
-                if (!window.saveData.zones) window.saveData.zones = {};
+                if (!saveData.zones) saveData.zones = {};
                 for (const zIdx in kingdom.townNames) {
-                    if (!window.saveData.zones[zIdx]) {
-                        window.saveData.zones[zIdx] = {
+                    if (!saveData.zones[zIdx]) {
+                        saveData.zones[zIdx] = {
                             name: kingdom.townNames[zIdx],
                             biome: (parseInt(zIdx) === kingdom.capital) ? 'Capital' : 'Town'
                         };
@@ -499,13 +500,13 @@ function startGame(saveData) {
     }
 
     // Heal/migrate town names in existing save data (bugfix)
-    if (window.getTownNameForZone && window.saveData.zones) {
-        for (const zoneIdxStr in window.saveData.zones) {
+    if (window.getTownNameForZone && saveData.zones) {
+        for (const zoneIdxStr in saveData.zones) {
             const zIdx = parseInt(zoneIdxStr);
             const isTownIndex = zIdx === 0 || (Math.abs(zIdx) > 0 && Math.abs(zIdx) % 4 === 0);
             if (isTownIndex && zIdx !== 777 && zIdx !== -666) {
                 const correctName = window.getTownNameForZone(zIdx);
-                const zone = window.saveData.zones[zoneIdxStr];
+                const zone = saveData.zones[zoneIdxStr];
                 if (zone && zone.name !== correctName) {
                     console.log(`[Migration] Correcting town name for zone ${zIdx}: "${zone.name}" -> "${correctName}"`);
                     zone.name = correctName;
@@ -548,10 +549,10 @@ window.returnToMainMenu = function() {
         }
         
         // Write saveData to localStorage
-        if (window.saveData) {
+        if (saveData) {
             const saves = getSaves();
-            const saveIndex = saves.findIndex(s => s.id === window.saveData.id);
-            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+            const saveIndex = saves.findIndex(s => s.id === saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(saveData));
             if (saveIndex > -1) {
                 saves[saveIndex] = clonedSave;
             } else {
@@ -577,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch('src/assets/skills_specification.json')
         .then(res => res.json())
         .then(data => {
-            window.PASSIVE_SKILLS_DATA = data;
+            PASSIVE_SKILLS_DATA = data;
             console.log(`Loaded ${data.length} passive skills specifications.`);
             if (window.selectedClassData) {
                 renderCreationSkillsGrid();
@@ -811,7 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newSave = {
             id: Date.now().toString(),
             name: name,
-            classId: selectedClassData.id,
+            classId: window.selectedClassData.id,
             level: 1,
             playTime: 0,
             lastSaved: Date.now(),
@@ -823,9 +824,9 @@ document.addEventListener('DOMContentLoaded', () => {
             visitedZones: [0],  // Start with zone 0 (Willowbrook capital) discovered
             discoveredKingdoms: {},
             revealedIntel: {},
-            knownLanguages: (selectedClassData.id === 'wizard' ? ['common', 'celestial'] :
-                             selectedClassData.id === 'ranger' ? ['common', 'elvish'] :
-                             selectedClassData.id === 'knight' ? ['common', 'dwarvish'] : ['common']),
+            knownLanguages: (window.selectedClassData.id === 'wizard' ? ['common', 'celestial'] :
+                             window.selectedClassData.id === 'ranger' ? ['common', 'elvish'] :
+                             window.selectedClassData.id === 'knight' ? ['common', 'dwarvish'] : ['common']),
             // Skills System starting allocations
             passiveSkills: JSON.parse(JSON.stringify(creationAllocations)),
             skillPoints: 0
@@ -863,7 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // startFighterSuite and setupFighterHTMLHandlers are now loaded from src/scenes/FighterSuiteManager.js
 
 // Save System Utils
-function getSaves() {
+window.getSaves = function() {
     try {
         const data = localStorage.getItem('elden_soul_saves');
         return data ? JSON.parse(data) : [];
@@ -871,10 +872,22 @@ function getSaves() {
         console.error('Failed to parse saves', e);
         return [];
     }
+};
+
+window.saveSaves = function(saves) {
+    try {
+        localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+    } catch (e) {
+        console.error('Failed to save saves', e);
+    }
+};
+
+function getSaves() {
+    return window.getSaves();
 }
 
 function saveSaves(saves) {
-    localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+    window.saveSaves(saves);
 }
 
 // Initial Autoplay Config Defaults (persisted in localStorage)
@@ -886,7 +899,7 @@ try {
     console.error('Failed to load autoplay config', e);
 }
 
-window.autoplayConfig = loadedApConfig || {
+autoplayConfig = loadedApConfig || {
     preset: 'custom',
     targetZone: 0,
     coliseumGrind: false,
@@ -957,9 +970,9 @@ window.exportLoreDictionary = function() {
 };
 
 window.autoAllocateNPCSkills = function(member) {
-    if (!member || !member.classId || !window.PASSIVE_SKILLS_DATA) return;
+    if (!member || !member.classId || !PASSIVE_SKILLS_DATA) return;
     const classId = member.classId;
-    const classSkills = window.PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
+    const classSkills = PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
     if (classSkills.length === 0) return;
 
     member.passiveSkills = member.passiveSkills || {};

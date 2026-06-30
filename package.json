@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "2D Action-RPG Metroidvania",
   "scripts": {
-    "start": "concurrently \"npx tailwindcss -i ./src/input.css -o ./src/output.css --watch\" \"npx http-server . -p 3000 -c-1\""
+    "start": "concurrently \"npx tailwindcss -i ./src/input.css -o ./src/output.css --watch\" \"npx http-server . -p 3000 -c-1\"",
+    "test:autoplay": "node test_autoplay.js"
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",

@@ -1,0 +1,24 @@
+/* === Title Glow Pulse === */
+@keyframes title-pulse {
+    0%, 100% { filter: drop-shadow(0 0 16px rgba(139,0,0,0.6)); }
+    50%      { filter: drop-shadow(0 0 30px rgba(200,30,20,0.9)); }
+}
+.title-glow-pulse { animation: title-pulse 3s ease-in-out infinite; }
+
+/* === Subtitle Glow Frame === */
+@keyframes sub-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(45,219,222,0.3), inset 0 0 6px rgba(45,219,222,0.1); }
+    50%      { box-shadow: 0 0 18px rgba(45,219,222,0.7), inset 0 0 12px rgba(45,219,222,0.2); }
+}
+.subtitle-frame {
+    border: 2px solid rgba(45,219,222,0.5);
+    padding: 8px 28px;
+    animation: sub-glow 2.5s ease-in-out infinite;
+}
+
+/* === Title Canvas (Phaser renders behind menu) === */
+#title-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+}

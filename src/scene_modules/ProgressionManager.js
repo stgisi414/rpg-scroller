@@ -6,10 +6,10 @@ class ProgressionManager {
     grantRewards(xpEarned, goldEarned) {
         const scene = this.scene;
         // Logic to add XP and Gold to player's save data
-        if (!window.saveData) return;
+        if (!saveData) return;
         
-        window.saveData.xp = (window.saveData.xp || 0) + xpEarned;
-        window.saveData.gold = (window.saveData.gold || 0) + goldEarned;
+        saveData.xp = (saveData.xp || 0) + xpEarned;
+        saveData.gold = (saveData.gold || 0) + goldEarned;
         
         // Show floating text for rewards above player
         if (scene.showFloatingText && scene.player && scene.player.sprite && scene.player.sprite.active) {
@@ -25,15 +25,15 @@ class ProgressionManager {
         }, 500);
 
         // Check for Level Ups
-        let currentLevel = window.saveData.level || 1;
+        let currentLevel = saveData.level || 1;
         let xpToNextLevel = currentLevel * 100;
         let leveledUp = false;
         let gainedPoints = 0;
 
-        while (window.saveData.xp >= xpToNextLevel) {
-            window.saveData.xp -= xpToNextLevel;
+        while (saveData.xp >= xpToNextLevel) {
+            saveData.xp -= xpToNextLevel;
             currentLevel++;
-            window.saveData.level = currentLevel;
+            saveData.level = currentLevel;
             gainedPoints++;
             leveledUp = true;
             xpToNextLevel = currentLevel * 100;
@@ -41,15 +41,15 @@ class ProgressionManager {
 
         if (leveledUp) {
             // Apply percentage-accelerated stats growth formula
-            const classId = window.saveData.classId || 'knight';
+            const classId = saveData.classId || 'knight';
             const newStats = window.calculateStatsForLevel ? window.calculateStatsForLevel(classId, currentLevel) : window.classesData[classId].stats;
             newStats.migratedProgress = true;
-            window.saveData.stats = newStats;
+            saveData.stats = newStats;
             if (window.selectedClass) {
                 window.selectedClass.stats = { ...newStats };
             }
-            window.saveData.skillPoints = (window.saveData.skillPoints || 0) + gainedPoints;
-            console.log(`[Level Up] Reached level ${currentLevel}. Gained ${gainedPoints} skill points. Total points: ${window.saveData.skillPoints}`);
+            saveData.skillPoints = (saveData.skillPoints || 0) + gainedPoints;
+            console.log(`[Level Up] Reached level ${currentLevel}. Gained ${gainedPoints} skill points. Total points: ${saveData.skillPoints}`);
         }
 
         if (leveledUp) {

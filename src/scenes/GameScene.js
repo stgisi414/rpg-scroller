@@ -107,10 +107,14 @@ class GameScene extends Phaser.Scene {
         this.weatherManager = new WeatherManager(this);
         
         // Set initial zone index from save or 0
-        const startZone = window.saveData && window.saveData.currentZone !== undefined ? window.saveData.currentZone : 0;
+        const startZone = saveData && saveData.currentZone !== undefined ? saveData.currentZone : 0;
         
         // Initialize Player — spawn near ground level
         this.player = new PlayerController(this, 100, 620, this.inputManager);
+        if (window.autoplayEnabled) {
+            this.player.isAI = true;
+            this.player.aiState = 'party';
+        }
         if (this.heroGroup) this.heroGroup.add(this.player.sprite);
 
         // Initialize Enemies Group
@@ -147,8 +151,8 @@ class GameScene extends Phaser.Scene {
             // Spawn cargo mules AFTER platforms are loaded
             this.spawnCargoCompanion();
             // Trigger New Game Intro Cutscene
-            if (window.saveData && window.saveData.isNewGame) {
-                window.saveData.isNewGame = false;
+            if (saveData && saveData.isNewGame) {
+                saveData.isNewGame = false;
                 
                 // Wait briefly for physics to settle and sprites to spawn
                 this.time.delayedCall(500, () => {
@@ -172,11 +176,11 @@ class GameScene extends Phaser.Scene {
         // Spawn coordinates fallback
         let safeSpawnX = 100;
         let safeSpawnY = 620;
-        if (window.saveData && typeof window.saveData.x === 'number' && !isNaN(window.saveData.x)) {
-            safeSpawnX = window.saveData.x;
+        if (saveData && typeof saveData.x === 'number' && !isNaN(saveData.x)) {
+            safeSpawnX = saveData.x;
         }
-        if (window.saveData && typeof window.saveData.y === 'number' && !isNaN(window.saveData.y)) {
-            safeSpawnY = window.saveData.y;
+        if (saveData && typeof saveData.y === 'number' && !isNaN(saveData.y)) {
+            safeSpawnY = saveData.y;
         }
         this.player.sprite.setPosition(safeSpawnX, safeSpawnY);
         
@@ -190,12 +194,12 @@ class GameScene extends Phaser.Scene {
         this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.0);
         
         // Restore saved party members
-         if (window.saveData && window.saveData.party && window.saveData.party.length > 0) {
+         if (saveData && saveData.party && saveData.party.length > 0) {
              // Cleanup any corrupted pack mules in the save data (Phase 12)
-             window.saveData.party = window.saveData.party.filter(member => member.classId !== 'pack_mule' && (!member.npcName || !member.npcName.startsWith('Pack Mule')));
+             saveData.party = saveData.party.filter(member => member.classId !== 'pack_mule' && (!member.npcName || !member.npcName.startsWith('Pack Mule')));
              
              const mapWidth = this.physics.world.bounds.width || 1280;
-             window.saveData.party.forEach((memberData, i) => {
+             saveData.party.forEach((memberData, i) => {
                  const spawnX = Phaser.Math.Clamp(this.player.sprite.x + 60 + (i * 60), 50, mapWidth - 50);
                  let classId = memberData.classId;
                  const isStandard = ['knight', 'wizard', 'ranger', 'samurai', 'warrior'].includes(classId);
@@ -366,12 +370,12 @@ class GameScene extends Phaser.Scene {
     _autoSave() {
         if (!this.player || !this.player.saveGame) return;
         this.player.saveGame();
-        if (window.saveData) {
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            const idx = saves.findIndex(s => s.id === window.saveData.id);
-            const clonedSave = JSON.parse(JSON.stringify(window.saveData));
+        if (saveData) {
+            const saves = window.getSaves();
+            const idx = saves.findIndex(s => s.id === saveData.id);
+            const clonedSave = JSON.parse(JSON.stringify(saveData));
             if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
-            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+            window.saveSaves(saves);
         }
     }
 
@@ -431,185 +435,9 @@ class GameScene extends Phaser.Scene {
         this.indoorManager.exitIndoorLocation();
     }
 
-    transitionZone(direction) {
-        if (this.isTransitioning) return;
-        this.isTransitioning = true;
-        
-        // STOP player immediately so they don't walk off the cliff during fade
-        if (this.player && this.player.sprite && this.player.sprite.body) {
-            this.player.sprite.setVelocity(0, 0);
-            this.player.sprite.body.setAllowGravity(false);
-        }
-        if (this.partyMembers) {
-            this.partyMembers.forEach(hero => {
-                if (hero.sprite && hero.sprite.body) {
-                    hero.sprite.setVelocity(0, 0);
-                    hero.sprite.body.setAllowGravity(false);
-                }
-            });
-        }
-        
-        const currentZone = (window.saveData && window.saveData.currentZone !== undefined) ? window.saveData.currentZone : 0;
-        let nextZoneIndex = currentZone + direction;
-        const spawnSide = direction === 1 ? 'left' : 'right'; // If moving right, spawn left.
-
-        // Check for Wrath Teleportation if in a wilderness zone (not safe and not already in pocket dimension)
-        const isCurrentlySafe = this.zoneType === 'Safe';
-        const isPocketDimension = currentZone === 777 || currentZone === -666;
-        
-        let spawnedWrath = false;
-        let wrathDimension = null;
-
-        if (window.saveData) {
-            if (typeof window.saveData.wrathCooldown === 'undefined') {
-                window.saveData.wrathCooldown = 0;
-            }
-            if (window.saveData.wrathCooldown > 0) {
-                window.saveData.wrathCooldown--;
-            }
-        }
-
-        if (!isCurrentlySafe && !isPocketDimension && window.saveData && window.saveData.alignment !== undefined && window.saveData.wrathCooldown <= 0) {
-            const align = window.saveData.alignment;
-            const rand = Math.random() * 100;
-            // Scale chance: at 20 alignment, there is an 8% chance; at 100 alignment, a 25% chance.
-            const chance = Math.min(25, Math.abs(align) * 0.4);
-            
-            if (align >= 20 && rand < chance) {
-                wrathDimension = 'Heaven';
-                window.saveData.lastMortalZone = currentZone;
-                window.saveData.preWrathZone = nextZoneIndex; // Store original progression target
-                nextZoneIndex = 777;
-                spawnedWrath = true;
-                window.saveData.wrathCooldown = 5; // 5 normal zones cooldown
-            } else if (align <= -20 && rand < chance) {
-                wrathDimension = 'Hell';
-                window.saveData.lastMortalZone = currentZone;
-                window.saveData.preWrathZone = nextZoneIndex; // Store original progression target
-                nextZoneIndex = -666;
-                spawnedWrath = true;
-                window.saveData.wrathCooldown = 5; // 5 normal zones cooldown
-            }
-        } else if (isPocketDimension) {
-            // Exiting a pocket dimension always returns to the pre-wrath progression zone
-            const fallbackZone = (window.saveData && typeof window.saveData.lastMortalZone === 'number') ? window.saveData.lastMortalZone : 0;
-            nextZoneIndex = (window.saveData && typeof window.saveData.preWrathZone === 'number') ? window.saveData.preWrathZone : fallbackZone;
-            if (window.saveData) delete window.saveData.preWrathZone;
-            
-            this.time.delayedCall(1200, () => {
-                if (this.player && this.player.sprite && this.player.sprite.active) {
-                    this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, "Returned to the mortal realm...", 0xffffff);
-                }
-            });
-        }
-        
-        // Save active zone state (enemies) before transition
-        if (this.worldManager) {
-            this.worldManager.saveZoneState();
-        }
-        
-        // Auto-Save all stats, inventory, quests, and alignment
-        if (this.player && this.player.saveGame) {
-            this.player.saveGame();
-        }
-        
-        // Write to localStorage to persist
-        if (window.saveData) {
-            const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-            const saveIndex = saves.findIndex(s => s.id === window.saveData.id);
-            if (saveIndex > -1) {
-                saves[saveIndex] = JSON.parse(JSON.stringify(window.saveData));
-            } else {
-                saves.push(JSON.parse(JSON.stringify(window.saveData)));
-            }
-            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
-        }
-
-        // Cancel any active cutscenes so they don't bleed into the next zone
-        this.cancelCutscene();
-
-        // Fade out and Safety Timer trigger
-        const performFade = () => {
-            if (this.isSceneDestroyed) return;
-            this.cameras.main.fadeOut(500, 0, 0, 0);
-            this._transitionSafetyTimer = this.time.delayedCall(5000, () => {
-                if (this.isTransitioning) {
-                    console.warn('Zone transition safety timeout triggered — forcing completion.');
-                    this.isTransitioning = false;
-                    this.cameras.main.fadeIn(500, 0, 0, 0);
-                }
-            });
-        };
-
-        if (spawnedWrath) {
-            this.triggerWrathVisuals(wrathDimension);
-            this.time.delayedCall(2500, performFade);
-        } else {
-            performFade();
-        }
-
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            // Cancel safety timer since fade completed normally
-            if (this._transitionSafetyTimer) this._transitionSafetyTimer.destroy();
-            // Restart Scene and pass data (or just reload via save data)
-            // Since WorldManager is persistent within GameScene, we can just clear groups
-            this.enemies.clear(true, true);
-            
-            // Save rescuee state before clearing (if following)
-            if (this.activeRescuee && this.activeRescuee.state === 'following') {
-                window.saveData.activeRescuee = this.activeRescuee.getSaveData();
-                this.activeRescuee.destroy();
-                this.activeRescuee = null;
-            } else if (this.activeRescuee) {
-                this.activeRescuee.destroy();
-                this.activeRescuee = null;
-            }
-            
-            // clear NPCs too if we had a group
-            if (this.npcs) {
-                [...this.npcs].forEach(npc => {
-                    if (npc && typeof npc.destroy === 'function') npc.destroy();
-                });
-                this.npcs = [];
-            }
-
-            // Clean up chests
-            if (this.lootChests) {
-                this.lootChests.forEach(chest => {
-                    if (chest.sprite) chest.sprite.destroy();
-                    if (chest.promptText) chest.promptText.destroy();
-                });
-                this.lootChests = [];
-            }
-
-            // Clean up angel statue prompt text
-            if (this.angelPromptText) {
-                this.angelPromptText.destroy();
-                this.angelPromptText = null;
-            }
-            if (this.angelStatueZone) {
-                this.angelStatueZone.destroy();
-                this.angelStatueZone = null;
-            }
-            this.angelStatue = null;
-            
-            // Reload
-            this.worldManager.loadZone(nextZoneIndex, spawnSide).then(() => {
-                if (this.isSceneDestroyed) return;
-                // Snap camera Y on zone load
-                this.cameras.main.scrollY = Phaser.Math.Clamp(this.player.sprite.y - this.cameras.main.height * 0.72, 50, 350);
-                this.isTransitioning = false;
-                this.spawnCargoCompanion();
-                this.cameras.main.fadeIn(500, 0, 0, 0);
-            }).catch(err => {
-                if (this.isSceneDestroyed) return;
-                console.error("CRITICAL: Error during loadZone transition!", err);
-                // Recover from freeze by ending the transition
-                this.isTransitioning = false;
-                this.cameras.main.fadeIn(500, 0, 0, 0);
-            });
-        });
-    }
+transitionZone(direction) {
+    return GameScene_Helper.transitionZone.call(this, direction);
+}
 
     triggerWrathVisuals(dimension) {
         // Camera shake
@@ -755,14 +583,14 @@ class GameScene extends Phaser.Scene {
         if (this.arenaManager) this.arenaManager.update();
         if (this.weatherManager) this.weatherManager.update(time, delta);
         
-        // cull entities falling into the deep abyss (below y > 1400)
+        // cull entities falling into the deep abyss (below y > 800)
         this.enemies.getChildren().forEach(enemy => {
-            if (enemy.y > 1400) {
+            if (enemy.y > 800) {
                 enemy.destroy();
             }
         });
         
-        if (this.player && this.player.sprite && this.player.sprite.y > 1400 && this.player.hp > 0) {
+        if (this.player && this.player.sprite && this.player.sprite.y > 800 && this.player.hp > 0) {
             console.error(`%c[DIAGNOSTIC] GameScene detected player below abyss! Y: ${this.player.sprite.y}. HP: ${this.player.hp}. Platforms count: ${this.platforms.getLength()}`, "color: #ff3333; font-weight: bold;");
             this.player.takeDamage(this.player.hp);
         }
@@ -836,8 +664,8 @@ class GameScene extends Phaser.Scene {
                         this.player.hp = this.player.maxHp;
                         if (this.updateHUD) this.updateHUD();
                     } else if (res.action === 'GOLD_RUSH') {
-                        if (!window.saveData) window.saveData = {};
-                        window.saveData.gold = (window.saveData.gold || 0) + 500;
+                        if (!saveData) saveData = {};
+                        saveData.gold = (saveData.gold || 0) + 500;
                         if (this.updateHUD) this.updateHUD();
                     } else if (res.action === 'WEATHER_RAIN') {
                         // Just as an example, this requires an environment manager but we don't have one globally.
@@ -1005,7 +833,22 @@ class GameScene extends Phaser.Scene {
 
         // Update Angel Statue interaction
         if (this.angelStatue && this.angelStatue.active && this.angelStatueZone && !this.isIndoors) {
-            const dist = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, this.angelStatue.x, this.angelStatue.y);
+            const dist = Math.abs(this.player.sprite.x - this.angelStatue.x);
+            
+            if (this.player.isAI && (!this._lastStatueLogTime || time - this._lastStatueLogTime > 1000)) {
+                this._lastStatueLogTime = time;
+                let npcInfo = "";
+                if (this.npcs) {
+                    this.npcs.forEach(npc => {
+                        if (npc && npc.sprite && npc.sprite.active) {
+                            const distToNpc = Math.abs(this.player.sprite.x - npc.sprite.x);
+                            npcInfo += `${npc.npcName || npc.name || 'NPC'}(X:${npc.sprite.x.toFixed(1)}, D:${distToNpc.toFixed(1)}, <80&<dist:${distToNpc < 80 && distToNpc < dist}) `;
+                        }
+                    });
+                }
+                console.log(`[DIAGNOSTIC STATUE] Player X: ${this.player.sprite.x.toFixed(1)}, Y: ${this.player.sprite.y.toFixed(1)} | Statue X: ${this.angelStatue.x}, Y: ${this.angelStatue.y} | Dist: ${dist.toFixed(1)} | NPCs: ${npcInfo} | InteractDown: ${this.player.isInteractDown()}`);
+            }
+
             if (dist < 100) {
                 // Check if any NPC is closer and within interact range
                 let npcCloser = false;
@@ -1017,8 +860,9 @@ class GameScene extends Phaser.Scene {
                 if (this.npcs && !isChatOpen && !isShopOpen) {
                     this.npcs.forEach(npc => {
                         if (npc && npc.sprite && npc.sprite.active) {
-                            const distToNpc = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, npc.sprite.x, npc.sprite.y);
-                            if (distToNpc < 80 && distToNpc < dist) {
+                            const npcHorizontalDist = Math.abs(this.player.sprite.x - npc.sprite.x);
+                            const statueHorizontalDist = Math.abs(this.player.sprite.x - this.angelStatue.x);
+                            if (npcHorizontalDist < 80 && npcHorizontalDist < statueHorizontalDist && statueHorizontalDist >= 20) {
                                 npcCloser = true;
                             }
                         }
@@ -1095,62 +939,9 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0, weaponType = null, faction = null) {
-        if (!this.partyMembers) this.partyMembers = [];
-        
-        const isParty = (aiState === 'party');
-        if (isParty && this.partyMembers.length >= 6) {
-            this.showFloatingText(x, y - 20, "Party Full!", 0xff0000);
-            return;
-        }
-
-        const spawnY = Math.min(y, 400); // Cap Y so tall sprites don't clip through the floor
-        if (isNaN(x) || isNaN(spawnY)) {
-            console.error(`[GameScene] spawnHeroAI received NaN! x: ${x}, y: ${y}`);
-            console.trace();
-            x = 400; // Fallback
-        }
-        const hero = new PlayerController(this, x, spawnY, this.inputManager, { 
-            isAI: true, 
-            aiState: aiState, 
-            classId: spriteKey, 
-            npcName: npcName, 
-            persona: persona, 
-            camaraderie: camaraderie, 
-            weaponType: weaponType,
-            faction: faction,
-            factionRank: faction ? 'champion' : null
-        });
-        
-        if (this.isIndoors) {
-            if (typeof hero.setScaleWithPhysics === 'function') {
-                hero.setScaleWithPhysics(2.5);
-            } else {
-                hero.sprite.setScale(2.5);
-            }
-        }
-        
-        if (isParty) {
-            this.partyMembers.push(hero);
-            if (this.heroGroup) this.heroGroup.add(hero.sprite);
-            this.showFloatingText(x, y, "Joined Party!", 0x00ff00);
-            if (this.isIndoors && this.indoorFloor) {
-                this.physics.add.collider(hero.sprite, this.indoorFloor);
-            } else {
-                this.physics.add.collider(hero.sprite, this.platforms);
-            }
-        } else {
-            // Hostile
-            this.enemies.add(hero.sprite);
-            hero.sprite.controller = hero; // So takeDamage works
-            if (this.isIndoors && this.indoorFloor) {
-                this.physics.add.collider(hero.sprite, this.indoorFloor);
-            } else {
-                this.physics.add.collider(hero.sprite, this.platforms);
-            }
-            this.showFloatingText(x, y, "HOSTILE!", 0xff0000);
-        }
-    }
+spawnHeroAI(spriteKey, x, y, aiState, npcName = null, persona = null, camaraderie = 0, weaponType = null, faction = null) {
+    return GameScene_Helper.spawnHeroAI.call(this, spriteKey, x, y, aiState, npcName, persona, camaraderie, weaponType, faction);
+}
 
     spawnLootChest(x, y) {
         if (!this.textures.exists('loot_chest')) return;
@@ -1185,62 +976,9 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    showFloatingText(x, y, message, color) {
-        // Convert hex color to CSS string
-        let colorStr = '#ffffff';
-        if (typeof color === 'number') {
-            colorStr = '#' + color.toString(16).padStart(6, '0');
-        } else if (typeof color === 'string') {
-            colorStr = color;
-        }
-
-        // Round numeric messages to prevent decimals
-        let displayMessage = message;
-        if (typeof message === 'number') {
-            displayMessage = String(Math.round(message));
-        } else if (typeof message === 'string') {
-            const num = Number(message);
-            if (!isNaN(num)) {
-                displayMessage = String(Math.round(num));
-            }
-        }
-
-        // Slight random X offset to prevent stacking
-        const offsetX = (Math.random() - 0.5) * 30;
-        
-        const text = this.add.text(x + offsetX, y, displayMessage, {
-            fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: '22px',
-            fill: colorStr,
-            stroke: '#000000',
-            strokeThickness: 4,
-            fontStyle: 'bold',
-            align: 'center',
-            wordWrap: { width: 280, useAdvancedWrap: true }
-        });
-        text.setOrigin(0.5, 1.0);
-        text.setScale(0.5);
-        text.setDepth(1000); // Ensure text always renders on top of particles and sprites
-
-        // Pop-in scale then float up and fade
-        this.tweens.add({
-            targets: text,
-            scale: 1.2,
-            duration: 150,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-                this.tweens.add({
-                    targets: text,
-                    y: y - 80,
-                    scale: 0.9,
-                    alpha: 0,
-                    duration: 3500,
-                    ease: 'Power1.easeOut',
-                    onComplete: () => text.destroy()
-                });
-            }
-        });
-    }
+showFloatingText(x, y, message, color) {
+    return GameScene_Helper.showFloatingText.call(this, x, y, message, color);
+}
 
     cancelCutscene() {
         this.cutsceneController.cancelCutscene();
@@ -1254,170 +992,52 @@ class GameScene extends Phaser.Scene {
         this.progressionManager.grantRewards(xpEarned, goldEarned);
     }
 
-    clearHellZone() {
-        if (!this.player) return;
+clearHellZone() {
+    return GameScene_Helper.clearHellZone.call(this);
+}
 
-        // Calculate shift needed to return player alignment to 0 (Neutral)
-        const currentAlignment = this.player.alignment || 0;
-        const alignmentShift = -currentAlignment;
-        this.player.updateAlignment(alignmentShift);
+cleanupScene() {
+    return GameScene_Helper.cleanupScene.call(this);
+}
 
-        // Play golden white flash (dramatic purge effect)
-        this.cameras.main.flash(1500, 255, 255, 255);
-
-        // Display a giant dramatic camera-fixed title and subtitle
-        const title = this.add.text(640, 260, "HELL PURGED!", {
-            fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: '52px',
-            fill: '#ffaa00',
-            stroke: '#000000',
-            strokeThickness: 8,
-            fontStyle: 'bold',
-            align: 'center'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setScale(0);
-
-        const subtitle = this.add.text(640, 330, "Your soul is cleansed. Alignment reversed to Neutral.", {
-            fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: '22px',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 5,
-            fontStyle: 'bold',
-            align: 'center'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setAlpha(0);
-
-        // Scale up banner
-        this.tweens.add({
-            targets: title,
-            scale: 1.0,
-            duration: 600,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-                if (this.isSceneDestroyed) return;
-                // Fade in subtitle
-                this.tweens.add({
-                    targets: subtitle,
-                    alpha: 1,
-                    duration: 400
-                });
-
-                // Hold for 3 seconds, then fade both out and destroy
-                this.time.delayedCall(3000, () => {
-                    if (this.isSceneDestroyed) return;
-                    this.tweens.add({
-                        targets: [title, subtitle],
-                        alpha: 0,
-                        duration: 800,
-                        onComplete: () => {
-                            title.destroy();
-                            subtitle.destroy();
-                        }
-                    });
+    cleanupDynamicTextures(deleteAll = false) {
+        if (!this.textures) return;
+        const keepKeys = new Set();
+        if (!deleteAll) {
+            if (this.player && this.player.sprite && this.player.sprite.texture) {
+                keepKeys.add(this.player.sprite.texture.key);
+            }
+            if (this.partyMembers) {
+                this.partyMembers.forEach(member => {
+                    if (member && member.sprite && member.sprite.texture) {
+                        keepKeys.add(member.sprite.texture.key);
+                    }
                 });
             }
-        });
-
-        // Grant epic rewards: 1000 XP, 500 Gold
-        this.grantRewards(1000, 500);
-
-        // Show reward floating text
-        if (this.showFloatingText && this.player.sprite && this.player.sprite.active) {
-            this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 80, "Hell Cleared Bonus!", 0xffaa00);
         }
 
-        // Save progress immediately
-        this._autoSave();
-    }
-
-    cleanupScene() {
-        // 1. Destroy player
-        if (this.player && typeof this.player.destroy === 'function') {
-            this.player.destroy();
-        }
-        // 2. Destroy NPCs
-        if (this.npcs) {
-            [...this.npcs].forEach(npc => {
-                if (npc && typeof npc.destroy === 'function') {
-                    npc.destroy();
+        const textureKeys = this.textures.getTextureKeys();
+        for (const key of textureKeys) {
+            if (key.startsWith('custom_npc_') || key.startsWith('special_enemy_') || key.startsWith('rescuee_')) {
+                if (!keepKeys.has(key)) {
+                    this.textures.remove(key);
                 }
-            });
+            }
         }
-        // 3. Destroy party members
-        if (this.partyMembers) {
-            [...this.partyMembers].forEach(member => {
-                if (member && typeof member.destroy === 'function') {
-                    member.destroy();
-                }
-            });
-        }
-
-        // 4. Remove window / document event listeners
-        if (this._beforeUnloadListener) {
-            window.removeEventListener('beforeunload', this._beforeUnloadListener);
-            this._beforeUnloadListener = null;
-        }
-        if (this._csEscListener) {
-            window.removeEventListener('keydown', this._csEscListener);
-            this._csEscListener = null;
-        }
-        if (this._dirEscListener) {
-            window.removeEventListener('keydown', this._dirEscListener);
-            this._dirEscListener = null;
-        }
-        if (this._debugMouseUpListener) {
-            window.removeEventListener('mouseup', this._debugMouseUpListener);
-            this._debugMouseUpListener = null;
-        }
-        if (this._debugKeyDownListener) {
-            document.removeEventListener('keydown', this._debugKeyDownListener);
-            this._debugKeyDownListener = null;
-        }
-        window._debugKeyBound = false;
-
-        // 5. Remove modals and panels from DOM
-        const csModal = document.getElementById('char-sheet-modal');
-        if (csModal) csModal.remove();
-        
-        const charBtn = document.getElementById('btn-char-sheet');
-        if (charBtn) charBtn.remove();
-        
-        const apBtn = document.getElementById('btn-auto-play');
-        if (apBtn) apBtn.remove();
-        
-        const dbPanel = document.getElementById('debug-panel');
-        if (dbPanel) dbPanel.remove();
-        
-        if (this.indoorLeaveBtn) {
-            this.indoorLeaveBtn.remove();
-            this.indoorLeaveBtn = null;
-        }
-
-        this.indoorBlackBg = null;
-        this.indoorBg = null;
-        this.indoorWallBgGroup = null;
-        this.indoorFloor = null;
-        this.indoorLeftWall = null;
-        this.indoorRightWall = null;
-        
-        if (this.worldManager && this.worldManager.loreTimeout) {
-            clearTimeout(this.worldManager.loreTimeout);
-        }
-        this.decorGroup = null;
-        this.isSceneDestroyed = true;
     }
 
     spawnCargoCompanion() {
         if (!this.player || !this.player.sprite || !this.partyMembers) return;
 
         // Count total cargo
-        if (!window.saveData.cargo) window.saveData.cargo = {};
-        const totalCargo = Object.values(window.saveData.cargo).reduce((a, b) => a + b, 0);
+        if (!saveData.cargo) saveData.cargo = {};
+        const totalCargo = Object.values(saveData.cargo).reduce((a, b) => a + b, 0);
 
         // Find existing cargo carriers
         const existingCarriers = this.partyMembers.filter(m => m.isCargoCarrier);
 
         // Hide caravan if indoors or if no cargo is carried
-        const isActuallyIndoor = this.currentIndoorLocation || this.isIndoors || (window.saveData && window.saveData.currentZoneType === 'Safe_Indoor');
+        const isActuallyIndoor = this.currentIndoorLocation || this.isIndoors || (saveData && saveData.currentZoneType === 'Safe_Indoor');
         
         if (totalCargo === 0 || isActuallyIndoor) {
             existingCarriers.forEach(carrier => {

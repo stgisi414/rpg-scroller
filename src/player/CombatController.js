@@ -80,6 +80,8 @@ class CombatController {
         if (player.statusEffects) {
             const critEffect = player.statusEffects.find(e => e.type === 'critical_boost');
             if (critEffect) critChance += critEffect.strength;
+            const blessEffect = player.statusEffects.find(e => e.type === 'bless');
+            if (blessEffect) critChance += blessEffect.strength;
             if (player.statusEffects.some(e => e.type === 'elixir_gods')) critChance += 5;
         }
         return critChance;

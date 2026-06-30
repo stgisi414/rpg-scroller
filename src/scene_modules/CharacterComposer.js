@@ -130,7 +130,11 @@ class CharacterComposer {
             ? window.sliceData[lookupSkin]
             : defaultRows;
 
-        const colData = (window.sliceColData && window.sliceColData[lookupSkin]) ? window.sliceColData[lookupSkin] : null;
+        let colData = (window.sliceColData && window.sliceColData[lookupSkin]) ? window.sliceColData[lookupSkin] : null;
+        if (!colData && (lookupSkin.startsWith('npc_male') || lookupSkin.startsWith('npc_female') || lookupSkin.startsWith('custom_'))) {
+            colData = [];
+            for (let c = 0; c < 8; c++) colData.push({ x: c * 100, w: 100 });
+        }
 
         const numRows = rowData ? rowData.length : 7;
 
@@ -140,19 +144,25 @@ class CharacterComposer {
         // physics body bottom to this measured foot line per frame so the feet stay on the floor
         // during every animation (idle AND walk), instead of assuming a fixed 64px foot line.
         const footData = [];
+        const fullImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const fullData = fullImageData.data;
+        const canvasW = canvas.width;
+
         const findFootY = (fx, fy, fw, fh) => {
             const cx = Math.max(0, Math.round(fx));
             const cy = Math.max(0, Math.round(fy));
-            const cw = Math.min(canvas.width - cx, Math.round(fw));
+            const cw = Math.min(canvasW - cx, Math.round(fw));
             const ch = Math.min(canvas.height - cy, Math.round(fh));
-            if (cw <= 0 || ch <= 0) return Math.round(fh) - 1;
-            const data = ctx.getImageData(cx, cy, cw, ch).data;
+            if (cw <= 0 || ch <= 0) return -1;
             for (let yy = ch - 1; yy >= 0; yy--) {
+                const absoluteY = cy + yy;
                 for (let xx = 0; xx < cw; xx++) {
-                    if (data[(yy * cw + xx) * 4 + 3] > 16) return yy;
+                    const absoluteX = cx + xx;
+                    const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                    if (fullData[idx] > 16) return yy;
                 }
             }
-            return ch - 1; // fully transparent -> assume feet at frame bottom
+            return -1; // fully transparent
         };
 
         const rowStarts = [];
@@ -164,28 +174,40 @@ class CharacterComposer {
             const rowCols = (window.sliceColData && window.sliceColData[overrideKey]) || colData;
             const rowNumCols = rowCols ? rowCols.length : 10;
             let nonEmpty = 0;
+            let lastValidFootY = -1;
             for (let c = 0; c < rowNumCols; c++) {
                 const x = rowCols ? rowCols[c].x : c * 80;
                 const w = rowCols ? rowCols[c].w : 80;
                 const y = rowData[r].y;
                 const h = rowData[r].h;
                 texture.add(frameIndex, 0, x, y, w, h);
-                footData[frameIndex] = findFootY(x, y, w, h);
-
-                // Detect if this frame has any visible pixels on the composite canvas.
-                // Empty frames (fully transparent) should be excluded from animations so
-                // the NPC doesn't flash invisible mid-cycle.
-                const cx = Math.max(0, Math.round(x));
-                const cy = Math.max(0, Math.round(y));
-                const cw = Math.min(canvas.width - cx, Math.round(w));
-                const ch = Math.min(canvas.height - cy, Math.round(h));
+                
+                // Scan the base skin + boots first to prevent vertical bleeds from hats/heads of other rows
+                let footY = CharacterComposer.scanBaseFootY(scene, skin, boots, r, c, y, h);
+                if (footY === -1 && (!skin || !scene.textures.exists(skin))) {
+                    footY = findFootY(x, y, w, h);
+                }
+                
                 let hasPixels = false;
-                if (cw > 0 && ch > 0) {
-                    const pxData = ctx.getImageData(cx, cy, cw, ch).data;
-                    for (let i = 3; i < pxData.length; i += 4) {
-                        if (pxData[i] > 16) { hasPixels = true; break; }
+                
+                if (footY !== -1) {
+                    // If the lowest pixel is in the top 25 pixels, it's a stray hat bleed, NOT a real character body!
+                    if (footY >= 25) {
+                        hasPixels = true;
+                        lastValidFootY = footY;
+                    } else {
+                        // It's a hat bleed. We treat this frame as empty to prevent the bleed from being rendered.
+                        // We also don't want this hat pixel to be used as the foot baseline, so we reset footY to the bottom.
+                        footY = Math.round(h) - 1;
                     }
                 }
+                
+                if (footY === -1) {
+                    footY = lastValidFootY !== -1 ? lastValidFootY : Math.round(h) - 1;
+                }
+                
+                footData[frameIndex] = footY;
+                
                 if (hasPixels) nonEmpty = c + 1; // track last non-empty column (1-based)
 
                 frameIndex++;
@@ -346,6 +368,19 @@ class CharacterComposer {
             return { spriteKey: uniqueKey, weaponType: weaponType };
         }
 
+        // Clean up any stale animations referencing the old texture key to prevent Phaser from using destroyed frames
+        const animKeysToRemove = [
+            uniqueKey + '_idle',
+            uniqueKey + '-idle',
+            uniqueKey + '_walk',
+            uniqueKey + '-move'
+        ];
+        animKeysToRemove.forEach(key => {
+            if (scene.anims && scene.anims.exists(key)) {
+                scene.anims.remove(key);
+            }
+        });
+
         const canvas = document.createElement('canvas');
         canvas.width = 800;
         canvas.height = 448;
@@ -372,27 +407,38 @@ class CharacterComposer {
             defaultRows.push({ y: r * 64, h: h });
         }
 
-        const skin = layers[0];
+        const skin = layers.find(l => l && l.includes('skin')) || layers[0] || '';
+        const boots = layers.find(l => l && l.includes('boots')) || '';
         const lookupSkin = (skin && skin.startsWith('npc_male_skin')) ? 'npc_male_skin1' : ((skin && skin.startsWith('npc_female_skin')) ? 'npc_female_skin1' : skin);
 
         const rowData = (window.sliceData && window.sliceData[lookupSkin])
             ? window.sliceData[lookupSkin]
             : defaultRows;
 
-        const colData = (window.sliceColData && window.sliceColData[lookupSkin]) ? window.sliceColData[lookupSkin] : null;
+        let colData = (window.sliceColData && window.sliceColData[lookupSkin]) ? window.sliceColData[lookupSkin] : null;
+        if (!colData && (lookupSkin.startsWith('npc_male') || lookupSkin.startsWith('npc_female') || lookupSkin.startsWith('custom_'))) {
+            colData = [];
+            for (let c = 0; c < 8; c++) colData.push({ x: c * 100, w: 100 });
+        }
         const numRows = rowData ? rowData.length : 7;
 
         const footData = [];
+        const fullImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const fullData = fullImageData.data;
+        const canvasW = canvas.width;
+
         const findFootY = (fx, fy, fw, fh) => {
             const cx = Math.max(0, Math.round(fx));
             const cy = Math.max(0, Math.round(fy));
-            const cw = Math.min(canvas.width - cx, Math.round(fw));
+            const cw = Math.min(canvasW - cx, Math.round(fw));
             const ch = Math.min(canvas.height - cy, Math.round(fh));
             if (cw <= 0 || ch <= 0) return Math.round(fh) - 1;
-            const data = ctx.getImageData(cx, cy, cw, ch).data;
             for (let yy = ch - 1; yy >= 0; yy--) {
+                const absoluteY = cy + yy;
                 for (let xx = 0; xx < cw; xx++) {
-                    if (data[(yy * cw + xx) * 4 + 3] > 16) return yy;
+                    const absoluteX = cx + xx;
+                    const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                    if (fullData[idx] > 16) return yy;
                 }
             }
             return ch - 1;
@@ -407,23 +453,44 @@ class CharacterComposer {
             const rowCols = (window.sliceColData && window.sliceColData[overrideKey]) || colData;
             const rowNumCols = rowCols ? rowCols.length : 10;
             let nonEmpty = 0;
+            let lastValidFootY = -1;
             for (let c = 0; c < rowNumCols; c++) {
                 const x = rowCols ? rowCols[c].x : c * 80;
                 const w = rowCols ? rowCols[c].w : 80;
                 const y = rowData[r].y;
                 const h = rowData[r].h;
                 texture.add(frameIndex, 0, x, y, w, h);
-                footData[frameIndex] = findFootY(x, y, w, h);
+                
+                // Scan the base skin + boots first to prevent vertical bleeds from hats/heads of other rows
+                let footY = CharacterComposer.scanBaseFootY(scene, skin, boots, r, c, y, h);
+                if (footY === -1 && (!skin || !scene.textures.exists(skin))) {
+                    footY = findFootY(x, y, w, h);
+                }
+                
+                if (footY !== -1) {
+                    lastValidFootY = footY;
+                } else {
+                    footY = lastValidFootY !== -1 ? lastValidFootY : Math.round(h) - 1;
+                }
+                footData[frameIndex] = footY;
 
                 const cx = Math.max(0, Math.round(x));
                 const cy = Math.max(0, Math.round(y));
-                const cw = Math.min(canvas.width - cx, Math.round(w));
+                const cw = Math.min(canvasW - cx, Math.round(w));
                 const ch = Math.min(canvas.height - cy, Math.round(h));
                 let hasPixels = false;
                 if (cw > 0 && ch > 0) {
-                    const pxData = ctx.getImageData(cx, cy, cw, ch).data;
-                    for (let i = 3; i < pxData.length; i += 4) {
-                        if (pxData[i] > 16) { hasPixels = true; break; }
+                    for (let yy = 0; yy < ch; yy++) {
+                        const absoluteY = cy + yy;
+                        for (let xx = 0; xx < cw; xx++) {
+                            const absoluteX = cx + xx;
+                            const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                            if (fullData[idx] > 16) {
+                                hasPixels = true;
+                                break;
+                            }
+                        }
+                        if (hasPixels) break;
                     }
                 }
                 if (hasPixels) nonEmpty = c + 1;
@@ -685,16 +752,22 @@ class CharacterComposer {
 
         // Find foot Y line per frame
         const footData = [];
+        const fullImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const fullData = fullImageData.data;
+        const canvasW = canvas.width;
+
         const findFootY = (fx, fy, fw, fh) => {
             const cx = Math.max(0, Math.round(fx));
             const cy = Math.max(0, Math.round(fy));
-            const cw = Math.min(canvas.width - cx, Math.round(fw));
+            const cw = Math.min(canvasW - cx, Math.round(fw));
             const ch = Math.min(canvas.height - cy, Math.round(fh));
             if (cw <= 0 || ch <= 0) return Math.round(fh) - 1;
-            const data = ctx.getImageData(cx, cy, cw, ch).data;
             for (let yy = ch - 1; yy >= 0; yy--) {
+                const absoluteY = cy + yy;
                 for (let xx = 0; xx < cw; xx++) {
-                    if (data[(yy * cw + xx) * 4 + 3] > 16) return yy;
+                    const absoluteX = cx + xx;
+                    const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                    if (fullData[idx] > 16) return yy;
                 }
             }
             return ch - 1;
@@ -716,13 +789,21 @@ class CharacterComposer {
 
                 const cx = Math.max(0, Math.round(x));
                 const cy = Math.max(0, Math.round(y));
-                const cw = Math.min(canvas.width - cx, Math.round(w));
+                const cw = Math.min(canvasW - cx, Math.round(w));
                 const ch = Math.min(canvas.height - cy, Math.round(h));
                 let hasPixels = false;
                 if (cw > 0 && ch > 0) {
-                    const pxData = ctx.getImageData(cx, cy, cw, ch).data;
-                    for (let i = 3; i < pxData.length; i += 4) {
-                        if (pxData[i] > 16) { hasPixels = true; break; }
+                    for (let yy = 0; yy < ch; yy++) {
+                        const absoluteY = cy + yy;
+                        for (let xx = 0; xx < cw; xx++) {
+                            const absoluteX = cx + xx;
+                            const idx = (absoluteY * canvasW + absoluteX) * 4 + 3;
+                            if (fullData[idx] > 16) {
+                                hasPixels = true;
+                                break;
+                            }
+                        }
+                        if (hasPixels) break;
                     }
                 }
                 if (hasPixels) nonEmpty = c + 1;
@@ -882,6 +963,67 @@ class CharacterComposer {
         }
         const last = poolLast[Math.floor(Math.random() * poolLast.length)];
         return first + " " + last;
+    }
+
+    static scanBaseFootY(scene, skinKey, bootsKey, r, c, tunedY, tunedH) {
+        if (!skinKey || !scene.textures.exists(skinKey)) {
+            return -1;
+        }
+        
+        const cacheKey = skinKey + (bootsKey ? "_" + bootsKey : "");
+        if (!window._skinFootDataCache) window._skinFootDataCache = {};
+        
+        if (!window._skinFootDataCache[cacheKey]) {
+            const skinImg = scene.textures.get(skinKey).getSourceImage();
+            if (!skinImg) return -1;
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = skinImg.width || 800;
+            tempCanvas.height = skinImg.height || 448;
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            tempCtx.drawImage(skinImg, 0, 0);
+            
+            if (bootsKey && scene.textures.exists(bootsKey)) {
+                const bootsImg = scene.textures.get(bootsKey).getSourceImage();
+                if (bootsImg) {
+                    tempCtx.drawImage(bootsImg, 0, 0);
+                }
+            }
+            
+            window._skinFootDataCache[cacheKey] = {
+                data: tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data,
+                width: tempCanvas.width
+            };
+        }
+        
+        const cached = window._skinFootDataCache[cacheKey];
+        const origFrameH = 64;
+        const origFrameW = (cached.width === 800) ? 100 : 80;
+        
+        const origX = c * origFrameW;
+        const origY = r * origFrameH;
+        
+        let foundYY = -1;
+        for (let yy = origFrameH - 1; yy >= 0; yy--) {
+            const absoluteY = origY + yy;
+            for (let xx = 0; xx < origFrameW; xx++) {
+                const absoluteX = origX + xx;
+                const idx = (absoluteY * cached.width + absoluteX) * 4 + 3;
+                if (cached.data[idx] > 16) {
+                    foundYY = yy;
+                    break;
+                }
+            }
+            if (foundYY !== -1) break;
+        }
+        
+        if (foundYY === -1) {
+            return -1;
+        }
+        
+        const absoluteFootY = origY + foundYY;
+        const tunedFootY = absoluteFootY - tunedY;
+        return Math.max(0, Math.min(tunedH - 1, tunedFootY));
     }
 }
 

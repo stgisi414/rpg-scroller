@@ -53,21 +53,25 @@ class HUDManager {
             btn.addEventListener('click', () => this.toggleCharacterSheet());
             this.scene.hudElements.nameLevel.appendChild(btn);
         }
-        
-        // Add Auto-Play toggle
         if (this.scene.hudElements.nameLevel && !document.getElementById('btn-auto-play')) {
             const btnAP = document.createElement('button');
             btnAP.id = 'btn-auto-play';
-            btnAP.innerText = '🤖 Auto-Play';
+            const isAIActive = this.scene.player && this.scene.player.isAI;
+            btnAP.innerText = isAIActive ? '🛑 Stop AI' : '🤖 Auto-Play';
             btnAP.title = 'Toggle AI Auto-Play';
-            btnAP.style.cssText = 'margin-left:8px;background:rgba(30,60,80,0.9);border:1px solid #2b83a0;color:#8ae6fd;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:14px;pointer-events:auto;';
+            btnAP.style.cssText = `margin-left:8px;background:${isAIActive ? 'rgba(80,160,30,0.9)' : 'rgba(30,60,80,0.9)'};border:1px solid #2b83a0;color:#8ae6fd;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:14px;pointer-events:auto;`;
             btnAP.addEventListener('click', () => {
                 if (this.scene.player) {
                     this.scene.player.isAI = !this.scene.player.isAI;
                     this.scene.player.aiState = 'party';
+                    if (window.autoplayConfig) {
+                        window.autoplayConfig.isActive = this.scene.player.isAI;
+                        this._saveAutoplayConfig();
+                    }
+                    window.autoplayEnabled = this.scene.player.isAI;
                     btnAP.style.background = this.scene.player.isAI ? 'rgba(80,160,30,0.9)' : 'rgba(30,60,80,0.9)';
                     btnAP.innerText = this.scene.player.isAI ? '🛑 Stop AI' : '🤖 Auto-Play';
-
+ 
                     // When stopping AI, immediately halt all movement and clear AI state
                     if (!this.scene.player.isAI) {
                         if (this.scene.player.sprite && this.scene.player.sprite.body) {
@@ -100,7 +104,7 @@ class HUDManager {
         }
         
         // Show/hide MP and SP bars based on class
-        const classId = window.saveData ? window.saveData.classId : 'knight';
+        const classId = saveData ? saveData.classId : 'knight';
         const mpBar = this.scene.hudElements.mpFill ? this.scene.hudElements.mpFill.closest('.relative') : null;
         const spBar = this.scene.hudElements.spFill ? this.scene.hudElements.spFill.closest('.relative') : null;
         
@@ -120,7 +124,7 @@ class HUDManager {
         this.scene.renderRoomTracker();
         try { this.updateHUD(); } catch(e) { console.error('updateHUD error:', e); }
 
-        if (window.saveData && window.saveData.skillPoints > 0) {
+        if (saveData && saveData.skillPoints > 0) {
             this.showUnspentSkillPointsBanner();
         }
     }
@@ -150,7 +154,7 @@ class HUDManager {
     }
 
     _syncAutoplayUI() {
-        const config = window.autoplayConfig || {};
+        const config = autoplayConfig || {};
         const preset = config.preset || 'custom';
         document.querySelectorAll('.preset-btn').forEach(btn => {
             if (btn.dataset.preset === preset) {
@@ -190,20 +194,20 @@ class HUDManager {
     }
 
     _saveAutoplayConfig() {
-        if (window.autoplayConfig) {
-            if (window.saveData) {
-                window.saveData.autoplayConfig = JSON.parse(JSON.stringify(window.autoplayConfig));
+        if (autoplayConfig) {
+            if (saveData) {
+                saveData.autoplayConfig = JSON.parse(JSON.stringify(autoplayConfig));
                 // Call player._persistToLocalStorage() to write it to local storage slot
                 if (this.scene && this.scene.player && typeof this.scene.player._persistToLocalStorage === 'function') {
                     this.scene.player._persistToLocalStorage();
                 } else {
                     // Fallback direct write to local storage if player is not fully initialized yet
                     try {
-                        const saves = JSON.parse(localStorage.getItem('elden_soul_saves') || '[]');
-                        const idx = saves.findIndex(s => s.id === window.saveData.id);
+                        const saves = window.getSaves();
+                        const idx = saves.findIndex(s => s.id === saveData.id);
                         if (idx > -1) {
-                            saves[idx] = window.saveData;
-                            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+                            saves[idx] = saveData;
+                            window.saveSaves(saves);
                         }
                     } catch(e) {
                         console.error("Failed to write autoplay config to save slot:", e);
@@ -236,7 +240,7 @@ class HUDManager {
 
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.onclick = () => {
-                const config = window.autoplayConfig || {};
+                const config = autoplayConfig || {};
                 const presetName = btn.dataset.preset;
                 config.preset = presetName;
                 if (presetName !== 'custom') {
@@ -253,7 +257,7 @@ class HUDManager {
         const zoneInput = document.getElementById('ap-target-zone');
         if (zoneInput) {
             zoneInput.oninput = () => {
-                const config = window.autoplayConfig || {};
+                const config = autoplayConfig || {};
                 config.targetZone = parseInt(zoneInput.value) || 0;
                 this._saveAutoplayConfig();
             };
@@ -268,7 +272,7 @@ class HUDManager {
         const coliseumGrindCheckbox = document.getElementById('ap-coliseum-grind');
         if (coliseumGrindCheckbox) {
             coliseumGrindCheckbox.onchange = () => {
-                const config = window.autoplayConfig || {};
+                const config = autoplayConfig || {};
                 config.coliseumGrind = coliseumGrindCheckbox.checked;
                 this._saveAutoplayConfig();
             };
@@ -290,7 +294,7 @@ class HUDManager {
             const display = document.getElementById(s.valId);
             if (input) {
                 input.oninput = () => {
-                    const config = window.autoplayConfig || {};
+                    const config = autoplayConfig || {};
                     const val = parseInt(input.value) || 0;
                     config[s.prop] = val;
                     config.preset = 'custom';
@@ -310,7 +314,7 @@ class HUDManager {
             const improveBtn = document.getElementById('btn-ap-improve-personality');
             if (improveBtn) {
                 improveBtn.onclick = async () => {
-                    const config = window.autoplayConfig || {};
+                    const config = autoplayConfig || {};
                     const currentVal = pTextarea.value.trim();
                     
                     improveBtn.innerText = "⏳ Generating...";
@@ -321,7 +325,7 @@ class HUDManager {
                     const state = {
                         zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, biome: wm.currentZoneData.biome } : null,
                         player: {
-                            level: window.saveData ? (window.saveData.level || 1) : 1,
+                            level: saveData ? (saveData.level || 1) : 1,
                             class: p.classData ? p.classData.id : "adventurer",
                             alignment: p.alignment || 0,
                             quests: p.quests || []
@@ -345,7 +349,7 @@ class HUDManager {
             }
 
             pTextarea.oninput = () => {
-                const config = window.autoplayConfig || {};
+                const config = autoplayConfig || {};
                 config.heroPersonality = pTextarea.value;
                 this._saveAutoplayConfig();
             };
@@ -367,7 +371,7 @@ class HUDManager {
                 guideModal.style.display = 'flex';
                 // Populate the dynamic economy guide table
                 const tbody = document.getElementById('economy-guide-table-body');
-                if (tbody && window.WORLD_KINGDOMS) {
+                if (tbody && WORLD_KINGDOMS) {
                     tbody.innerHTML = '';
                     
                     const renderRow = (kId, k) => {
@@ -401,12 +405,12 @@ class HUDManager {
                         tbody.appendChild(tr);
                     };
 
-                    for (const kId in window.WORLD_KINGDOMS) {
-                        renderRow(kId, window.WORLD_KINGDOMS[kId]);
+                    for (const kId in WORLD_KINGDOMS) {
+                        renderRow(kId, WORLD_KINGDOMS[kId]);
                     }
-                    if (window.saveData && window.saveData.discoveredKingdoms) {
-                        for (const kId in window.saveData.discoveredKingdoms) {
-                            renderRow(kId, window.saveData.discoveredKingdoms[kId]);
+                    if (saveData && saveData.discoveredKingdoms) {
+                        for (const kId in saveData.discoveredKingdoms) {
+                            renderRow(kId, saveData.discoveredKingdoms[kId]);
                         }
                     }
                 }
@@ -492,10 +496,10 @@ class HUDManager {
                     }
                     
                     // Add dynamically discovered frontier kingdoms if any exist
-                    if (window.saveData && window.saveData.discoveredKingdoms) {
-                        const keys = Object.keys(window.saveData.discoveredKingdoms);
+                    if (saveData && saveData.discoveredKingdoms) {
+                        const keys = Object.keys(saveData.discoveredKingdoms);
                         keys.forEach((kId, idx) => {
-                            const k = window.saveData.discoveredKingdoms[kId];
+                            const k = saveData.discoveredKingdoms[kId];
                             const emblemSrc = window.getKingdomEmblemSrc ? window.getKingdomEmblemSrc(kId) : 'src/assets/emblems/emblem_unknown_1.png';
                             
                             const itemHtml = `
@@ -574,10 +578,10 @@ class HUDManager {
     updateHUD() {
         if (!this.scene.hudElements) return;
         
-        const saveName = window.saveData ? window.saveData.name : 'Unknown Hero';
-        const saveLevel = window.saveData ? window.saveData.level : 1;
-        const saveGold = window.saveData ? window.saveData.gold : 0;
-        const saveXp = window.saveData ? (window.saveData.xp || 0) : 0;
+        const saveName = saveData ? saveData.name : 'Unknown Hero';
+        const saveLevel = saveData ? saveData.level : 1;
+        const saveGold = saveData ? saveData.gold : 0;
+        const saveXp = saveData ? (saveData.xp || 0) : 0;
         const xpToNextLevel = saveLevel * 100;
         const xpPercent = Math.min((saveXp / xpToNextLevel) * 100, 100);
         
@@ -589,7 +593,7 @@ class HUDManager {
         if (this.scene.hudElements.gold) this.scene.hudElements.gold.innerText = `Gold: ${saveGold ?? 0}`;
         
         // Update Cargo HUD Indicator
-        const currentCargoHold = window.saveData && window.saveData.cargo ? window.saveData.cargo : {};
+        const currentCargoHold = saveData && saveData.cargo ? saveData.cargo : {};
         const totalCargoCount = Object.values(currentCargoHold).reduce((a, b) => a + b, 0);
         const cargoHUDText = document.getElementById('hud-cargo');
         if (cargoHUDText) {
@@ -632,7 +636,7 @@ class HUDManager {
         if (!el) return;
 
         const zoneData = this.scene.worldManager ? this.scene.worldManager.currentZoneData : null;
-        const zoneIdx = window.saveData ? window.saveData.currentZone : '?';
+        const zoneIdx = saveData ? saveData.currentZone : '?';
         const biome = zoneData ? (zoneData.biome || 'unknown') : '?';
         const zoneType = zoneData ? (zoneData.type || '?') : '?';
         const zoneName = zoneData ? (zoneData.name || '?') : '?';
@@ -644,8 +648,8 @@ class HUDManager {
         const mp = this.scene.player ? `${this.scene.player.mp || 0}/${this.scene.player.maxMp || 0}` : '?';
         const sp = this.scene.player ? `${this.scene.player.sp || 0}/${this.scene.player.maxSp || 0}` : '?';
         const alignment = this.scene.player ? this.scene.player.alignment : 0;
-        const gold = window.saveData ? window.saveData.gold : 0;
-        const level = window.saveData ? window.saveData.level : '?';
+        const gold = saveData ? saveData.gold : 0;
+        const level = saveData ? saveData.level : '?';
         const classId = this.scene.player && this.scene.player.classData ? this.scene.player.classData.id : '?';
 
         const fps = Math.round(this.scene.game.loop.actualFps);

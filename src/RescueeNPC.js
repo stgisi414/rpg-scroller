@@ -540,4 +540,3 @@ class RescueeNPC {
     }
 }
 
-window.RescueeNPC = RescueeNPC;

@@ -735,7 +735,7 @@ die() {
 
                 // Defeating a knight_rival counts as an assassination target and tanks reputation directly (Phase 6)
                 if (this.type === 'knight_rival') {
-                    const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+                    const currentZone = (saveData && saveData.currentZone) || 0;
                     const rulingFaction = window.getFactionForZone ? window.getFactionForZone(currentZone) : null;
                     if (rulingFaction) {
                         if (window.changeFactionReputation) {

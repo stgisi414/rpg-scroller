@@ -6,12 +6,12 @@ takeDamage(amount, knockbackDirection) {
         if (player.invulnerable) return; // Immune to damage (e.g. Witch fade)
 
         // Evasion check (including passive skills)
-        const passives = player.passiveSkills || ( (!player.isAI && window.saveData) ? (window.saveData.passiveSkills || {}) : {} );
+        const passives = player.passiveSkills || ( saveData ? (saveData.passiveSkills || {}) : {} );
         const activeModifiers = {};
         for (const skillId in passives) {
             const rank = passives[skillId] || 0;
-            if (rank > 0 && window.PASSIVE_SKILLS_DATA) {
-                const skillDef = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+            if (rank > 0 && PASSIVE_SKILLS_DATA) {
+                const skillDef = PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
                 if (skillDef && skillDef.statsModifiers) {
                     for (const statKey in skillDef.statsModifiers) {
                         const val = skillDef.statsModifiers[statKey];
@@ -324,17 +324,6 @@ updateStatusEffects(delta) {
         for (let i = player.statusEffects.length - 1; i >= 0; i--) {
             const effect = player.statusEffects[i];
             effect.duration -= delta;
-                // Apply visual tint based on strongest/latest effect
-            if (!player.isHit) { // Don't override damage flash
-                if (effect.type === 'mind_control') { player.sprite.setTint(0x32cd32); hasTint = true; }
-                else if (effect.type === 'stun' && !hasTint) { player.sprite.setTint(0xffff00); hasTint = true; }
-                else if (effect.type === 'freeze' && !hasTint) { player.sprite.setTint(0x88ccff); hasTint = true; }
-                else if (effect.type === 'burn' && !hasTint) { player.sprite.setTint(0xff6600); hasTint = true; }
-                else if (effect.type === 'poison' && !hasTint) { player.sprite.setTint(0xbf00ff); hasTint = true; }
-                else if (effect.type === 'regen' && !hasTint) { player.sprite.setTint(0x88ff88); hasTint = true; }
-                else if (effect.type === 'elixir_gods' && !hasTint) { player.sprite.setTint(0xffd700); hasTint = true; }
-                else if (effect.type === 'haste' && !hasTint) { player.sprite.setTint(0xffffff); hasTint = true; }
-            }
 
             // Process tick damage
             if (effect.type === 'poison' || effect.type === 'burn') {
@@ -383,8 +372,37 @@ updateStatusEffects(delta) {
                 player.statusEffects.splice(i, 1);
             }
         }
+
+        // Apply visual tints with cycling for multiple active effects
+        const STATUS_TINTS = {
+            mind_control: 0x32cd32, // lime green
+            stun: 0xffff00,         // yellow
+            freeze: 0x88ccff,       // light blue
+            bless: 0x00d2ff,        // sky blue
+            burn: 0xff6600,         // orange
+            poison: 0xbf00ff,       // purple
+            regen: 0x88ff88,        // light green
+            elixir_gods: 0xffd700,  // gold
+            haste: 0xffffff         // white
+        };
+
+        const activeTints = player.statusEffects
+            .map(e => e.type)
+            .filter(type => STATUS_TINTS[type] !== undefined);
+
+        if (activeTints.length > 0) {
+            if (!player.isHit) {
+                this.tintCycleTimer = (this.tintCycleTimer || 0) + delta;
+                const cycleIndex = Math.floor(this.tintCycleTimer / 1000) % activeTints.length;
+                const currentTintType = activeTints[cycleIndex];
+                player.sprite.setTint(STATUS_TINTS[currentTintType]);
+                hasTint = true;
+            }
+        } else {
+            this.tintCycleTimer = 0;
+        }
         
-        if (player.statusEffects.length === 0 && !player.isHit) {
+        if (!hasTint && !player.isHit) {
             player.sprite.clearTint();
         }
     },
@@ -415,24 +433,24 @@ die() {
             player.sprite.body.enable = false;
         }
 
-        if (window.saveData) {
-            window.saveData = JSON.parse(JSON.stringify(window.saveData));
+        if (saveData) {
+            saveData = JSON.parse(JSON.stringify(saveData));
         }
-        if (player.isAI) {
+        if (player.isAI && player !== player.scene.player) {
             // AI dies
             player.isDead = true;
             player.sprite.setVelocity(0, 0);
             player.sprite.body.enable = false;
             
             if (player.aiState === 'hostile') {
-                if (player.classId && player.classId.includes('rival') && window.saveData) {
-                    if (!window.saveData.defeatedRivals) window.saveData.defeatedRivals = [];
-                    if (!window.saveData.defeatedRivals.includes(player.classId)) {
-                        window.saveData.defeatedRivals.push(player.classId);
+                if (player.classId && player.classId.includes('rival') && saveData) {
+                    if (!saveData.defeatedRivals) saveData.defeatedRivals = [];
+                    if (!saveData.defeatedRivals.includes(player.classId)) {
+                        saveData.defeatedRivals.push(player.classId);
                         if (player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "Rival Defeated!", 0xffa500);
                     }
                     if (player.classId === 'megaboss_rival') {
-                        window.saveData.isSavior = true;
+                        saveData.isSavior = true;
                         if (player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 80, "SAVIOR OF THE REALM", 0xffff00);
                     }
 
@@ -465,17 +483,17 @@ die() {
                 const idx = player.scene.partyMembers.indexOf(player);
                 if (idx > -1) player.scene.partyMembers.splice(idx, 1);
                 if (player.isCargoCarrier) {
-                    if (window.saveData.cargo) {
+                    if (saveData.cargo) {
                         let remaining = 2;
-                        for (const itemId in window.saveData.cargo) {
+                        for (const itemId in saveData.cargo) {
                             if (remaining <= 0) break;
-                            const qty = window.saveData.cargo[itemId] || 0;
+                            const qty = saveData.cargo[itemId] || 0;
                             if (qty > 0) {
                                 const toSubtract = Math.min(qty, remaining);
-                                window.saveData.cargo[itemId] -= toSubtract;
+                                saveData.cargo[itemId] -= toSubtract;
                                 remaining -= toSubtract;
-                                if (window.saveData.cargo[itemId] <= 0) {
-                                    delete window.saveData.cargo[itemId];
+                                if (saveData.cargo[itemId] <= 0) {
+                                    delete saveData.cargo[itemId];
                                 }
                             }
                         }
@@ -520,41 +538,41 @@ die() {
                 scene.partyMembers = [];
             }
             // Clear saved party
-            if (window.saveData) {
-                window.saveData.party = [];
+            if (saveData) {
+                saveData.party = [];
                 // Wipe all cargo (mules are gone)
-                window.saveData.cargo = {};
+                saveData.cargo = {};
             }
             // Respawn cargo companion (removes mule sprites)
             if (scene.spawnCargoCompanion) scene.spawnCargoCompanion();
 
             // --- 2. XP PENALTY ---
             let xpLoss = 0;
-            if (window.saveData) {
-                const currentZone = window.saveData.currentZone || 0;
+            if (saveData) {
+                const currentZone = saveData.currentZone || 0;
                 const isHell = currentZone === -666 || (scene.worldManager && scene.worldManager.currentZoneData && scene.worldManager.currentZoneData.biome === 'Hell');
                 const lossPct = isHell ? 0.10 : 0.01;
-                const currentXp = window.saveData.xp || 0;
+                const currentXp = saveData.xp || 0;
                 xpLoss = Math.floor(currentXp * lossPct);
-                window.saveData.xp = Math.max(0, currentXp - xpLoss);
+                saveData.xp = Math.max(0, currentXp - xpLoss);
             }
 
             // --- 3. CALCULATE RESPAWN ZONE ---
             let respawnZone = 0;
-            if (window.saveData) {
-                const currentZone = window.saveData.currentZone || 0;
+            if (saveData) {
+                const currentZone = saveData.currentZone || 0;
                 const isHell = currentZone === -666;
-                if (!isHell && window.saveData.zones) {
+                if (!isHell && saveData.zones) {
                     for (let i = currentZone; i >= 0; i--) {
                         if (i % 4 === 0) { respawnZone = i; break; }
                     }
                 }
-                window.saveData.currentZone = respawnZone;
-                if (window.saveData.preWrathZone !== undefined) {
-                    delete window.saveData.preWrathZone;
+                saveData.currentZone = respawnZone;
+                if (saveData.preWrathZone !== undefined) {
+                    delete saveData.preWrathZone;
                 }
-                window.saveData.hp = window.saveData.maxHp || player.maxHp || 100;
-                player.hp = window.saveData.hp;
+                saveData.hp = saveData.maxHp || player.maxHp || 100;
+                player.hp = saveData.hp;
                 player.saveGame();
                 player._persistToLocalStorage();
             }
@@ -575,7 +593,8 @@ die() {
             requestAnimationFrame(() => { overlay.style.background = 'rgba(0,0,0,1)'; });
 
             // Show death text after fade
-            setTimeout(() => {
+            scene.time.delayedCall(2000, () => {
+                if (!scene || !scene.scene || !scene.sys || !scene.sys.isActive()) return;
                 const deathText = document.createElement('div');
                 deathText.style.cssText = `
                     font-size: 56px; font-weight: 900; color: #cc0000;
@@ -588,7 +607,8 @@ die() {
                 requestAnimationFrame(() => { deathText.style.opacity = '1'; });
 
                 // Show penalties
-                setTimeout(() => {
+                scene.time.delayedCall(1500, () => {
+                    if (!scene || !scene.scene || !scene.sys || !scene.sys.isActive()) return;
                     const penaltyContainer = document.createElement('div');
                     penaltyContainer.style.cssText = `
                         display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -609,10 +629,11 @@ die() {
 
                     overlay.appendChild(penaltyContainer);
                     requestAnimationFrame(() => { penaltyContainer.style.opacity = '1'; });
-                }, 1500);
+                });
 
                 // Show rebirth text
-                setTimeout(() => {
+                scene.time.delayedCall(4000, () => {
+                    if (!scene || !scene.scene || !scene.sys || !scene.sys.isActive()) return;
                     deathText.style.transition = 'opacity 1s ease, color 1.5s ease, text-shadow 1.5s ease';
                     deathText.textContent = 'REBORN';
                     deathText.style.color = '#44ddff';
@@ -630,19 +651,21 @@ die() {
                     subtitleText.textContent = `Awakening in ${townName}...`;
                     overlay.appendChild(subtitleText);
                     requestAnimationFrame(() => { subtitleText.style.opacity = '1'; });
-                }, 4000);
+                });
 
                 // Fade out and restart
-                setTimeout(() => {
+                scene.time.delayedCall(6000, () => {
+                    if (!scene || !scene.scene || !scene.sys || !scene.sys.isActive()) return;
                     overlay.style.transition = 'background 1.5s ease';
                     overlay.style.background = 'rgba(0,0,0,0)';
-                    setTimeout(() => {
+                    scene.time.delayedCall(1600, () => {
+                        if (!scene || !scene.scene || !scene.sys || !scene.sys.isActive()) return;
                         overlay.remove();
                         scene.scene.restart();
-                    }, 1600);
-                }, 6000);
+                    });
+                });
 
-            }, 2000);
+            });
         }
     }
 };

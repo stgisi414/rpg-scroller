@@ -17,7 +17,7 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
         }
         
         // Auto-scale AI stats based on player's level
-        const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
+        const playerLvl = saveData ? (saveData.level || 1) : 1;
         stats.vit += (playerLvl - 1) * 2;
         stats.str += (playerLvl - 1) * 2;
         stats.dex += (playerLvl - 1) * 1;
@@ -172,7 +172,7 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
         }
     }
     if (baseClass) {
-        const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
+        const playerLvl = saveData ? (saveData.level || 1) : 1;
         const growthTable = {
             knight:   { vit: 2, str: 2, dex: 1, int: 0 },
             wizard:   { vit: 1, str: 0, dex: 1, int: 3 },
@@ -230,7 +230,7 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
     };
     const baseStats = classStats[classId] || { vit: 12, str: 12, dex: 12, int: 12 };
     
-    const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
+    const playerLvl = saveData ? (saveData.level || 1) : 1;
     const stats = window.calculateStatsForLevel ? window.calculateStatsForLevel(classId, playerLvl) : {
         vit: baseStats.vit + (playerLvl - 1),
         str: baseStats.str + (playerLvl - 1),

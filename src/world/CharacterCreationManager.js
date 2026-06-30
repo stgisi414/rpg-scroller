@@ -8,10 +8,14 @@ window.renderCreationSkillsGrid = function() {
     const tooltip = document.getElementById('create-skills-tooltip');
     const btnAwaken = document.getElementById('btn-awaken');
 
-    if (!grid || !window.selectedClassData || !window.PASSIVE_SKILLS_DATA) return;
+    console.log("[DIAGNOSTIC] renderCreationSkillsGrid: grid=" + !!grid + 
+                ", selectedClassData=" + (window.selectedClassData ? window.selectedClassData.id : 'null') + 
+                ", PASSIVE_SKILLS_DATA=" + (typeof PASSIVE_SKILLS_DATA !== 'undefined' ? (Array.isArray(PASSIVE_SKILLS_DATA) ? PASSIVE_SKILLS_DATA.length : typeof PASSIVE_SKILLS_DATA) : 'undefined'));
+
+    if (!grid || !window.selectedClassData || !PASSIVE_SKILLS_DATA) return;
 
     const classId = window.selectedClassData.id;
-    const classSkills = window.PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
+    const classSkills = PASSIVE_SKILLS_DATA.filter(s => s.classId === classId);
     
     let allocated = 0;
     for (const key in window.creationAllocations) {
@@ -80,12 +84,14 @@ window.showTitleScreen = function() {
 };
 
 window.showCreateScreen = function() {
+    console.log("[DIAGNOSTIC] showCreateScreen called");
     document.getElementById('ui-title').style.display = 'none';
     document.getElementById('ui-create').style.display = 'block';
     window.selectClass('knight');
 };
 
 window.selectClass = function(classId) {
+    console.log("[DIAGNOSTIC] selectClass called with " + classId);
     const data = window.classesData[classId];
     window.selectedClassData = data;
 

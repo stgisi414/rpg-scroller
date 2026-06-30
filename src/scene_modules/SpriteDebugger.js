@@ -23,6 +23,8 @@ class SpriteDebugger {
         html += '<div id="debug-weapon-row" style="display: none; margin-bottom: 10px; flex-direction: column; gap: 4px;">';
         html += '<label style="font-size: 11px; color: #aaa;">Overlay Weapon:</label>';
         html += '<select id="debug-weapon" style="width: 100%; color: black; background: white;"></select>';
+        html += '<label style="font-size: 11px; color: #aaa; margin-top: 5px;">Overlay Hat:</label>';
+        html += '<select id="debug-hat" style="width: 100%; color: black; background: white;"></select>';
         html += '</div>';
 
         html += '<div style="position: relative; overflow: auto; width: 100%; height: 200px; border: 1px solid #444; margin-bottom: 10px;">';
@@ -261,9 +263,19 @@ class SpriteDebugger {
                 weaponImg = this.scene.textures.get(weaponKey).getSourceImage();
             }
 
+            const hatSelectElem = document.getElementById('debug-hat');
+            const hatKey = hatSelectElem ? hatSelectElem.value : '';
+            let hatImg = null;
+            if (hatKey && this.scene.textures.exists(hatKey)) {
+                hatImg = this.scene.textures.get(hatKey).getSourceImage();
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (img && img.src) {
                 try { ctx.drawImage(img, 0, 0); } catch(e) { console.warn("Failed to draw image to debug canvas", e); }
+            }
+            if (hatImg && hatImg.src) {
+                try { ctx.drawImage(hatImg, 0, 0); } catch(e) { console.warn("Failed to draw hat overlay to debug canvas", e); }
             }
             if (weaponImg && weaponImg.src) {
                 try { ctx.drawImage(weaponImg, 0, 0); } catch(e) { console.warn("Failed to draw weapon overlay to debug canvas", e); }
@@ -499,10 +511,26 @@ class SpriteDebugger {
             { name: 'Wooden Sword', suffix: 'wooden_sword' }
         ];
 
+        const hatNames = [
+            { name: 'None', suffix: '' },
+            { name: 'Bunny ears1', suffix: 'bunny_ears1' },
+            { name: 'Bunny ears2', suffix: 'bunny_ears2' },
+            { name: 'Farming Hat', suffix: 'farming_hat' },
+            { name: 'Blue cap', suffix: 'blue_cap' },
+            { name: 'Green cap', suffix: 'green_cap' },
+            { name: 'Hat1', suffix: 'hat1' },
+            { name: 'Mining Helmet', suffix: 'mining_helmet' },
+            { name: 'Santa hat', suffix: 'santa_hat' },
+            { name: 'Pumpkin hat', suffix: 'pumpkin_hat' },
+            { name: 'Witch hat', suffix: 'witch_hat' },
+            { name: 'Viking Helmet', suffix: 'viking_helmet' }
+        ];
+
         const updateWeaponOverlayVisibility = () => {
             const key = select.value;
             const row = document.getElementById('debug-weapon-row');
             const weaponSelect = document.getElementById('debug-weapon');
+            const hatSelect = document.getElementById('debug-hat');
             if (key.startsWith('npc_male') || key.startsWith('npc_female')) {
                 if (row) row.style.display = 'flex';
                 if (weaponSelect) {
@@ -515,9 +543,46 @@ class SpriteDebugger {
                         weaponSelect.appendChild(opt);
                     });
                 }
+                if (hatSelect) {
+                    hatSelect.innerHTML = '';
+                    const isMale = key.startsWith('npc_male');
+                    hatNames.forEach(h => {
+                        const opt = document.createElement('option');
+                        let suffixStr = h.suffix;
+                        if (suffixStr) {
+                            if (isMale && suffixStr === 'witch_hat') suffixStr = 'hat1'; // Male doesn't have witch hat
+                            if (!isMale && suffixStr.startsWith('viking')) suffixStr = 'hat1';
+                            opt.value = `mod_${isMale ? 'male_' : 'female_'}${suffixStr}_${isMale ? 'm' : 'f'}`;
+                            
+                            // Check for hardcoded exceptions where naming differs
+                            if (suffixStr === 'farming_hat' || suffixStr === 'santa_hat' || suffixStr === 'pumpkin_hat' || suffixStr === 'witch_hat') {
+                                if (suffixStr === 'santa_hat' && isMale) {
+                                     opt.value = `mod_male_santa_hat_m`;
+                                } else if (suffixStr === 'santa_hat' && !isMale) {
+                                     opt.value = `mod_female_santa_hat_f`;
+                                } else if (suffixStr === 'farming_hat') {
+                                     opt.value = `mod_farming_hat_${isMale ? 'm' : 'f'}`;
+                                } else if (suffixStr === 'pumpkin_hat' && isMale) {
+                                     opt.value = `mod_pumpkin_hat_m`;
+                                } else if (suffixStr === 'witch_hat' && !isMale) {
+                                     opt.value = `mod_witch_hat_f`;
+                                }
+                            } else if (suffixStr.startsWith('bunny_ears')) {
+                                opt.value = `mod_${suffixStr}_f`; // Female only
+                            } else if (suffixStr.startsWith('viking')) {
+                                opt.value = `mod_${suffixStr}_m`; // Male only
+                            }
+                        } else {
+                            opt.value = '';
+                        }
+                        opt.textContent = h.name;
+                        hatSelect.appendChild(opt);
+                    });
+                }
             } else {
                 if (row) row.style.display = 'none';
                 if (weaponSelect) weaponSelect.innerHTML = '';
+                if (hatSelect) hatSelect.innerHTML = '';
             }
         };
 
@@ -534,6 +599,12 @@ class SpriteDebugger {
                 drawCanvas();
             });
         }
+        const hatSelect = document.getElementById('debug-hat');
+        if (hatSelect) {
+            hatSelect.addEventListener('change', () => {
+                drawCanvas();
+            });
+        }
 
         document.getElementById('debug-close').addEventListener('click', () => {
             panel.style.display = 'none';
@@ -541,15 +612,16 @@ class SpriteDebugger {
 
         if (!window._debugKeyBound) {
             window._debugKeyBound = true;
-            this.scene._debugKeyDownListener = (e) => {
+            document.addEventListener('keydown', (e) => {
                 if (e.key === '`' || e.key === '~') {
-                    const p = document.getElementById('debug-panel');
-                    if (p) {
-                        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+                    let p = document.getElementById('debug-panel');
+                    if (!p) {
+                        this.createDebugPanel();
+                        p = document.getElementById('debug-panel');
                     }
+                    if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
                 }
-            };
-            document.addEventListener('keydown', this.scene._debugKeyDownListener);
+            });
         }
 
         updateWeaponOverlayVisibility();

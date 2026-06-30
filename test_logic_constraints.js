@@ -14,6 +14,11 @@ const combatControllerCode = fs.readFileSync(path.join(srcDir, 'player', 'Combat
 const companionAiCode = fs.readFileSync(path.join(srcDir, 'player', 'CompanionAI.js'), 'utf8');
 const questAlignmentManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'QuestAlignmentManager.js'), 'utf8');
 const chatManagerCode = fs.readFileSync(path.join(srcDir, 'player', 'ChatManager.js'), 'utf8');
+const companionAIHelperCode = fs.readFileSync(path.join(srcDir, 'player', 'CompanionAI_Helper.js'), 'utf8');
+const npcControllerHelperCode = fs.readFileSync(path.join(srcDir, 'npc', 'NPCController_Helper.js'), 'utf8');
+const playerControllerHelperCode = fs.readFileSync(path.join(srcDir, 'player', 'PlayerController_Helper.js'), 'utf8');
+const shopManagerHelperCode = fs.readFileSync(path.join(srcDir, 'player', 'ShopManager_MarketplaceHelper.js'), 'utf8');
+const spellControllerHelperCode = fs.readFileSync(path.join(srcDir, 'player', 'SpellController_Helper.js'), 'utf8');
 const playerControllerCode = fs.readFileSync(path.join(srcDir, 'PlayerController.js'), 'utf8');
 const enemyControllerCode = fs.readFileSync(path.join(srcDir, 'EnemyController.js'), 'utf8');
 
@@ -43,7 +48,8 @@ const PhaserMock = {
         },
         Angle: {
             Between: (x1, y1, x2, y2) => Math.atan2(y2-y1, x2-x1)
-        }
+        },
+        Clamp: (val, min, max) => Math.min(Math.max(val, min), max)
     }
 };
 
@@ -75,6 +81,7 @@ function createMockElement(id) {
         appendChild: () => {},
         focus: () => {},
         blur: () => {},
+        click: function() { if (listeners['click']) { listeners['click'].forEach(cb => cb()); } else if (typeof this.onclick === 'function') { this.onclick(); } },
         listeners,
         _removedCount: 0
     };
@@ -181,7 +188,37 @@ const windowMock = {
         getItem: () => '[]',
         setItem: () => {}
     },
-    ARTIFACTS_DATA: {}
+    ARTIFACTS_DATA: {},
+    StatusEffectManager: {
+        updateStatusEffects: () => {}
+    },
+    getAIClassPresetData: (classId, weaponType) => ({
+        id: classId,
+        stats: { vit: 15, str: 14, dex: 9, int: 8 }
+    }),
+    getSaves: () => [],
+    saveSaves: () => {},
+    EnemyBehaviors: {
+        initializeEnemy: function(x, y) {
+            this.statusEffects = [];
+            this.speed = 100;
+            if (this.type === 'slime') {
+                this.maxHp = 100;
+                this.hp = 100;
+            } else if (this.type === 'lich_lord') {
+                this.maxHp = 2000;
+                this.hp = 2000;
+            } else if (this.type === 'the_devil') {
+                this.maxHp = 1500;
+                this.hp = 1500;
+            } else {
+                this.maxHp = 100;
+                this.hp = 100;
+            }
+            this.sprite = this.scene.physics.add.sprite(x, y, this.type);
+        },
+        executeTactic: function() {}
+    }
 };
 
 const sandbox = {
@@ -203,10 +240,21 @@ const sandbox = {
     EnemyController: null
 };
 
+const varsToProxy = ['saveData', 'autoplayConfig', 'INDOOR_LOCATIONS', 'WORLD_KINGDOMS', 'PASSIVE_SKILLS_DATA', 'getReputationPriceMultiplier', 'RescueeNPC'];
+varsToProxy.forEach(varName => {
+    Object.defineProperty(sandbox, varName, {
+        get: () => windowMock[varName],
+        set: (v) => { windowMock[varName] = v; },
+        configurable: true,
+        enumerable: true
+    });
+});
+
 vm.createContext(sandbox);
 
 // Evaluate scripts in the sandbox
 try {
+    vm.runInContext(npcControllerHelperCode, sandbox, { filename: 'NPCController_Helper.js' });
     vm.runInContext(npcControllerCode, sandbox, { filename: 'NPCController.js' });
     sandbox.NPCController = vm.runInContext('NPCController', sandbox);
     vm.runInContext(inputManagerCode, sandbox, { filename: 'InputManager.js' });
@@ -215,16 +263,19 @@ try {
     sandbox.StatsManager = vm.runInContext('StatsManager', sandbox);
     vm.runInContext(inventoryManagerCode, sandbox, { filename: 'InventoryManager.js' });
     sandbox.InventoryManager = vm.runInContext('InventoryManager', sandbox);
+    vm.runInContext(shopManagerHelperCode, sandbox, { filename: 'ShopManager_MarketplaceHelper.js' });
     vm.runInContext(shopManagerCode, sandbox, { filename: 'ShopManager.js' });
     sandbox.ShopManager = vm.runInContext('ShopManager', sandbox);
     vm.runInContext(combatControllerCode, sandbox, { filename: 'CombatController.js' });
     sandbox.CombatController = vm.runInContext('CombatController', sandbox);
+    vm.runInContext(companionAIHelperCode, sandbox, { filename: 'CompanionAI_Helper.js' });
     vm.runInContext(companionAiCode, sandbox, { filename: 'CompanionAI.js' });
     sandbox.CompanionAI = vm.runInContext('CompanionAI', sandbox);
     vm.runInContext(questAlignmentManagerCode, sandbox, { filename: 'QuestAlignmentManager.js' });
     sandbox.QuestAlignmentManager = vm.runInContext('QuestAlignmentManager', sandbox);
     vm.runInContext(chatManagerCode, sandbox, { filename: 'ChatManager.js' });
     sandbox.ChatManager = vm.runInContext('ChatManager', sandbox);
+    vm.runInContext(playerControllerHelperCode, sandbox, { filename: 'PlayerController_Helper.js' });
     vm.runInContext(playerControllerCode, sandbox, { filename: 'PlayerController.js' });
     sandbox.PlayerController = vm.runInContext('PlayerController', sandbox);
     vm.runInContext(enemyControllerCode, sandbox, { filename: 'EnemyController.js' });
@@ -620,6 +671,182 @@ console.log("\nRunning Test 5: EnemyController Statistics...");
     assert(Number.isFinite(slime.hp), "HP became NaN after damage");
 
     console.log("Test 5 Passed!");
+})();
+
+// ----------------------------------------------------
+// TEST 6: Autoplay AI refinements
+// ----------------------------------------------------
+console.log("\nRunning Test 6: Autoplay AI refinements...");
+(function testAutoplayAIRefinements() {
+    const mockScene = {
+        time: { now: 1000 },
+        enemies: {
+            getChildren: () => []
+        },
+        physics: {
+            world: { bounds: { width: 2000 } }
+        },
+        zoneType: 'Danger'
+    };
+
+    windowMock.autoplayConfig = {
+        selfPotionPct: 40,
+        preset: 'pacifist',
+        spellRate: 50,
+        blockRate: 20,
+        dashFreq: 30,
+        targetZone: 0
+    };
+
+    let potionUsedCount = 0;
+    const mockPlayer = {
+        scene: mockScene,
+        sprite: createMockSprite(),
+        classData: { id: 'knight' },
+        isAI: true,
+        aiState: 'party',
+        isCargoCarrier: false,
+        hp: 30,
+        maxHp: 100,
+        inventory: { potions: 2 },
+        aiInput: {
+            left: false, right: false, up: false, down: false,
+            attack: false, interact: false, superSpell: false, megaSpell: false, summonSpell: false
+        },
+        lastAITick: 0,
+        usePotion: () => {
+            potionUsedCount++;
+            mockPlayer.inventory.potions--;
+            mockPlayer.hp = Math.min(mockPlayer.maxHp, mockPlayer.hp + 50);
+        }
+    };
+    mockScene.player = mockPlayer;
+
+    const companionAI = new sandbox.CompanionAI(mockPlayer);
+
+    // 1. Verify Self-Potion Healing
+    companionAI.updateAI(1000, 16);
+    assert(potionUsedCount === 1, "AI companion should have used a potion");
+    assert(mockPlayer.inventory.potions === 1, "Potion count should decrement");
+    assert(mockPlayer.hp === 80, "HP should be restored to 80");
+    assert(mockPlayer._lastSelfPotTime === 1000, "lastSelfPotTime should be recorded");
+
+    // Try again immediately (cooldown check)
+    mockPlayer.hp = 30; // drop HP again
+    companionAI.updateAI(1100, 16);
+    assert(potionUsedCount === 1, "AI companion should not use potion during cooldown");
+
+    // Try after cooldown (3000ms+)
+    companionAI.updateAI(4500, 16);
+    assert(potionUsedCount === 2, "AI companion should use potion after cooldown");
+
+    // 2. Verify Pacifist Attack Chance Scaling
+    const originalRandom = Math.random;
+    Math.random = () => 0.1;
+
+    mockPlayer.inventory.potions = 0; // stop healing triggers
+    mockPlayer.hp = 100;
+    const dummyEnemy = { x: 200, y: 0, active: true };
+    mockScene.enemies.getChildren = () => [dummyEnemy];
+    mockPlayer.sprite.x = 170;
+    mockPlayer.sprite.y = 0; // distance 30 (melee range)
+
+    companionAI.updateAI(8000, 16);
+    assert(mockPlayer.aiInput.attack === false, "Pacifist preset should not attack at 0.1 probability");
+
+    // Change preset to warrior/normal preset
+    windowMock.autoplayConfig.preset = 'warrior';
+    companionAI.updateAI(9000, 16);
+    assert(mockPlayer.aiInput.attack === true, "Normal preset should attack at 0.1 probability");
+
+    Math.random = originalRandom; // Restore Math.random
+
+    // 3. Verify General Stuck Wall/Ceiling Escape
+    dummyEnemy.x = 400;
+    mockPlayer.sprite.x = 170;
+    mockPlayer.sprite.body.velocity.x = 0;
+    mockPlayer.sprite.body.touching.down = false;
+    mockPlayer.sprite.body.blocked.down = false;
+    mockPlayer.jumps = 2;
+    mockPlayer.aiInput.attack = false;
+
+    let time = 10000;
+    for (let i = 0; i < 9; i++) {
+        companionAI.updateAI(time, 16);
+        time += 200;
+    }
+
+    assert(mockPlayer._generalEscapeTicks > 0, "General escape should be active after 8 stuck ticks");
+    assert(mockPlayer._generalEscapeDir === -1, "Escape direction should be -1 (away from right stuck direction)");
+    assert(mockPlayer.aiInput.left === true, "Left input should be overridden to true during escape");
+    assert(mockPlayer.aiInput.right === false, "Right input should be overridden to false during escape");
+
+    // Set touching/blocked down to true, run once more to see if it jumps
+    mockPlayer.sprite.body.touching.down = true;
+    companionAI.updateAI(time, 16);
+    assert(mockPlayer.aiInput.up === true, "Should jump when blocked/touching down during escape");
+
+    // 4. Verify Stuck Chat UI Loop Escape
+    mockScene.zoneType = 'Safe';
+    companionAI._wantsToAdventure = true;
+    
+    const visibilityMap = {};
+    windowMock.getComputedStyle = (el) => {
+        return { display: visibilityMap[el.id] || 'none' };
+    };
+
+    visibilityMap['chat-ui'] = 'block';
+
+    let chatCloseCalled = false;
+    const mockNpc = {
+        isChatOpen: true,
+        closeChat: () => { chatCloseCalled = true; }
+    };
+    mockScene.npcs = [mockNpc];
+    elementsMap['chat-close'] = {
+        click: () => { chatCloseCalled = true; }
+    };
+
+    companionAI.updateAI(20000, 16);
+    assert(chatCloseCalled === true, "Should close NPC chat immediately if wantsToAdventure is true");
+    assert(companionAI._wasChatOpen === false, "wasChatOpen should be cleared");
+    assert(companionAI._currentChatNpc === null, "currentChatNpc should be cleared");
+
+    // 5. Verify Stuck Town Directory UI Loop Escape
+    visibilityMap['chat-ui'] = 'none';
+    visibilityMap['ui-town-directory'] = 'block';
+    
+    mockScene.worldManager = { currentZoneIndex: 3 };
+    windowMock.autoplayConfig.targetZone = 3;
+
+    let dirCloseCount = 0;
+    elementsMap['btn-close-directory'] = {
+        click: () => { dirCloseCount++; }
+    };
+
+    companionAI.updateAI(22000, 16);
+    assert(dirCloseCount === 1, "Should close directory immediately if currentZoneIdx === targetZone");
+
+    companionAI._wantsToAdventure = false;
+    windowMock.autoplayConfig.townFocus = 50;
+    companionAI._lastDirTime = 0;
+    
+    delete elementsMap['directory-locations-container'];
+
+    companionAI.updateAI(24000, 16);
+    assert(dirCloseCount === 2, "Should close directory if location container is missing");
+
+    const mockLocContainer = {
+        id: 'directory-locations-container',
+        children: []
+    };
+    elementsMap['directory-locations-container'] = mockLocContainer;
+    companionAI._lastDirTime = 0;
+
+    companionAI.updateAI(26000, 16);
+    assert(dirCloseCount === 3, "Should close directory if locations container is empty");
+
+    console.log("Test 6 Passed!");
 })();
 
 console.log("\nAll logic & constraint checks completed successfully without error.");

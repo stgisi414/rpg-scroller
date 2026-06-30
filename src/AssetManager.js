@@ -130,6 +130,7 @@ class AssetManager {
         this.scene.load.spritesheet('copper_golem_rival', 'src/assets/copper_golem.png', { frameWidth: 128, frameHeight: 128 });
 
         this.scene.load.spritesheet('heal_animation', 'src/assets/heal_animation.png', { frameWidth: 64, frameHeight: 64 });
+        this.scene.load.spritesheet('bless_buff', 'src/assets/bless_buff.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('witch_debuff', 'src/assets/witch_debuff.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('witch_3_charge', 'src/assets/craftpix-net-470871-witch-pixel-character-sprite-sheets-pack/Witch_3/Charge.png', { frameWidth: 64, frameHeight: 64 });
         this.scene.load.spritesheet('mind_control_debuff', 'src/assets/mind_control_debuff.png', { frameWidth: 64, frameHeight: 64 });

@@ -9,308 +9,9 @@
     <link href="src/output.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #0e0e0e;
-            color: #e4e2e1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Courier New', Courier, monospace;
-        }
-        canvas {
-            display: block;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            image-rendering: pixelated; /* good for pixel art assets */
-        }
-        .glow-text {
-            text-shadow: 0 0 15px rgba(255, 0, 0, 0.6), 0 0 30px rgba(255, 0, 0, 0.4);
-        }
-        .menu-item {
-            position: relative;
-            transition: all 0.2s ease;
-        }
-        .menu-item:hover {
-            color: #ffb4a8; /* primary */
-            transform: translateX(10px);
-        }
-        .menu-item::before {
-            content: 'sword_rose';
-            font-family: 'Material Symbols Outlined';
-            position: absolute;
-            left: -40px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0;
-            color: #2ddbde; /* tertiary */
-            transition: all 0.2s ease;
-            text-shadow: 0 0 10px rgba(45,219,222,0.8);
-        }
-        .menu-item:hover::before {
-            opacity: 1;
-            left: -30px;
-        }
-        .crt-overlay {
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 4px, 3px 100%;
-            pointer-events: none;
-        }
-        #ui-layer {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            pointer-events: none;
-            z-index: 10;
-        }
-        #chat-ui {
-            display: none;
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 720px;
-            background: rgba(14, 14, 14, 0.88);
-            backdrop-filter: blur(8px);
-            border: 2px solid rgba(246, 190, 59, 0.6);
-            border-radius: 12px;
-            padding: 18px 22px;
-            color: white;
-            z-index: 90;
-            box-shadow: 0 0 25px rgba(246, 190, 59, 0.2), 0 10px 40px rgba(0,0,0,0.9);
-            font-family: 'Courier New', Courier, monospace;
-        }
-        #chat-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(200, 0, 0, 0.1);
-            border: 1px solid #cc0000;
-            color: #ff8888;
-            padding: 4px 10px;
-            font-family: monospace;
-            font-size: 11px;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-        }
-        #chat-close:hover {
-            background: #cc0000;
-            color: white;
-            border-color: #ff3333;
-            box-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
-        }
-        #chat-history {
-            height: 200px;
-            overflow-y: auto;
-            margin-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 12px;
-        }
-        #chat-input-container {
-            display: flex;
-            gap: 10px;
-        }
-        #chat-input {
-            flex-grow: 1;
-            padding: 10px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            font-family: inherit;
-        }
-        #chat-submit {
-            padding: 10px 20px;
-            background: #444;
-            color: white;
-            border: 1px solid #666;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        #chat-submit:hover {
-            background: #555;
-        }
-
-        /* Stitch HUD Specific Styles */
-        .pixel-art-rendering {
-            image-rendering: pixelated;
-        }
-        
-        .hud-border {
-            border: 2px solid theme('colors.outline-variant');
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 0 15px rgba(0,0,0,0.5);
-            background: rgba(14, 14, 14, 0.85); /* surface-container-lowest */
-            backdrop-filter: blur(4px);
-        }
-
-        .bar-frame {
-            clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
-        }
-
-        .animate-health-shimmer {
-            background: linear-gradient(90deg, #7f1d1d, #ef4444);
-        }
-
-        @keyframes manaPulse {
-            0%, 100% { opacity: 0.85; box-shadow: 0 0 6px #3b82f6; }
-            50% { opacity: 1; box-shadow: 0 0 18px #60a5fa; }
-        }
-        .animate-mana-pulse {
-            animation: manaPulse 2s infinite ease-in-out;
-            background: linear-gradient(90deg, #1d4ed8, #3b82f6);
-        }
-        
-        .stamina-fill {
-            background: linear-gradient(90deg, #004b23, #00a86b);
-        }
-
-        .scanline {
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
-            background-size: 100% 4px;
-        }
-
-        .hotbar-slot {
-            transition: all 0.2s ease;
-        }
-        .hotbar-slot:hover {
-            transform: scale(1.05);
-            border-color: theme('colors.primary');
-            box-shadow: inset 0 0 10px rgba(255,180,168,0.2), 0 0 10px rgba(255,180,168,0.3);
-        }
-
-        /* Autoplay Manager Settings Overlay */
-        #ui-autoplay-config {
-            position: fixed;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 380px;
-            z-index: 10000;
-            background: rgba(14, 14, 18, 0.72);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-left: 2px solid rgba(45, 219, 222, 0.4);
-            color: #e4e2e1;
-            padding: 24px;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
-            display: none;
-            flex-direction: column;
-            gap: 18px;
-            overflow-y: auto;
-            font-family: 'Space Grotesk', sans-serif;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateX(100%);
-            pointer-events: auto;
-        }
-        #ui-autoplay-config.open {
-            display: flex;
-            transform: translateX(0);
-        }
-        .ai-pulse-dot {
-            width: 12px;
-            height: 12px;
-            background-color: #2ddbde;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 10px;
-            box-shadow: 0 0 10px #2ddbde, 0 0 20px rgba(45,219,222,0.6);
-            animation: pulseAI 1.5s infinite ease-in-out;
-        }
-        @keyframes pulseAI {
-            0%, 100% { transform: scale(1); opacity: 0.6; }
-            50% { transform: scale(1.3); opacity: 1; }
-        }
-        .preset-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 4px;
-            padding: 8px 12px;
-            color: #bbb;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-        .preset-btn:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
-            color: #fff;
-        }
-        .preset-btn.active {
-            border-color: #2ddbde !important;
-            color: #2ddbde !important;
-            box-shadow: 0 0 12px rgba(45, 219, 222, 0.4);
-            background: rgba(45, 219, 222, 0.12);
-        }
-        .config-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: rgba(255,255,255,0.12);
-            outline: none;
-            transition: background 0.3s;
-            margin: 8px 0;
-        }
-        .config-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #2ddbde;
-            box-shadow: 0 0 8px #2ddbde;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-        .config-slider::-webkit-slider-thumb:hover {
-            transform: scale(1.35);
-        }
-        .zone-input {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(45, 219, 222, 0.3);
-            border-radius: 4px;
-            color: #fff;
-            padding: 6px 10px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            width: 75px;
-            text-align: center;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-        .zone-input:focus {
-            border-color: #2ddbde;
-            box-shadow: 0 0 10px rgba(45, 219, 222, 0.5);
-        }
-        .ap-textarea {
-            width: 100%;
-            box-sizing: border-box;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 4px;
-            color: #fff;
-            padding: 8px 10px;
-            font-family: inherit;
-            font-size: 12px;
-            outline: none;
-            resize: none;
-            transition: all 0.2s ease;
-        }
-        .ap-textarea:focus {
-            border-color: #2ddbde;
-            box-shadow: 0 0 8px rgba(45, 219, 222, 0.3);
-        }
-    </style>
+    <link href="src/styles/main.css" rel="stylesheet">
+    <link href="src/styles/title.css" rel="stylesheet">
+    <link href="src/styles/fighter.css" rel="stylesheet">
 </head>
 <body>
     <!-- Beautiful Loading Screen Wrapper -->
@@ -331,32 +32,7 @@
         </div>
     </div>
 
-    <style>
-        /* === Title Glow Pulse === */
-        @keyframes title-pulse {
-            0%, 100% { filter: drop-shadow(0 0 16px rgba(139,0,0,0.6)); }
-            50%      { filter: drop-shadow(0 0 30px rgba(200,30,20,0.9)); }
-        }
-        .title-glow-pulse { animation: title-pulse 3s ease-in-out infinite; }
 
-        /* === Subtitle Glow Frame === */
-        @keyframes sub-glow {
-            0%, 100% { box-shadow: 0 0 8px rgba(45,219,222,0.3), inset 0 0 6px rgba(45,219,222,0.1); }
-            50%      { box-shadow: 0 0 18px rgba(45,219,222,0.7), inset 0 0 12px rgba(45,219,222,0.2); }
-        }
-        .subtitle-frame {
-            border: 2px solid rgba(45,219,222,0.5);
-            padding: 8px 28px;
-            animation: sub-glow 2.5s ease-in-out infinite;
-        }
-
-        /* === Title Canvas (Phaser renders behind menu) === */
-        #title-canvas {
-            position: absolute;
-            inset: 0;
-            z-index: 2;
-        }
-    </style>
 
     <!-- Title Screen UI -->
     <div id="ui-title" class="absolute inset-0 z-50 flex items-center justify-center overflow-hidden">
@@ -720,7 +396,7 @@
                 <div id="inv-slot-2" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">3</span>
                     <div id="inv-icon-2" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-                        <div id="inv-bg-2" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png'); background-position: -16px 0px; background-size: 48px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
+                        <div id="inv-bg-2" style="width: 40px; height: 40px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Healing Sheet.png'); background-position: -28px 4px; background-size: 96px 256px; background-repeat: no-repeat; transform: none; image-rendering: pixelated; transform-origin: center;"></div>
                     </div>
                     <span id="inv-placeholder-2" class="material-symbols-outlined text-3xl text-primary group-hover:text-primary-fixed transition-colors z-10" style="font-variation-settings: 'FILL' 1;">water_drop</span>
                     <span id="inv-qty-2" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
@@ -729,7 +405,7 @@
                 <div id="inv-slot-3" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">4</span>
                     <div id="inv-icon-3" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-                        <div id="inv-bg-3" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png'); background-position: 0px 0px; background-size: 16px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
+                        <div id="inv-bg-3" style="width: 40px; height: 40px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Mana Sheet.png'); background-position: 4px 4px; background-size: 32px 256px; background-repeat: no-repeat; transform: none; image-rendering: pixelated; transform-origin: center;"></div>
                     </div>
                     <span id="inv-placeholder-3" class="material-symbols-outlined text-3xl text-info group-hover:text-info-fixed transition-colors z-10" style="color: #60a5fa; font-variation-settings: 'FILL' 1;">science</span>
                     <span id="inv-qty-3" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
@@ -738,7 +414,7 @@
                 <div id="inv-slot-4" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">5</span>
                     <div id="inv-icon-4" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-                        <div id="inv-bg-4" style="width: 16px; height: 16px; background-position: left top; background-repeat: no-repeat; transform: scale(2.5); image-rendering: pixelated; background-image: url('src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png'); transform-origin: center;"></div>
+                        <div id="inv-bg-4" style="width: 40px; height: 40px; background-position: center; background-repeat: no-repeat; transform: none; image-rendering: pixelated; background-image: url('src/assets/GandalfHardcore Icons/GandalfHardcore Icons/16x16 Icon31.png'); background-size: 40px 40px; transform-origin: center;"></div>
                     </div>
                     <span id="inv-placeholder-4" class="material-symbols-outlined text-3xl text-on-surface group-hover:text-primary transition-colors z-10" style="font-variation-settings: 'FILL' 1;">set_meal</span>
                     <span id="inv-qty-4" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
@@ -747,7 +423,7 @@
                 <div id="inv-slot-5" class="relative w-12 h-12 bg-surface-container border-2 border-outline-variant rounded hotbar-slot flex items-center justify-center cursor-pointer group">
                     <span class="absolute top-1 left-1 font-label-caps text-[10px] text-on-surface-variant z-10 shadow-sm">6</span>
                     <div id="inv-icon-5" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-                        <div id="inv-bg-5" style="width: 16px; height: 16px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png'); background-position: 0px 0px; background-size: 16px 128px; background-repeat: no-repeat; transform: scale(2); image-rendering: pixelated; transform-origin: center;"></div>
+                        <div id="inv-bg-5" style="width: 40px; height: 40px; background-image: url('src/assets/GandalfHardcore healing Items/GandalfHardcore healing Items/Stamina Sheet.png'); background-position: 4px 4px; background-size: 32px 256px; background-repeat: no-repeat; transform: none; image-rendering: pixelated; transform-origin: center;"></div>
                     </div>
                     <span id="inv-placeholder-5" class="material-symbols-outlined text-3xl text-success group-hover:text-success-fixed transition-colors z-10" style="color: #4ade80; font-variation-settings: 'FILL' 1;">bolt</span>
                     <span id="inv-qty-5" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
@@ -758,7 +434,7 @@
                     <div id="inv-icon-6" class="hidden relative z-20" style="width: 40px; height: 40px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                         <div id="inv-bg-6" style="width: 40px; height: 40px; background-size: contain; background-position: center; background-repeat: no-repeat; image-rendering: pixelated;"></div>
                     </div>
-                    <span id="inv-placeholder-6" class="material-symbols-outlined text-3xl text-warning group-hover:text-warning-fixed transition-colors z-10" style="color: #fbbf24; font-variation-settings: 'FILL' 1;">potion</span>
+                    <span id="inv-placeholder-6" class="material-symbols-outlined text-3xl text-warning group-hover:text-warning-fixed transition-colors z-10" style="color: #fbbf24; font-variation-settings: 'FILL' 1;">science</span>
                     <span id="inv-qty-6" class="absolute bottom-1 right-1 font-label-caps text-[10px] text-on-surface z-30 bg-surface/80 px-1 rounded">x0</span>
                 </div>
             </div>
@@ -870,7 +546,15 @@
         <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,255,0,0.2); pointer-events: auto;">
             <button id="btn-sprite-debugger" onclick="
                 const p = document.getElementById('debug-panel');
-                if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+                if (p) {
+                    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+                } else if (window.game) {
+                    const s = window.game.scene.getScene('GameScene');
+                    if (s && s.spriteDebugger) {
+                        s.spriteDebugger.createDebugPanel();
+                        document.getElementById('debug-panel').style.display = 'block';
+                    }
+                }
             " style="background: rgba(0,80,0,0.6); border: 1px solid rgba(0,255,0,0.4); border-radius: 3px;
                 padding: 3px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #00ff88;
                 cursor: pointer; transition: all 0.2s; width: 100%;"
@@ -913,55 +597,73 @@
     </div>
 
     <div id="game-container"></div>
+    <!-- Global Declarative Environment Variables (No window pollution) -->
+    <script>
+        let saveData;
+        let autoplayConfig;
+        let INDOOR_LOCATIONS;
+        let WORLD_KINGDOMS;
+        let PASSIVE_SKILLS_DATA;
+        let getReputationPriceMultiplier;
+    </script>
     <!-- Load Game Scripts -->
     <script src="src/AssetManager.js"></script>
     <script src="src/InputManager.js"></script>
     <script src="src/player/StatsManager.js"></script>
     <script src="src/player/InventoryManager.js"></script>
     <script src="src/data/NewItemsData.js"></script>
+    <script src="src/data/ArtifactsData.js"></script>
+    <script src="src/player/ShopManager_MarketplaceHelper.js"></script>
     <script src="src/player/ShopManager.js"></script>
     <script src="src/player/CombatController.js"></script>
+    <script src="src/player/SpellController_Helper.js"></script>
     <script src="src/player/SpellController.js"></script>
-    <script src="src/player/StatusEffectManager.js"></script>
-    <script src="src/player/CompanionAI.js?v=20260625d"></script>
+    <script src="src/player/StatusEffectManager.js?v=20260630b"></script>
+    <script src="src/player/CompanionAI_Helper.js?v=20260630g"></script>
+    <script src="src/player/CompanionAI.js?v=20260629t"></script>
     <script src="src/player/QuestAlignmentManager.js"></script>
     <script src="src/player/ChatManager.js"></script>
-    <script src="src/GeminiService.js?v=20260625d"></script>
+    <script src="src/GeminiService.js?v=20260630b"></script>
     <script src="src/scene_modules/ModularAssetLists.js"></script>
+    <script src="src/player/PlayerController_Helper.js?v=20260630a"></script>
     <script src="src/PlayerController.js?v=20260625e"></script>
-    <script src="src/enemy/EnemyBehaviors.js"></script>
+    <script src="src/enemy/EnemyBehaviors.js?v=20260629r"></script>
     <script src="src/enemy/EnemyActions.js"></script>
     <script src="src/EnemyController.js?v=20260625d"></script>
     <script src="src/RescueeNPCFactory.js?v=20260625"></script>
     <script src="src/RescueeNPC.js"></script>
     <script src="src/npc/NPCCampaignHelper.js"></script>
-    <script src="src/NPCController.js"></script>
-    <script src="src/data/WorldFactions.js"></script>
-    <script src="src/world/ZoneGenerator.js"></script>
-    <script src="src/world/TownBuilder.js"></script>
+    <script src="src/npc/NPCController_Helper.js?v=20260629p"></script>
+    <script src="src/NPCController.js?v=20260630e"></script>
+    <!-- Data Loaders -->
+    <script src="src/data/FantasyNames.js?v=20260625"></script>
+    <script src="src/data/WorldFactions.js?v=20260630b"></script>
+    <script src="src/world/ZoneGenerator.js?v=20260630b"></script>
+    <script src="src/world/TownBuilder.js?v=20260629s"></script>
     <script src="src/WorldManager.js?v=20260625"></script>
     <script src="src/scenes/TitleScene.js"></script>
     <script src="src/scene_modules/HUDCharacterSheet.js?v=20260625e"></script>
     <script src="src/scene_modules/HUDManager.js?v=20260625d"></script>
-    <script src="src/scene_modules/SpriteDebugger.js"></script>
+    <script src="src/scene_modules/SpriteDebugger.js?v=20260629p"></script>
     <script src="src/scene_modules/CutsceneController.js"></script>
     <script src="src/scene_modules/LevelGenerator.js?v=20260625h"></script>
     <script src="src/scene_modules/IndoorManager.js?v=20260625e"></script>
-    <script src="src/scene_modules/ArenaManager.js"></script>
     <script src="src/scene_modules/WeatherManager.js"></script>
-    <script src="src/scene_modules/ProgressionManager.js"></script>
-    <script src="src/scene_modules/CharacterComposer.js?v=20260625"></script>
+    <script src="src/scene_modules/ArenaManager.js"></script>
+    <script src="src/scene_modules/ProgressionManager.js?v=20260629p"></script>
+    <script src="src/scene_modules/CharacterComposer.js?v=20260630a"></script>
     <script src="src/scenes/EnemyAnimationLoader.js"></script>
     <script src="src/scenes/FighterScene.js"></script>
     <script src="src/data/AIClassPresets.js?v=20260625e"></script>
-    <script src="src/scenes/GameScene.js?v=20260625e"></script>
-    <script src="src/data/ClassesData.js"></script>
+    <script src="src/scenes/GameScene_Helper.js?v=20260630b"></script>
+    <script src="src/scenes/GameScene.js?v=20260630a"></script>
+    <script src="src/data/ClassesData.js?v=20260629r"></script>
     <script src="src/world/CharacterCreationManager.js"></script>
     <script src="src/scenes/FighterSuiteManager.js"></script>
     <script src="src/main.js?v=20260625d"></script>
     <script>
     setInterval(function() {
-        var sd = window.saveData;
+        var sd = saveData;
         if (!sd) return;
         var z = parseInt(sd.currentZone);
         if (isNaN(z)) z = 0;
@@ -1053,6 +755,10 @@
           <div style="font-size:24px;">✨</div>
           <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">SPELLBLADE</div>
         </div>
+        <div class="pb-class-card" data-class="heavy_knight" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
+          <div style="font-size:24px;">🏰</div>
+          <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">HEAVY KNT</div>
+        </div>
         <div class="pb-class-card" data-class="custom" style="border:2px solid #444; border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.2s;">
           <div style="font-size:24px;">🎲</div>
           <div style="color:#ccc; font-size:11px; margin-top:4px; letter-spacing:1px;">RANDOM</div>
@@ -1114,103 +820,7 @@
 <!-- 1v1 Fighter Suite Overlay -->
 <div id="ui-fighter-suite" style="display: none;" class="absolute inset-0 z-50 flex flex-col items-center justify-between p-6 bg-black/85 backdrop-blur-md font-mono select-none" onwheel="event.stopPropagation()">
     <!-- styles block -->
-    <style>
-        .fighter-pane {
-            background: rgba(13, 13, 16, 0.65);
-            border: 1px solid rgba(45, 219, 222, 0.2);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(12px);
-            max-height: calc(100vh - 180px);
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(45, 219, 222, 0.3) rgba(0, 0, 0, 0.2);
-        }
-        .fighter-pane::-webkit-scrollbar {
-            width: 6px;
-            display: block !important;
-        }
-        .fighter-pane::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-        }
-        .fighter-pane::-webkit-scrollbar-thumb {
-            background: rgba(45, 219, 222, 0.3);
-            border-radius: 4px;
-            border: 1px solid rgba(45, 219, 222, 0.1);
-        }
-        .fighter-pane::-webkit-scrollbar-thumb:hover {
-            background: rgba(45, 219, 222, 0.6);
-        }
-        .fighter-grid-item {
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            background: rgba(26, 26, 32, 0.6);
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .fighter-grid-item:hover {
-            border-color: #2ddbde;
-            background: rgba(45, 219, 222, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 0 15px rgba(45, 219, 222, 0.3);
-        }
-        .fighter-grid-item.selected {
-            border-color: #b8860b;
-            background: rgba(184, 134, 11, 0.15);
-            box-shadow: 0 0 20px rgba(184, 134, 11, 0.4);
-        }
-        .fighter-grid-item.disabled {
-            opacity: 0.3;
-            pointer-events: none;
-            filter: grayscale(1);
-        }
-        .toggle-btn {
-            background: transparent;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            color: #aaa;
-            padding: 6px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            text-transform: uppercase;
-            transition: all 0.2s;
-        }
-        .toggle-btn.active {
-            border-color: #2ddbde;
-            color: #2ddbde;
-            background: rgba(45, 219, 222, 0.1);
-            text-shadow: 0 0 8px rgba(45, 219, 222, 0.5);
-        }
-        .fighter-scroll-grid {
-            max-height: none;
-            overflow-y: visible !important;
-        }
-        #ui-fighter-suite.menu-hidden {
-            background: transparent !important;
-            backdrop-filter: none !important;
-            pointer-events: none !important;
-        }
-        #ui-fighter-suite.menu-hidden > *:not(#btn-show-menu) {
-            display: none !important;
-        }
-        #ui-fighter-suite.menu-hidden #btn-show-menu {
-            display: block !important;
-            pointer-events: auto !important;
-        }
-        #ui-fighter-suite.match-fighting {
-            background: transparent !important;
-            backdrop-filter: none !important;
-            pointer-events: none !important;
-        }
-        #ui-fighter-suite.match-fighting #fighter-setup-pane,
-        #ui-fighter-suite.match-fighting #fighter-footer {
-            display: none !important;
-        }
-    </style>
+
 
     <!-- Top Match Header (Visible in Sandbox and Match) -->
     <div id="fighter-header" class="w-full flex items-center justify-between max-w-6xl">

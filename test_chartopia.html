@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chartopia Diagnostic Tests</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 p-8 font-sans">
+    <div class="max-w-3xl mx-auto space-y-6">
+        <h1 class="text-3xl font-bold text-blue-400 border-b border-gray-700 pb-2">Chartopia Diagnostic Tests</h1>
+        
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4">
+            <h2 class="text-xl font-semibold text-gray-200">API Key Configuration</h2>
+            <div class="flex gap-4">
+                <input type="password" id="apiKeyInput" class="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Enter Chartopia API Key (from localStorage)">
+                <button id="saveKeyBtn" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors">Save Key</button>
+            </div>
+            <p class="text-sm text-gray-400">The key is stored in your browser's localStorage as <code>chartopia_api_key</code>.</p>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                <h2 class="text-xl font-semibold text-gray-200">Run Polled Tests</h2>
+                <button id="runTestsBtn" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-medium transition-colors">Run All Tests</button>
+            </div>
+            
+            <div id="testResults" class="space-y-4 font-mono text-sm mt-4">
+                <div class="text-gray-500 italic">Waiting to run tests...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const runTestsBtn = document.getElementById('runTestsBtn');
+        const testResults = document.getElementById('testResults');
+
+        // Load existing key
+        const existingKey = localStorage.getItem('chartopia_api_key');
+        if (existingKey) {
+            apiKeyInput.value = existingKey;
+        }
+
+        saveKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('chartopia_api_key', key);
+                alert('API Key saved to localStorage!');
+            }
+        });
+
+        const chartsToTest = [
+            { id: 19449, name: "Kingdom Names (Chart 19449)" },
+            { id: 14967, name: "Town/Wilderness Names (Chart 14967)" }
+        ];
+
+        function appendLog(message, isError = false, isSuccess = false) {
+            const div = document.createElement('div');
+            div.className = `p-3 rounded border ${isError ? 'bg-red-900/30 border-red-800 text-red-200' : isSuccess ? 'bg-green-900/30 border-green-800 text-green-200' : 'bg-gray-700 border-gray-600 text-gray-300'}`;
+            div.textContent = message;
+            testResults.appendChild(div);
+        }
+
+        async function testChartopiaCall(chart, useProxy = false, authHeaderType = "X-Api-Key") {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                appendLog("Error: No API key provided.", true);
+                return;
+            }
+
+            let url = `https://chartopia.d12dev.com/api/charts/${chart.id}/roll/`;
+            if (useProxy) {
+                url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            }
+
+            appendLog(`[TESTING] ${chart.name} | Proxy: ${useProxy ? 'ON' : 'OFF'} | Auth: ${authHeaderType}`);
+
+            const headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            };
+
+            if (authHeaderType === "X-Api-Key") {
+                headers["X-Api-Key"] = apiKey;
+            } else if (authHeaderType === "Authorization") {
+                headers["Authorization"] = `Token ${apiKey}`;
+            }
+
+            try {
+                const startTime = performance.now();
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: headers,
+                    body: JSON.stringify({ variables: {} })
+                });
+                
+                const elapsed = Math.round(performance.now() - startTime);
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    appendLog(`[FAILED] HTTP ${response.status} (${elapsed}ms) - Response: ${text.substring(0, 100)}`, true);
+                    return false;
+                }
+
+                const data = await response.json();
+                let output = JSON.stringify(data);
+                if (data.results && Array.isArray(data.results)) {
+                    output = data.results.join(", ");
+                }
+                appendLog(`[SUCCESS] (${elapsed}ms) Result: ${output}`, false, true);
+                return true;
+
+            } catch (err) {
+                appendLog(`[ERROR] Request failed! Likely CORS blocked or Network error. Detail: ${err.message}`, true);
+                return false;
+            }
+        }
+
+        runTestsBtn.addEventListener('click', async () => {
+            testResults.innerHTML = ''; // Clear previous
+            
+            for (const chart of chartsToTest) {
+                appendLog(`--- Starting tests for ${chart.name} ---`);
+                
+                // Test 1: Direct POST with X-Api-Key (How the game currently does it)
+                let success = await testChartopiaCall(chart, false, "X-Api-Key");
+                
+                // Test 2: Direct POST with Authorization: Token (Another common standard)
+                if (!success) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    success = await testChartopiaCall(chart, false, "Authorization");
+                }
+
+                // Test 3: Proxy with X-Api-Key (Bypasses CORS if Chartopia is blocking the browser)
+                if (!success) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    await testChartopiaCall(chart, true, "Authorization");
+                }
+                
+                // Delay between charts to not overload Chartopia
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            appendLog(`--- Tests Completed ---`);
+        });
+    </script>
+</body>
+</html>

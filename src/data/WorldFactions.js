@@ -11,7 +11,7 @@
 // ============================================================
 // KINGDOMS — The Known World
 // ============================================================
-window.WORLD_KINGDOMS = {
+WORLD_KINGDOMS = {
     duskveil: {
         id: 'duskveil',
         name: 'Kingdom of Duskveil',
@@ -376,16 +376,16 @@ window.WORLD_FACTIONS = {
  */
 window.getKingdomForZone = function(zoneIndex) {
     // Check known world kingdoms
-    for (const key in window.WORLD_KINGDOMS) {
-        const k = window.WORLD_KINGDOMS[key];
+    for (const key in WORLD_KINGDOMS) {
+        const k = WORLD_KINGDOMS[key];
         if (zoneIndex >= k.zoneRange[0] && zoneIndex <= k.zoneRange[1]) {
             return k;
         }
     }
     // Check discovered frontier kingdoms
-    if (window.saveData && window.saveData.discoveredKingdoms) {
-        for (const key in window.saveData.discoveredKingdoms) {
-            const fk = window.saveData.discoveredKingdoms[key];
+    if (saveData && saveData.discoveredKingdoms) {
+        for (const key in saveData.discoveredKingdoms) {
+            const fk = saveData.discoveredKingdoms[key];
             if (zoneIndex >= fk.zoneRange[0] && zoneIndex <= fk.zoneRange[1]) {
                 return fk;
             }
@@ -407,8 +407,8 @@ window.getFactionForZone = function(zoneIndex) {
  * Returns the player's reputation with a given faction (-100 to 100).
  */
 window.getFactionReputation = function(factionId) {
-    if (!window.saveData || !window.saveData.factionReputation) return 0;
-    return window.saveData.factionReputation[factionId] || 0;
+    if (!saveData || !saveData.factionReputation) return 0;
+    return saveData.factionReputation[factionId] || 0;
 };
 
 /**
@@ -416,11 +416,11 @@ window.getFactionReputation = function(factionId) {
  * Optionally propagates a reduced effect to allied/rival factions.
  */
 window.changeFactionReputation = function(factionId, amount, propagate = true) {
-    if (!window.saveData) return;
-    if (!window.saveData.factionReputation) window.saveData.factionReputation = {};
+    if (!saveData) return;
+    if (!saveData.factionReputation) saveData.factionReputation = {};
     
-    const current = window.saveData.factionReputation[factionId] || 0;
-    window.saveData.factionReputation[factionId] = Math.max(-100, Math.min(100, current + amount));
+    const current = saveData.factionReputation[factionId] || 0;
+    saveData.factionReputation[factionId] = Math.max(-100, Math.min(100, current + amount));
     
     // Propagate reduced reputation changes to allies/enemies
     if (propagate && window.WORLD_FACTIONS[factionId]) {
@@ -464,7 +464,6 @@ window.getReputationTier = function(reputation) {
  * Returns whether the given zone is a capital city.
  */
 window.isCapitalCity = function(zoneIndex) {
-    if (zoneIndex === 777 || zoneIndex === -666) return false;
     const kingdom = window.getKingdomForZone(zoneIndex);
     return kingdom ? kingdom.capital === zoneIndex : false;
 };
@@ -473,7 +472,7 @@ window.isCapitalCity = function(zoneIndex) {
  * Returns all known town zones (multiples of 4) within a kingdom.
  */
 window.getKingdomTowns = function(kingdomId) {
-    const kingdom = window.WORLD_KINGDOMS[kingdomId];
+    const kingdom = WORLD_KINGDOMS[kingdomId];
     if (!kingdom) return [];
     const towns = [];
     for (let z = kingdom.zoneRange[0]; z <= kingdom.zoneRange[1]; z++) {
@@ -539,8 +538,8 @@ window.TRADE_GOODS = {
  */
 window.registerFrontierKingdomFaction = function(kingdom) {
     if (!window.WORLD_FACTIONS) window.WORLD_FACTIONS = {};
-    if (!window.saveData) window.saveData = {};
-    if (!window.saveData.factionReputation) window.saveData.factionReputation = {};
+    if (!saveData) saveData = {};
+    if (!saveData.factionReputation) saveData.factionReputation = {};
 
     // Heal/initialize export/import goods for frontier kingdoms dynamically if missing
     if (!kingdom.exportGoods || kingdom.exportGoods.length === 0) {
@@ -597,8 +596,8 @@ window.registerFrontierKingdomFaction = function(kingdom) {
         };
     }
 
-    if (window.saveData.factionReputation[fid] === undefined) {
-        window.saveData.factionReputation[fid] = 0; // start neutral
+    if (saveData.factionReputation[fid] === undefined) {
+        saveData.factionReputation[fid] = 0; // start neutral
     }
 };
 
@@ -734,9 +733,9 @@ window.getTradePrice = function(itemId, isBuying, currentZone) {
         if (isImport) {
             // Find exporting kingdom to calculate distance
             let exportingKingdom = null;
-            if (window.WORLD_KINGDOMS) {
-                for (const kId in window.WORLD_KINGDOMS) {
-                    const k = window.WORLD_KINGDOMS[kId];
+            if (WORLD_KINGDOMS) {
+                for (const kId in WORLD_KINGDOMS) {
+                    const k = WORLD_KINGDOMS[kId];
                     if (k.exportGoods && k.exportGoods.includes(itemId)) {
                         exportingKingdom = k;
                         break;
@@ -785,8 +784,8 @@ window.getKingdomEmblemSrc = function(kingdomId) {
         return `src/assets/emblems/emblem_${id}.png`;
     }
     // If it's a dynamic frontier kingdom, find its index in discoveredKingdoms
-    if (window.saveData && window.saveData.discoveredKingdoms) {
-        const kingdom = window.saveData.discoveredKingdoms[id];
+    if (saveData && saveData.discoveredKingdoms) {
+        const kingdom = saveData.discoveredKingdoms[id];
         if (kingdom) {
             const isElven = kingdom.biomes && (
                 kingdom.biomes.includes('Deadwoods') || 
@@ -795,7 +794,7 @@ window.getKingdomEmblemSrc = function(kingdomId) {
                 (kingdom.factionName && kingdom.factionName.toLowerCase().includes('sylvan'))
             );
             if (isElven) {
-                const keys = Object.keys(window.saveData.discoveredKingdoms);
+                const keys = Object.keys(saveData.discoveredKingdoms);
                 const idx = keys.indexOf(id);
                 return idx % 2 === 0 ? `src/assets/emblems/emblem_sylvan.png` : `src/assets/emblems/emblem_sylvan_night.png`;
             }
@@ -813,7 +812,7 @@ window.getKingdomEmblemSrc = function(kingdomId) {
                 return `src/assets/emblems/emblem_dwarf.png`;
             }
         }
-        const keys = Object.keys(window.saveData.discoveredKingdoms);
+        const keys = Object.keys(saveData.discoveredKingdoms);
         const idx = keys.indexOf(id);
         if (idx > -1) {
             const num = (idx % 4) + 1;

@@ -40,11 +40,11 @@ class QuestAlignmentManager {
         // Default type to 'kill' for backward compatibility
         if (!quest.type) quest.type = 'kill';
         player.quests.push(quest);
-        if (!window.saveData) {
-            window.saveData = {};
+        if (!saveData) {
+            saveData = {};
         }
-        window.saveData = JSON.parse(JSON.stringify(window.saveData));
-        window.saveData.quests = JSON.parse(JSON.stringify(player.quests));
+        saveData = JSON.parse(JSON.stringify(saveData));
+        saveData.quests = JSON.parse(JSON.stringify(player.quests));
         player._persistToLocalStorage();
         this.renderQuests();
         console.log("Quest Added:", quest);
@@ -52,10 +52,10 @@ class QuestAlignmentManager {
 
     progressQuest(questIdOrEnemyType, objectiveIndex, amount) {
         const player = this.player;
-        if (!window.saveData) {
-            window.saveData = {};
+        if (!saveData) {
+            saveData = {};
         }
-        window.saveData = JSON.parse(JSON.stringify(window.saveData));
+        saveData = JSON.parse(JSON.stringify(saveData));
         let questUpdated = false;
         
         for (let i = player.quests.length - 1; i >= 0; i--) {
@@ -125,7 +125,7 @@ class QuestAlignmentManager {
             }
         }
         if (questUpdated) {
-            window.saveData.quests = player.quests;
+            saveData.quests = player.quests;
             player._persistToLocalStorage();
             this.renderQuests();
         }
@@ -158,10 +158,10 @@ class QuestAlignmentManager {
         }
 
         // Grant gold
-        window.saveData.gold += rewardGold;
+        saveData.gold += rewardGold;
         const goldDisplay = document.getElementById('hud-gold');
         if (goldDisplay) {
-            goldDisplay.innerText = `Gold: ${window.saveData.gold}`;
+            goldDisplay.innerText = `Gold: ${saveData.gold}`;
         }
 
         // Grant XP
@@ -244,7 +244,7 @@ class QuestAlignmentManager {
         const quest = this.player.quests.find(q => q.id === questId);
         if (quest) {
             quest.rescueState = 'following';
-            window.saveData.quests = JSON.parse(JSON.stringify(this.player.quests));
+            saveData.quests = JSON.parse(JSON.stringify(this.player.quests));
             this.player._persistToLocalStorage();
             this.renderQuests();
         }

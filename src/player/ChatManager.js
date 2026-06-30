@@ -157,7 +157,7 @@ class ChatManager {
         const p = player.scene.player;
         const state = {
             zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            player: { level: window.saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` }
+            player: { level: saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` }
         };
 
         const geminiService = player.scene.geminiService;
@@ -176,9 +176,45 @@ class ChatManager {
             player.chatHistory.push({ sender: "Player", text: text });
             player.chatHistory.push({ sender: displayName, text: response.response });
 
-            // Add Camaraderie for chatting
-            player.camaraderie = (player.camaraderie || 0) + 1;
-            this.addMessageToUI("System", `<span style="color:#f6be3b">Camaraderie increased! (+1)</span>`);
+            // Calculate camaraderie shift (fallback to +1 if not provided)
+            const shift = (response && typeof response.socialShift === 'number') ? response.socialShift : 1;
+            player.camaraderie = (player.camaraderie || 0) + shift;
+            
+            if (shift !== 0) {
+                const sign = shift > 0 ? "+" : "";
+                const color = shift > 0 ? "#f6be3b" : "#ff4444";
+                const word = shift > 0 ? "increased" : "decreased";
+                this.addMessageToUI("System", `<span style="color:${color}">Camaraderie ${word}! (${sign}${shift})</span>`);
+            }
+
+            // Check if NPC turns hostile or camaraderie drops too low
+            const turnsHostile = (response && response.turnsHostile) || player.camaraderie <= -10;
+            if (turnsHostile) {
+                this.addMessageToUI("System", `<span style="color:#ff0000; font-weight:bold;">${displayName} has turned hostile!</span>`);
+                if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = true;
+                if (player.chatInput) player.chatInput.disabled = true;
+                setTimeout(() => {
+                    this.closeChat();
+                    const idx = player.scene.partyMembers.indexOf(player);
+                    if (idx > -1) player.scene.partyMembers.splice(idx, 1);
+                    if (player.scene.spawnHeroAI) {
+                        player.scene.spawnHeroAI(player.classData.id, player.sprite.x, player.sprite.y, 'hostile', player.npcName, player.persona);
+                    }
+                    player.destroy();
+                }, 2000);
+                return;
+            } else if (player.camaraderie < 0) {
+                this.addMessageToUI("System", `<span style="color:#ff4444; font-weight:bold;">${displayName} has left the party.</span>`);
+                if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = true;
+                if (player.chatInput) player.chatInput.disabled = true;
+                setTimeout(() => {
+                    this.closeChat();
+                    const idx = player.scene.partyMembers.indexOf(player);
+                    if (idx > -1) player.scene.partyMembers.splice(idx, 1);
+                    player.destroy();
+                }, 2000);
+                return;
+            }
             
             // Add Roleplay XP reward if granted (Phase 13)
             if (response && response.rpXpReward && response.rpXpReward > 0) {
@@ -215,7 +251,7 @@ class ChatManager {
         const p = player.scene.player;
         const state = {
             zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
-            player: { level: window.saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` }
+            player: { level: saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` }
         };
 
         const geminiService = player.scene.geminiService;

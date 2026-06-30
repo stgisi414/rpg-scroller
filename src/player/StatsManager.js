@@ -23,12 +23,12 @@ class StatsManager {
         };
 
         // --- Apply Passive Skills Modifiers ---
-        const passives = player.passiveSkills || ( (!player.isAI && window.saveData) ? (window.saveData.passiveSkills || {}) : {} );
+        const passives = player.passiveSkills || ( saveData ? (saveData.passiveSkills || {}) : {} );
         const activeModifiers = {};
         for (const skillId in passives) {
             const rank = passives[skillId] || 0;
-            if (rank > 0 && window.PASSIVE_SKILLS_DATA) {
-                const skillDef = window.PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
+            if (rank > 0 && PASSIVE_SKILLS_DATA) {
+                const skillDef = PASSIVE_SKILLS_DATA.find(s => s.id === skillId);
                 if (skillDef && skillDef.statsModifiers) {
                     for (const statKey in skillDef.statsModifiers) {
                         const val = skillDef.statsModifiers[statKey];
@@ -132,33 +132,41 @@ class StatsManager {
             }
         }
 
-        if (player.mp === undefined) player.mp = player.maxMp;
-        if (player.sp === undefined) player.sp = player.maxSp;
-
-        // Restore HP from save or fully heal
-        if (!player.isAI && window.saveData && window.saveData.hp !== undefined && window.saveData.hp > 0) {
-            player.hp = window.saveData.hp;
+        if (player.hp === undefined) {
+            if (!player.isAI && saveData && typeof saveData.hp === 'number' && !isNaN(saveData.hp) && saveData.hp > 0) {
+                player.hp = saveData.hp;
+            } else {
+                player.hp = player.maxHp;
+            }
         } else {
-            player.hp = player.maxHp;
+            player.hp = Math.min(player.hp, player.maxHp);
         }
-        // Restore MP/SP from save (stricter guard against NaN/null from old saves)
-        if (!player.isAI && window.saveData) {
-            if (typeof window.saveData.mp === 'number' && !isNaN(window.saveData.mp)) {
-                player.mp = Math.min(window.saveData.mp, player.maxMp);
+
+        if (player.mp === undefined) {
+            if (!player.isAI && saveData && typeof saveData.mp === 'number' && !isNaN(saveData.mp)) {
+                player.mp = Math.min(saveData.mp, player.maxMp);
             } else {
                 player.mp = player.maxMp;
             }
-            if (typeof window.saveData.sp === 'number' && !isNaN(window.saveData.sp)) {
-                player.sp = Math.min(window.saveData.sp, player.maxSp);
+        } else {
+            player.mp = Math.min(player.mp, player.maxMp);
+        }
+
+        if (player.sp === undefined) {
+            if (!player.isAI && saveData && typeof saveData.sp === 'number' && !isNaN(saveData.sp)) {
+                player.sp = Math.min(saveData.sp, player.maxSp);
             } else {
                 player.sp = player.maxSp;
             }
+        } else {
+            player.sp = Math.min(player.sp, player.maxSp);
         }
         
         // Final safety: if STILL somehow NaN, reset to max/defaults
         if (typeof player.speed !== 'number' || isNaN(player.speed)) player.speed = 200;
         if (typeof player.jumpVelocity !== 'number' || isNaN(player.jumpVelocity)) player.jumpVelocity = -400;
         if (typeof player.dashSpeed !== 'number' || isNaN(player.dashSpeed)) player.dashSpeed = 500;
+        if (typeof player.hp !== 'number' || isNaN(player.hp) || player.hp <= 0) player.hp = player.maxHp;
         if (typeof player.mp !== 'number' || isNaN(player.mp)) player.mp = player.maxMp;
         if (typeof player.sp !== 'number' || isNaN(player.sp)) player.sp = player.maxSp;
 
