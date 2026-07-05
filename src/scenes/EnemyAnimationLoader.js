@@ -319,6 +319,7 @@ class EnemyAnimationLoader {
         // Heavenly & Regular PixelLab Entities
         const pixelLabTypes = [
             'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub',
+            'flame_elemental',
             'ogre', 'giant', 'troll',
             'lich_lord', 'skeleton', 'frost_giant', 'bandit'
         ];

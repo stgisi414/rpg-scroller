@@ -1,333 +1,155 @@
-# Elden Soul Architectural Audit Handoff Report
+# Settings Menu Structure and Logic Exploration Report
 
-This report documents the findings from a detailed static investigation of the Elden Soul codebase. Five specific architectural issues were identified, analyzed, and mapped to exact code locations. Recommended fix strategies are provided for each.
+This report presents a read-only architectural investigation of the settings menu system in Elden Soul and details how to integrate a new cutscene setting toggle (Traditional vs Omni Cutscenes) that persists between sessions.
 
 ---
 
-## 1. Observations
+## 1. Observation
 
-### Issue 1: Async API Race Conditions
-Asynchronous Gemini API requests take time to resolve. If a scene transitions, restarts, or an entity (player, companion, enemy, NPC) is destroyed during this window, callbacks resolve against destroyed objects and elements, causing `TypeError` crashes.
+Direct observations from the codebase files:
 
-*   **NPC Dialogue Callback Leak 1** (`src/NPCController.js`, lines 343–359):
-    ```javascript
-    this.geminiService.getNpcResponse(this.npcPersona, this.chatHistory, `[SYSTEM ACTIVITY TRIGGER] ${prompt}`, state)
-        .then(res => {
-            const reply = res.response;
-            const cleanReply = reply.replace(/\[ACTION_SUCCESS\]/g, '').trim();
-            if (reply.includes('[ACTION_SUCCESS]')) {
-                this.executeActivityEffect();
-            }
-            document.getElementById(loadingId).innerText = cleanReply;
-            this.chatHistory.push({ role: 'model', content: cleanReply });
-            this.chatInput.disabled = false;
-            this.chatSubmitBtn.disabled = false;
-            this.chatActivityBtn.disabled = false;
-            this.chatInput.focus();
-            ...
-        })
-    ```
-    *No check is done inside the `.then` callback to see if the NPC controller or its DOM bindings are still valid/active.*
-*   **NPC Dialogue Callback Leak 2** (`src/NPCController.js`, lines 486–526):
-    ```javascript
-    const response = await this.geminiService.getNpcResponse(this.npcPersona, this.chatHistory, text, state);
-    const cleanReply = response.response.replace(/\[ACTION_SUCCESS\]/g, '').trim();
-    if (response.response.includes('[ACTION_SUCCESS]')) {
-        this.executeActivityEffect();
-    }
-    ...
-    this.chatInput.disabled = false;
-    this.chatSubmitBtn.disabled = false;
-    this.chatInput.focus();
-    ```
-    *No check is done after the `await` statement to ensure `this` (NPC) or the scene hasn't been shut down or destroyed.*
-*   **NPC Dialogue Callback Leak 3** (`src/NPCController.js`, lines 617–638):
-    ```javascript
-    const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, hiddenPrompt, state);
-    ...
-    this.addMessageToUI(displayName, response.response);
-    this.chatHistory.push({ sender: displayName, text: response.response });
-    ...
-    this.chatInput.disabled = false;
-    this.chatSubmitBtn.disabled = false;
-    this.chatInput.focus();
-    ```
-    *No safety checks after `await` to verify that `this.chatHistory`, `this.chatInput`, or other DOM elements still exist.*
-*   **Companion Ally Dialogue Callbacks** (`src/PlayerController.js`, lines 2804–2825 & 2843–2863):
-    Uses similar `await geminiService.getNpcResponse(...)` calls without validating if the companion controller, its backing sprite, or its DOM buttons still exist before executing UI insertions and state mutations.
-*   **Procedural Zone Generator Callback** (`src/WorldManager.js`, lines 50–73):
-    ```javascript
-    zoneData = await this.generateZoneWithGemini(zoneIndex);
-    window.saveData.zones[zoneIndex] = zoneData;
-    ...
-    this.buildZone(zoneData, spawnSide);
-    ```
-    *If a scene is transition-restarted or aborted during generation, the `buildZone` call runs against a destroyed/shut-down scene object, causing crashes.*
-*   **Rival Monologue Callback** (`src/WorldManager.js`, lines 621–625):
-    ```javascript
-    this.geminiService.getGameMasterResponse(this.scene.player, prompt, zoneData).then(res => {
-        if (this.scene.playCutscene) {
-            this.scene.playCutscene(`[Rival]: ${res.storyText}`, () => {});
+### A. Settings Menu UI Structure (`index.html`)
+The settings modal resides at lines 1749–1783 in `index.html`:
+```html
+<!-- Settings Modal -->
+<div id="ui-menu-settings" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; box-sizing:border-box; font-family:'Space Grotesk', sans-serif;">
+  <div style="background:rgba(13, 13, 15, 0.95); border:2px solid #2ddbde; border-radius:12px; padding:28px; width:500px; max-width:95vw; box-shadow:0 0 50px rgba(45,219,222,0.25); position:relative; box-sizing:border-box; color:#fff; display:flex; flex-direction:column; gap:20px;">
+    
+    <!-- Close button -->
+    <button id="btn-close-menu-settings" style="position:absolute; top:20px; right:20px; background:transparent; border:none; color:#aaa; font-size:16px; font-weight:bold; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#ff4444'" onmouseout="this.style.color='#aaa'">✕ CLOSE</button>
+    
+    <div style="text-align:center;">
+      <h2 style="color:#2ddbde; margin:0; font-size:24px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 10px rgba(45,219,222,0.4);">⚙️ API Configurations</h2>
+      <p style="color:#888; font-size:11px; margin:4px 0 0; text-transform:uppercase; letter-spacing:1px;">Configure AI and lore generation keys</p>
+    </div>
+
+    <!-- Inputs -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Gemini API Key</label>
+        <input type="password" id="input-setting-gemini" placeholder="AI storyteller key (AI-xxxx...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
+        <span style="color:#666; font-size:10px;">Used for dynamic AI dialog, game mastering, and procedural story updates.</span>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Chartopia API Key</label>
+        <input type="password" id="input-setting-chartopia" placeholder="Faction & lore generator key (0xsv...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
+        <span style="color:#666; font-size:10px;">Used for generating rich faction histories, custom town layouts, and kingdom lore.</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button id="btn-save-settings" style="flex:2; background:#2ddbde; border:none; border-radius:6px; color:#0d0d0f; padding:12px 0; font-family:inherit; font-size:14px; font-weight:bold; text-transform:uppercase; cursor:pointer; box-shadow:0 0 15px rgba(45,219,222,0.3); transition:transform 0.1s, opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1.0'" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">Save Settings</button>
+      <button id="btn-reset-settings" style="flex:1; background:transparent; border:1px solid #ff4444; border-radius:6px; color:#ff4444; padding:12px 0; font-family:inherit; font-size:14px; font-weight:bold; text-transform:uppercase; cursor:pointer; transition:background 0.2s, color 0.2s;" onmouseover="this.style.background='#ff4444'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='#ff4444';">Clear Keys</button>
+    </div>
+
+  </div>
+</div>
+```
+
+The settings modal is displayed/opened via the button defined at lines 78–80 in `index.html`:
+```html
+<button id="btn-menu-settings" class="menu-item font-body-lg text-[18px] text-on-surface uppercase tracking-wider cursor-pointer bg-transparent border-none focus:outline-none">
+    Settings
+</button>
+```
+
+### B. Settings Interaction Logic (`src/main.js`)
+The javascript event bindings reside at lines 612–646 in `src/main.js`:
+```javascript
+        // Settings Modal Logic
+        const settingsModal = document.getElementById('ui-menu-settings');
+        const btnSettings = document.getElementById('btn-menu-settings');
+        if (settingsModal && btnSettings) {
+            btnSettings.addEventListener('click', () => {
+                document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
+                document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
+                settingsModal.style.display = 'flex';
+            });
+            document.getElementById('btn-close-menu-settings').addEventListener('click', () => {
+                settingsModal.style.display = 'none';
+            });
+            document.getElementById('btn-save-settings').addEventListener('click', () => {
+                const geminiKey = document.getElementById('input-setting-gemini').value.trim();
+                const chartopiaKey = document.getElementById('input-setting-chartopia').value.trim();
+                
+                if (geminiKey) localStorage.setItem("gemini_api_key", geminiKey);
+                else localStorage.removeItem("gemini_api_key");
+                
+                if (chartopiaKey) localStorage.setItem("chartopia_api_key", chartopiaKey);
+                else localStorage.removeItem("chartopia_api_key");
+                
+                alert("Settings saved successfully!");
+                settingsModal.style.display = 'none';
+            });
+            document.getElementById('btn-reset-settings').addEventListener('click', () => {
+                if (confirm("Are you sure you want to clear your stored API keys?")) {
+                    localStorage.removeItem("gemini_api_key");
+                    localStorage.removeItem("chartopia_api_key");
+                    document.getElementById('input-setting-gemini').value = "";
+                    document.getElementById('input-setting-chartopia').value = "";
+                    alert("API keys cleared.");
+                }
+            });
         }
-    })
-    ```
-    *No verification that `this.scene` or `this.scene.player` are still active/valid.*
-*   **Game Master Decisions Callback** (`src/scenes/GameScene.js`, lines 2070–2092):
-    ```javascript
-    this.geminiService.getGameMasterDecision(gameState).then(res => {
-        if (res && res.action !== 'NONE') {
-            if (this.showAnnouncement) this.showAnnouncement("The Game Master", res.announcement);
-            ...
-            if (res.action === 'HEAL') {
-                this.player.hp = this.player.maxHp;
-                if (this.updateHUD) this.updateHUD();
-            } else if (res.action === 'GOLD_RUSH') {
-                window.saveData.gold = (window.saveData.gold || 0) + 500;
-                if (this.updateHUD) this.updateHUD();
-            } else if (res.action === 'WEATHER_RAIN') {
-                this.cameras.main.setTint(0x888888);
-            }
-        }
-    })
-    ```
-    *If a scene is transition-shut down while a GM decision is pending, the resolving callback tries to modify HUDs, cameras, and player health, throwing exceptions.*
-
----
-
-## 2. Event Listener Memory Leaks
-Listeners registered on global objects like `window` and `document` persist across scene restarts and menu transitions. They retain old scene/context variables in their closures, preventing proper garbage collection and double-registering handlers.
-
-*   **Beforeunload Auto-Save** (`src/scenes/GameScene.js`, line 425):
-    ```javascript
-    window.addEventListener('beforeunload', () => this._autoSave());
-    ```
-    *Never removed. Stacks up on restarts/transitions.*
-*   **Character Sheet Modal ESC Key** (`src/scenes/GameScene.js`, line 744):
-    ```javascript
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.style.display !== 'none') { ... }
-    });
-    ```
-    *Registered inside `createCharacterSheetUI()` which appends a new modal to `document.body` on every scene instantiation. Old modals and keydown listeners leak.*
-*   **Debug panel MouseUp** (`src/scenes/GameScene.js`, line 2000):
-    ```javascript
-    window.addEventListener('mouseup', () => {
-        if (dragState.active) { ... }
-    });
-    ```
-    *Accumulates on restarts/transitions.*
-*   **Town Directory ESC Key** (`src/scenes/GameScene.js`, line 1055):
-    ```javascript
-    window.addEventListener('keydown', this._dirEscListener);
-    ```
-    *Only removed if the town directory is explicitly closed. If the scene is transitioned or restarted while it is open, this listener leaks.*
-*   **DOM Input Event Listeners** (`src/PlayerController.js`, lines 2733–2734):
-    ```javascript
-    this.chatSubmitBtn.addEventListener('click', this.chatSubmitHandler);
-    this.chatInput.addEventListener('keypress', this.chatKeyHandler);
-    ```
-    *Because `#chat-submit` and `#chat-input` are persistent HTML elements in `index.html`, these listeners accumulate on scene restarts, causing double-firing events. Only cleaned up during a player's death (`die()`), not general scene restarts/transitions.*
-
----
-
-## 3. Save Data Reference Loops
-Storing live gameplay object references directly inside the global save data causes mutations during gameplay (violating clean save isolation) and leads to serialization loops.
-
-*   **Direct Object Assignment** (`src/PlayerController.js`, lines 551–552):
-    ```javascript
-    window.saveData.inventory = this.inventory;
-    window.saveData.quests = this.quests;
-    ```
-*   **Direct Object Restoring** (`src/PlayerController.js`, lines 249 & 268):
-    ```javascript
-    this.inventory = window.saveData && window.saveData.inventory ? window.saveData.inventory : { ... };
-    this.quests = window.saveData.quests || [];
-    ```
-    *Mutating `this.inventory` or `this.quests` during active gameplay directly modifies the save data object. If the player dies, the scene restarts but loads this mutated data instead of a clean state.*
-*   **Zone Data Mutation** (`src/WorldManager.js`, line 51):
-    ```javascript
-    window.saveData.zones[zoneIndex] = zoneData;
-    ```
-    *Because `zoneData` is modified in-place when spawning spider minions (line 539) or capping minion counts (line 569), the saved zone configuration is mutated directly in memory.*
-*   **Global Class Stats Overwriting** (`src/PlayerController.js`, line 44):
-    ```javascript
-    this.classData.stats = { ...window.saveData.stats };
-    ```
-    *Overwrites the global shared class definition template in `classesData` (defined in `main.js`), affecting all future characters initialized in the same session.*
-
----
-
-## 4. Animation Frame Freezes
-Using a generic `animationcomplete` listener with `.once` is dangerous because the listener is immediately consumed by the first animation that completes on that sprite, which may not be the target animation.
-
-*   **Super Combo Attack Complete** (`src/PlayerController.js`, lines 2351–2353):
-    ```javascript
-    this.sprite.once('animationcomplete', (anim) => {
-        if (anim.key === cd.id + '_combo') {
-            this.isAttacking = false;
-            ...
-        }
-    });
-    ```
-    *If any other animation (like an idle, hit, stun, or walk) finishes first, the once-handler is consumed and unmapped. The actual combo's completion logic will never run, keeping the player permanently stuck in `isAttacking = true` (unless rescued by the 1.5s fallback timer).*
-*   **Enemy Hit Animation Complete** (`src/EnemyController.js`, line 365):
-    ```javascript
-    this.sprite.once('animationcomplete', () => {
-        this.isHit = false;
-    });
-    ```
-*   **Enemy Death Animation Complete** (`src/EnemyController.js`, line 539):
-    ```javascript
-    this.sprite.once('animationcomplete', onDeathComplete);
-    ```
-    *Generic `animationcomplete` listens to the previous/interrupted animation stopping, which immediately triggers `onDeathComplete` prematurely, skipping the visual death sequence.*
-
----
-
-## 5. Physics Garbage Collection
-If an enemy falls below the level boundary (into a bottomless pit), it falls forever under gravity. It is never culled, creating a memory/physics leak.
-
-*   **Missing Out-of-Bounds Culling**:
-    There are no checks on the enemy sprite coordinates in `src/EnemyController.js` or `src/scenes/GameScene.js` update loops.
-    *Compare to the player's check in `src/PlayerController.js` (lines 1676–1679):*
-    ```javascript
-    if (this.sprite.y > 1000) {
-        this.takeDamage(this.hp);
-        return;
-    }
-    ```
-    *Without a similar boundary culling, fallen enemies accumulate high velocities in the physics engine, waste CPU cycles, distort Game Master active enemy counts, and break companion target selection loops.*
-
----
-
-## 6. Logic Chain
-
-1.  **Async API race conditions**:
-    *   *Premise:* Gemini API requests take variable network time to resolve.
-    *   *Action:* The player transitions scenes or closes a UI dialog during a pending request.
-    *   *Result:* When the API promise resolves, the scene/entity has been destroyed, but the callback attempts to access scene/DOM bindings, throwing `TypeError`.
-2.  **Event Listener memory leaks**:
-    *   *Premise:* Window and document event listeners persist until explicitly removed.
-    *   *Action:* Scene registration registers listeners on `window` and `document` but lacks clean-up methods on scene shutdown or menu exit.
-    *   *Result:* Event handlers stack up, retain old scene scopes via closures, prevent garbage collection, and trigger crashes when firing on dead scene contexts.
-3.  **Save Data reference loops**:
-    *   *Premise:* JavaScript variables reference objects and arrays.
-    *   *Action:* Active gameplay state references (`this.inventory`, `this.quests`) are assigned directly to `window.saveData`.
-    *   *Result:* Mutating gameplay data mutates the save data immediately. If circular structures (e.g. references back to scenes/sprites) are appended, JSON serialization throws a TypeError, failing the auto-save.
-4.  **Animation frame freezes**:
-    *   *Premise:* Phaser `.once('animationcomplete')` is triggered by *any* animation completing on the target sprite.
-    *   *Action:* Multiple animations are triggered in quick succession.
-    *   *Result:* The `.once` listener is consumed by an unintended animation finishing, leaving the target complete callback uncalled, freezing the state (e.g. `isAttacking = true` or `isHit = true` forever).
-5.  **Physics garbage collection**:
-    *   *Premise:* Gravity continually increases velocity on falling bodies.
-    *   *Action:* Enemies fall off gaps in platform colliders.
-    *   *Result:* No y-boundary check exists. Enemies fall infinitely, polluting the physics system and corrupting GM state loops.
-
----
-
-## 7. Caveats
-
-*   Static analysis was performed. Live execution of tests via `run_command` was skipped due to network read-only permissions and automated approval timeouts.
-*   Assumes default Phaser 3.60.0 behavior for garbage collecting destroyed sprites and cancelling active clocks.
-
----
-
-## 8. Conclusion
-
-The 5 architectural issues have been verified and documented. They cause crashes (`TypeError`), performance degradation, state mutations, and animation locks. Actionable fix strategies are detailed below.
-
----
-
-## 9. Recommended Fix Strategies
-
-### Fix 1: Async API guards
-Add a validation check immediately at the start of all async `.then()` blocks and after `await` calls:
-```javascript
-// Example for NPCController / PlayerController / GameScene / WorldManager
-if (!this.scene || !this.scene.sys.isActive() || !this.sprite || !this.sprite.active) {
-    return;
-}
-```
-For `setTimeout` blocks, keep a handle and clear them in a `destroy()` or scene `shutdown` method:
-```javascript
-// Save the handle
-this.morphTimeout = setTimeout(() => { ... }, 1500);
-
-// Clear on destroy
-if (this.morphTimeout) clearTimeout(this.morphTimeout);
 ```
 
-### Fix 2: Event Listener cleanup
-Store references to window/document event listeners and unregister them on scene shutdown:
-```javascript
-// In GameScene.js create()
-const beforeUnloadHandler = () => this._autoSave();
-window.addEventListener('beforeunload', beforeUnloadHandler);
+### C. Storage Locations
+The settings/API Keys are read from and written to:
+1. **LocalStorage**:
+   - `"gemini_api_key"`: Stored as a raw string value.
+   - `"chartopia_api_key"`: Stored as a raw string value.
+2. **Variables**:
+   - `this.apiKey` in `src/GeminiService.js` (constructor, lines 4–13).
+   - Temporary values retrieved inside the event listeners inside `src/main.js` and loaded dynamically in `src/GeminiService.js` on demand.
 
-// Clean up on scene shutdown
-this.events.once('shutdown', () => {
-    window.removeEventListener('beforeunload', beforeUnloadHandler);
-    // remove keydown/mouseup listeners...
-});
-```
-For persistent DOM elements in `PlayerController.js`:
-```javascript
-// Clean up old listeners in openChat() before adding new ones
-this.chatSubmitBtn.removeEventListener('click', this.chatSubmitHandler);
-this.chatInput.removeEventListener('keypress', this.chatKeyHandler);
-```
-
-### Fix 3: Save Data cloning
-Deep-clone save data objects to decouple active gameplay memory from the global save state:
-```javascript
-// In main.js startGame()
-window.saveData = JSON.parse(JSON.stringify(saveData));
-
-// In PlayerController.js saveGame()
-window.saveData.inventory = JSON.parse(JSON.stringify(this.inventory));
-window.saveData.quests = JSON.parse(JSON.stringify(this.quests));
-
-// Decouple stats override in PlayerController.js
-this.classData = JSON.parse(JSON.stringify(window.selectedClass));
-this.classData.stats = { ...window.saveData.stats };
-```
-
-### Fix 4: Animation-specific events
-Listen to specific animation completion keys in Phaser:
-```javascript
-// In PlayerController.js (Combo attack)
-this.sprite.once(`animationcomplete-${cd.id}_combo`, () => {
-    this.isAttacking = false;
-    this._playAnim();
-});
-
-// In EnemyController.js (Hit/Die)
-const hitKey = `${this.type}-hit`;
-this.sprite.once(`animationcomplete-${hitKey}`, () => {
-    this.isHit = false;
-});
-```
-
-### Fix 5: Enemy culling boundary
-Add a check in `EnemyController.update()` to cull enemies falling out of bounds:
-```javascript
-// In EnemyController.js update()
-if (this.sprite.y > 1000) {
-    this.sprite.destroy(); // Triggers text cleanup and removes from physics automatically
-    return;
-}
-```
+Other `localStorage` items:
+- `"elden_soul_saves"`: For saving/loading games.
+- `"elden_soul_autoplay_config"`: For persisting autoplay preferences (loaded into global `autoplayConfig` object in `src/main.js` at line 902).
+- `"generated_lore_dictionary"`: For procedural lore histories.
+- `"sprite_slice_data"` / `"sprite_slice_coldata"`: For dev tool animation frames.
 
 ---
 
-## 10. Verification Method
+## 2. Logic Chain
 
-1.  **Manual Verification:**
-    *   Start game, open chat dialogues, and spam scene transitions/restarts while replies are pending. Verify no console errors.
-    *   Examine the DOM tree after multiple scene restarts/deaths to verify that only one character sheet modal exists in `document.body` and keydown listeners don't multiply.
-    *   Check memory consumption over time during procedural world scrolls.
-2.  **Automated Validation:**
-    *   Verify logic consistency in `test_logic_constraints.js` by running:
-        ```powershell
-        node test_logic_constraints.js
-        ```
+From the observations:
+1. **Displaying**: When `btn-menu-settings` is clicked, the settings modal container (`ui-menu-settings`) style is set to `display = 'flex'`. The input fields are populated directly from `localStorage` using `localStorage.getItem()`.
+2. **Closing**: When `btn-close-menu-settings` or `btn-save-settings` (after saving is complete) is clicked, the settings modal container style is set to `display = 'none'`.
+3. **Saving**: When `btn-save-settings` is clicked, the values of `input-setting-gemini` and `input-setting-chartopia` are trimmed and checked. If they are non-empty, they are written to `localStorage` via `localStorage.setItem()`. Otherwise, they are deleted via `localStorage.removeItem()`.
+4. **Clearing**: When `btn-reset-settings` is clicked, the API keys are removed from `localStorage`, the inputs are set to `""`, and the settings modal remains open.
+5. **Adding a Toggle**:
+   - To add the **Traditional vs Omni Cutscenes** toggle:
+     - Add a `<select>` or checkbox/toggle element with ID `select-setting-cutscene-mode` to the settings modal HTML block.
+     - When displaying the settings menu, pull `localStorage.getItem("cutscene_mode") || "traditional"` and apply it to the input element's value.
+     - When saving, retrieve the selected option and store it in `localStorage` under the `"cutscene_mode"` key.
+     - When clearing settings, remove the `"cutscene_mode"` key and restore the default value (`"traditional"`) in the input element.
+     - Within `CutsceneController.js`, retrieve `localStorage.getItem("cutscene_mode") || "traditional"` inside `playCutscene` to determine if cutscenes should be played in "traditional" layout or "omni" layout.
+
+---
+
+## 3. Caveats
+
+- Since Traditional vs Omni cutscenes is a new setting, there is no existing code that visually separates the layouts. The implementer must define the visual layouts or prompt differences themselves.
+- Puppeteer integration tests (`test_architecture.js`) clear `localStorage` between/during runs, which will also reset the cutscene setting.
+
+---
+
+## 4. Conclusion
+
+The settings system in Elden Soul is light and fully dependent on direct browser DOM manipulation and `localStorage` persistence. Adding a new `cutscene_mode` settings option is fully consistent with the existing `gemini_api_key` and `chartopia_api_key` patterns, requiring no new state managers or complex React/state flows.
+
+---
+
+## 5. Verification Method
+
+To verify changes made following this report:
+1. Run `node test_architecture.js` and `node test_logic_constraints.js` to verify that HTML modifications do not cause parsing issues or syntax errors.
+2. In a browser:
+   - Click the "Settings" button from the main menu.
+   - Verify that the "Cutscene Mode" selection appears.
+   - Select "Omni Cutscenes" and click "Save Settings".
+   - Reload the browser, open Settings again, and verify that the setting persists as "Omni Cutscenes".
+   - Click "Clear Keys" / "Reset", and verify that the setting defaults back to "Traditional Cutscenes".
+3. Check the path `.agents/explorer_1/proposed_settings.patch` for a pre-generated unified diff patch file.

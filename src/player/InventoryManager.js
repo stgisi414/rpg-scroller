@@ -661,16 +661,32 @@ class InventoryManager {
         };
 
         const cycleWeapon = () => {
-            player.inventory.weapons = player.inventory.weapons || [ player.inventory.weapon ];
-            if (player.inventory.weapons.length > 1) {
-                const currentIdx = player.inventory.weapons.findIndex(w => w.key === player.inventory.weapon.key);
-                const nextIdx = (currentIdx + 1) % player.inventory.weapons.length;
-                player.inventory.weapon = player.inventory.weapons[nextIdx];
+            player.inventory.weapons = player.inventory.weapons || [];
+            
+            // Filter down to weapons the player can actually use and that aren't equipped by companions
+            const usableWeapons = player.inventory.weapons.filter(w => {
+                const playerCanUse = !w.classRestrict || 
+                                     w.classRestrict === player.classData.id || 
+                                     (player.classData.id && player.classData.id.startsWith(w.classRestrict)) ||
+                                     ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
+                                      (w.classRestrict === 'knight' || w.classRestrict === 'samurai'));
+                return playerCanUse && !w.equippedBy;
+            });
+            
+            if (usableWeapons.length > 1) {
+                const currentIdx = usableWeapons.findIndex(w => w.key === (player.inventory.weapon ? player.inventory.weapon.key : ''));
+                const nextIdx = (currentIdx + 1) % usableWeapons.length;
+                player.inventory.weapon = usableWeapons[nextIdx];
                 player.recalculateStats();
                 self.updateInventoryUI();
                 showPopup(1, player.inventory.weapon.name, `Equipped. Damage Bonus: +${player.inventory.weapon.damageBonus}`);
-            } else {
-                showPopup(1, player.inventory.weapon.name, `Damage Bonus: +${player.inventory.weapon.damageBonus}\n(Buy more weapons to cycle!)`);
+            } else if (usableWeapons.length === 1) {
+                player.inventory.weapon = usableWeapons[0];
+                player.recalculateStats();
+                self.updateInventoryUI();
+                showPopup(1, player.inventory.weapon.name, `Damage Bonus: +${player.inventory.weapon.damageBonus}`);
+            } else if (player.inventory.weapon) {
+                showPopup(1, player.inventory.weapon.name, `Damage Bonus: +${player.inventory.weapon.damageBonus}`);
             }
         };
 

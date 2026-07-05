@@ -286,20 +286,28 @@ class AssetManager {
         this.scene.load.image('bg_dungeon', 'src/assets/gemini-dungeon-bg.jpg');
         this.scene.load.image('bg_plains', 'src/assets/plains_bg.jpg');
         this.scene.load.image('bg_forest', 'src/assets/forest_bg.jpg');
-        this.scene.load.image('bg_cottage', 'src/assets/bg_cottage.jpg');
+        this.scene.load.image('bg_cottage', 'src/assets/indoor/bg_cottage.png');
         this.scene.load.image('bg_colliseum', 'src/assets/bg_colliseum.jpg');
         
         // Indoor Backgrounds
-        this.scene.load.image('bg_tavern', 'src/assets/bg_tavern.jpg');
-        this.scene.load.image('bg_blacksmith', 'src/assets/bg_blacksmith.jpg');
-        this.scene.load.image('bg_apothecary', 'src/assets/bg_apothecary.jpg');
-        this.scene.load.image('bg_guild_hall', 'src/assets/bg_guild_hall.jpg');
-        this.scene.load.image('bg_temple', 'src/assets/bg_temple.jpg');
-        this.scene.load.image('bg_library', 'src/assets/bg_library.jpg');
-        this.scene.load.image('bg_training', 'src/assets/bg_training_grounds.jpg');
-        this.scene.load.image('bg_throne_room', 'src/assets/bg_throne_room.png');
-        this.scene.load.image('bg_heaven_throne', 'src/assets/bg_heaven_throne.png');
+        this.scene.load.image('bg_tavern', 'src/assets/indoor/bg_tavern.png');
+        this.scene.load.image('bg_blacksmith', 'src/assets/indoor/bg_blacksmith.png');
+        this.scene.load.image('bg_apothecary', 'src/assets/indoor/bg_apothecary.png');
+        this.scene.load.image('bg_guild_hall', 'src/assets/indoor/bg_guild_hall.png');
+        this.scene.load.image('bg_temple', 'src/assets/indoor/bg_temple.png');
+        this.scene.load.image('bg_library', 'src/assets/indoor/bg_library.png');
+        this.scene.load.image('bg_training', 'src/assets/indoor/bg_training_grounds.png');
+        this.scene.load.image('bg_throne_room', 'src/assets/indoor/bg_throne_room.png');
+        this.scene.load.image('bg_heaven_throne', 'src/assets/indoor/bg_heaven_throne.png');
         this.scene.load.image('bg_heaven', 'src/assets/bg_heaven.png');
+        
+        // New Recruitment Indoor Backgrounds
+        this.scene.load.image('bg_warrior_guild', 'src/assets/indoor/bg_warrior_guild.png');
+        this.scene.load.image('bg_magic_guild', 'src/assets/indoor/bg_magic_guild.png');
+        this.scene.load.image('bg_temple_sanctum', 'src/assets/indoor/bg_temple_sanctum.png');
+        this.scene.load.image('bg_ranger_lodge', 'src/assets/indoor/bg_ranger_lodge.png');
+        this.scene.load.image('bg_elven_sanctum', 'src/assets/indoor/bg_elven_sanctum.png');
+        this.scene.load.image('bg_witches_coven', 'src/assets/indoor/bg_witches_coven.png');
         
         // Desert Backgrounds
         this.scene.load.image('bg_desert_1', 'src/assets/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Asset Pack 32x32/GandalfHardcore Desert Background/Background layer.png');
@@ -331,6 +339,7 @@ class AssetManager {
         this.scene.load.spritesheet('heavenly_seraph', 'src/assets/heavenly_seraph.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('heavenly_archangel', 'src/assets/heavenly_archangel.png', { frameWidth: 128, frameHeight: 128 });
         this.scene.load.spritesheet('heavenly_cherub', 'src/assets/heavenly_cherub.png', { frameWidth: 124, frameHeight: 124 });
+        this.scene.load.spritesheet('flame_elemental', 'src/assets/flame_elemental.png', { frameWidth: 124, frameHeight: 124 });
         
         // Regular Entities (PixelLab generated)
         this.scene.load.spritesheet('ogre', 'src/assets/ogre.png', { frameWidth: 128, frameHeight: 128 });

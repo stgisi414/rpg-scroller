@@ -200,3 +200,14 @@ Please incorporate this change, run all the test suites (mechanics, logic constr
 
 Please incorporate this change, run all the test suites (mechanics, logic constraints, smoke test, full E2E test), and report back.
 **Action**: Implement round 8 fixes, run tests, and write handoff.
+
+## 2026-06-30T21:40:27Z
+
+**Context**: Status check on Round 8 fixes.
+**Content**: Please check if you received the Round 8 fix instructions sent at 20:59 UTC:
+- Update `src/player/CompanionAI_Helper.js` line 658 to prevent the directory from auto-closing when the AI wants to visit the Guild Hall:
+  ```javascript
+  if (this._wantsToAdventure && !this._wantsGuildHall) {
+  ```
+Please implement this fix, run verification, and report back.
+**Action**: Report status and complete implementation.

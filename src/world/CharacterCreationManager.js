@@ -77,6 +77,47 @@ window.renderCreationSkillsGrid = function() {
     });
 };
 
+window.setCreationStep = function(step) {
+    window.creationStep = step;
+    const gridSelect = document.getElementById('class-select-grid');
+    const statsArea = document.getElementById('create-stats-area');
+    const skillsArea = document.getElementById('create-skills-area');
+    
+    const btnBack = document.getElementById('btn-create-back');
+    const btnPrev = document.getElementById('btn-create-prev');
+    const btnNext = document.getElementById('btn-create-next');
+    const btnAwaken = document.getElementById('btn-awaken');
+
+    const headerTitle = document.querySelector('#ui-create h3');
+
+    if (step === 1) {
+        if (gridSelect) gridSelect.style.display = 'grid';
+        if (statsArea) statsArea.style.display = 'flex';
+        if (skillsArea) skillsArea.style.display = 'none';
+
+        if (btnBack) btnBack.style.display = 'block';
+        if (btnPrev) btnPrev.style.display = 'none';
+        if (btnNext) btnNext.style.display = 'block';
+        if (btnAwaken) btnAwaken.style.display = 'none';
+
+        if (headerTitle) headerTitle.innerText = "CHOOSE ORIGIN";
+    } else {
+        if (gridSelect) gridSelect.style.display = 'none';
+        if (statsArea) statsArea.style.display = 'none';
+        if (skillsArea) skillsArea.style.display = 'flex';
+
+        if (btnBack) btnBack.style.display = 'none';
+        if (btnPrev) btnPrev.style.display = 'block';
+        if (btnNext) btnNext.style.display = 'none';
+        if (btnAwaken) btnAwaken.style.display = 'block';
+
+        if (headerTitle) headerTitle.innerText = "SELECT PASSIVES";
+        
+        // Render starting passives grid
+        window.renderCreationSkillsGrid();
+    }
+};
+
 window.showTitleScreen = function() {
     document.getElementById('ui-create').style.display = 'none';
     document.getElementById('ui-title').style.display = 'flex';
@@ -87,6 +128,7 @@ window.showCreateScreen = function() {
     console.log("[DIAGNOSTIC] showCreateScreen called");
     document.getElementById('ui-title').style.display = 'none';
     document.getElementById('ui-create').style.display = 'block';
+    window.setCreationStep(1);
     window.selectClass('knight');
 };
 

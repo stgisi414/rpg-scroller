@@ -2,6 +2,16 @@
  * HUDCharacterSheet.js - Modular character sheet UI & skill points system.
  * Extracted from HUDManager.js to keep file size under 1000 lines.
  */
+window.generatedPortraits = [];
+fetch('src/assets/portraits/manifest.json')
+    .then(r => r.json())
+    .then(data => {
+        window.generatedPortraits = data;
+    })
+    .catch(err => {
+        window.generatedPortraits = [];
+    });
+
 window.HUDCharacterSheet = {
     createCharacterSheetModal(hudManager) {
         if (document.getElementById('char-sheet-modal')) return;
@@ -27,7 +37,7 @@ window.HUDCharacterSheet = {
                 <!-- Header Panel -->
                 <div class="flex items-center gap-6 mb-4 border-b border-outline-variant pb-4 relative z-10">
                     <div id="cs-sprite-container" class="w-24 h-24 bg-surface-container-lowest border-2 border-primary rounded-lg flex items-center justify-center shadow-inner relative overflow-hidden" style="image-rendering: pixelated;">
-                        <div id="cs-sprite-img" style="transform: scale(3);"></div>
+                        <canvas id="cs-sprite-canvas" width="96" height="96" class="w-full h-full" style="image-rendering: pixelated;"></canvas>
                     </div>
                     <div class="flex-grow">
                         <h2 id="cs-name" class="font-headline-lg text-[40px] text-primary uppercase tracking-widest mb-1" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-family: 'Space Grotesk', sans-serif;">Hero Name</h2>
@@ -250,22 +260,56 @@ window.HUDCharacterSheet = {
         document.getElementById('cs-xp').innerText = `${xp} / ${nextXp} XP`;
         document.getElementById('cs-hpmp').innerText = `HP: ${Math.floor(p.hp)}/${p.maxHp} | MP: ${Math.floor(p.mp)}/${p.maxMp}`;
 
-        // Sprite
-        const spriteImg = document.getElementById('cs-sprite-img');
-        const frameW = cd.frameWidth || 64;
-        const frameH = cd.frameHeight || 64;
-        spriteImg.style.width = `${frameW}px`;
-        spriteImg.style.height = `${frameH}px`;
-        
-        let spritePath = '';
-        if (cd.id === 'knight') spritePath = 'GandalfHardcore FREE Warrior/GandalfHardcore Warrior.png';
-        else if (cd.id === 'wizard') spritePath = 'GandalfHardcore Wizard/GandalfHardcore Wizard/Black Wizard sheet.png';
-        else if (cd.id === 'samurai') spritePath = 'GandalfHardcore Samurai/GandalfHardcore Samurai/Samurai Sheet black.png';
-        else if (cd.id === 'ranger') spritePath = 'GandalfHardcore Archer/GandalfHardcore Archer/GandalfHardcore Archer black sheet.png';
-        
-        spriteImg.style.backgroundImage = `url('src/assets/${spritePath}')`;
-        spriteImg.style.backgroundPosition = `0px -${cd.idleRow === undefined ? 0 : cd.idleRow * frameH}px`;
-        spriteImg.style.backgroundRepeat = 'no-repeat';
+        // Draw player portrait onto canvas (zoom in on head shot)
+        const playerCanvas = document.getElementById('cs-sprite-canvas');
+        if (playerCanvas && p.sprite && p.sprite.active) {
+            const shouldFlip = cd.flipX || false;
+            if (window.drawDetailedPortrait && window.drawDetailedPortrait(playerCanvas, cd.id, p.customConfig || null, shouldFlip)) {
+                // Drawn high-detail portrait successfully!
+            } else {
+                const ctx = playerCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                ctx.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
+                
+                const frame = p.sprite.frame;
+                if (frame) {
+                    const sourceImage = frame.texture.getSourceImage();
+                    const sWidth = frame.cutWidth;
+                    const sHeight = frame.cutHeight;
+                    
+                    // Choose precise crop dimensions/Y-offset based on frame height
+                    let cropW, cropH, cropX, cropY;
+                    if (sHeight >= 128) {
+                        cropW = 36;
+                        cropH = 36;
+                        cropX = frame.cutX + (sWidth - cropW) / 2;
+                        cropY = frame.cutY + 58; // Craftpix sprites start at Y=60 inside the 128x128 frame
+                    } else {
+                        cropW = 24;
+                        cropH = 24;
+                        cropX = frame.cutX + (sWidth - cropW) / 2;
+                        cropY = frame.cutY + 16;
+                    }
+                    
+                    // Mirror horizontally if character faces left by default in sheet
+                    if (shouldFlip) {
+                        ctx.save();
+                        ctx.translate(playerCanvas.width, 0);
+                        ctx.scale(-1, 1);
+                    }
+                    
+                    ctx.drawImage(
+                        sourceImage,
+                        cropX, cropY, cropW, cropH,
+                        0, 0, playerCanvas.width, playerCanvas.height
+                    );
+                    
+                    if (shouldFlip) {
+                        ctx.restore();
+                    }
+                }
+            }
+        }
         
         // --- Core Stats ---
         const statColors = { vit: '#ff6b6b', str: '#ff9f43', dex: '#54a0ff', int: '#c471ed', luck: '#ffd700' };
@@ -535,7 +579,7 @@ window.HUDCharacterSheet = {
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-3">
                             <div class="w-12 h-12 bg-surface-lowest border border-outline-variant/40 rounded flex items-center justify-center overflow-hidden">
-                                <div style="width: ${frameW}px; height: ${frameH}px; background-image: url('${spriteSrc}'); background-position: 0px -${idleRow * frameH}px; background-repeat: no-repeat; transform: scale(1.5); image-rendering: pixelated;"></div>
+                                <canvas id="cs-portrait-${idx}" width="64" height="64" class="w-full h-full" style="image-rendering: pixelated;"></canvas>
                             </div>
                             <div>
                                 <div class="font-headline-md text-[18px] text-on-surface uppercase leading-tight">${displayName}</div>
@@ -567,7 +611,7 @@ window.HUDCharacterSheet = {
                         <button onclick="window._gameScene.dismissPartyMember(${idx})" class="bg-surface-lowest hover:bg-error/20 border border-outline-variant/50 hover:border-error/50 rounded font-label-caps text-[11px] py-2 text-error transition-colors uppercase tracking-widest flex items-center justify-center gap-1">
                             <span class="material-symbols-outlined text-[14px]">person_remove</span> Dismiss
                         </button>
-                        <button class="bg-surface-lowest hover:bg-surface-variant border border-outline-variant/50 hover:border-outline-variant rounded font-label-caps text-[11px] py-2 text-on-surface transition-colors uppercase tracking-widest opacity-50 cursor-not-allowed">
+                        <button onclick="window._gameScene.inspectPartyMember(${idx})" class="bg-surface-lowest hover:bg-surface-variant border border-outline-variant/50 hover:border-primary/50 rounded font-label-caps text-[11px] py-2 text-on-surface transition-colors uppercase tracking-widest cursor-pointer">
                             Inspect
                         </button>
                     </div>
@@ -588,6 +632,61 @@ window.HUDCharacterSheet = {
         
         document.getElementById('cs-party-size-summary').innerHTML = `Party Size: <span class="text-on-surface">${partySize} / 6</span>`;
         document.getElementById('cs-party-grid').innerHTML = partyHtml;
+
+        // Draw companions portraits (zoom in on head shot)
+        if (hudManager.scene.partyMembers && hudManager.scene.partyMembers.length > 0) {
+            hudManager.scene.partyMembers.forEach((member, idx) => {
+                const canvas = document.getElementById('cs-portrait-' + idx);
+                if (canvas && member.sprite && member.sprite.active) {
+                    const shouldFlip = member.classData.flipX || false;
+                    if (window.drawDetailedPortrait && window.drawDetailedPortrait(canvas, member.classData.id, member.customConfig || null, shouldFlip)) {
+                        // Drawn successfully!
+                    } else {
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        const frame = member.sprite.frame;
+                        if (frame) {
+                            const sourceImage = frame.texture.getSourceImage();
+                            const sWidth = frame.cutWidth;
+                            const sHeight = frame.cutHeight;
+                            
+                            // Choose precise crop dimensions/Y-offset based on frame height
+                            let cropW, cropH, cropX, cropY;
+                            if (sHeight >= 128) {
+                                cropW = 36;
+                                cropH = 36;
+                                cropX = frame.cutX + (sWidth - cropW) / 2;
+                                cropY = frame.cutY + 58; // Craftpix sprites start at Y=60 inside the 128x128 frame
+                            } else {
+                                cropW = 24;
+                                cropH = 24;
+                                cropX = frame.cutX + (sWidth - cropW) / 2;
+                                cropY = frame.cutY + 16;
+                            }
+                            
+                            // Mirror horizontally if character faces left by default in sheet
+                            if (shouldFlip) {
+                                ctx.save();
+                                ctx.translate(canvas.width, 0);
+                                ctx.scale(-1, 1);
+                            }
+                            
+                            ctx.drawImage(
+                                sourceImage,
+                                cropX, cropY, cropW, cropH,
+                                0, 0, canvas.width, canvas.height
+                            );
+                            
+                            if (shouldFlip) {
+                                ctx.restore();
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
         // --- Caravan Cargo Hold ---
         const cargoHold = saveData && saveData.cargo ? saveData.cargo : {};
@@ -775,5 +874,418 @@ window.HUDCharacterSheet = {
         document.getElementById('btn-banner-close-skills').addEventListener('click', () => {
             banner.remove();
         });
+    },
+
+    inspectPartyMember(hudManager, index) {
+        if (!hudManager.scene.partyMembers || index < 0 || index >= hudManager.scene.partyMembers.length) return;
+        const member = hudManager.scene.partyMembers[index];
+        const player = hudManager.scene.player;
+        if (!member || !player) return;
+
+        // Create or show modal
+        let modal = document.getElementById('companion-inspect-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'companion-inspect-modal';
+            modal.className = 'fixed inset-0 bg-background/95 flex items-center justify-center p-4 backdrop-blur-md pointer-events-auto transition-opacity duration-300';
+            document.body.appendChild(modal);
+        }
+        modal.style.zIndex = '120';
+        modal.style.display = 'flex';
+
+        const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='a'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23a)' opacity='0.05'/></svg>`;
+
+        const renderContent = () => {
+            const stats = member.classData.stats;
+            const cd = member.classData;
+            
+            // Calculate Damage / Attack (exact formula matching mapping card)
+            const memberMult = typeof member.getDamageMultiplier === 'function' ? member.getDamageMultiplier() : 1.0;
+            const isMagic = cd.id === 'wizard' || (cd.id && cd.id.startsWith('custom_npc_') && cd.weaponType === 'magic');
+            let mBaseDmg;
+            if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
+                mBaseDmg = Math.floor(stats.str * 3.5) + Math.floor(stats.int * 1.5);
+            } else if (cd.id === 'samurai' || cd.id === 'samurai_rival') {
+                mBaseDmg = Math.floor(stats.dex * 2.5) + Math.floor(stats.str * 0.5);
+            } else if (cd.id === 'ranger' || cd.id === 'ranger_rival') {
+                mBaseDmg = (stats.dex * 2) + stats.str;
+            } else {
+                mBaseDmg = isMagic ? (stats.int*2) : (stats.str*3);
+            }
+            const mFinalDmg = Math.floor(mBaseDmg * memberMult);
+            const weaponBonus = member.inventory && member.inventory.weapon ? (member.inventory.weapon.damageBonus || 0) : 0;
+            const totalAtk = mFinalDmg + weaponBonus;
+
+            let mainStatName = "STR";
+            let mainStatVal = stats.str;
+            let mainStatColor = "text-secondary";
+            if (isMagic) { mainStatName = "INT"; mainStatVal = stats.int; mainStatColor = "text-tertiary-fixed"; }
+            else if (cd.id === 'ranger' || cd.id === 'samurai') { mainStatName = "DEX"; mainStatVal = stats.dex; mainStatColor = "text-[#ff9800]"; }
+
+            // Current weapon equipped on companion
+            const eqWeapon = member.inventory && member.inventory.weapon ? member.inventory.weapon : { key: 'weapon-stick', name: 'Stick', damageBonus: 0, desc: 'A basic stick.' };
+            const eqWeaponDesc = eqWeapon.desc || 'No description available.';
+            const isStick = eqWeapon.key === 'weapon-stick';
+
+            // Find player's available/unused weapons
+            const playerEquippedKey = player.inventory && player.inventory.weapon ? player.inventory.weapon.key : null;
+            const unusedWeapons = (player.inventory && player.inventory.weapons || []).filter(w => {
+                const companionCanUse = !w.classRestrict || 
+                                       w.classRestrict === cd.id || 
+                                       (cd.id && cd.id.startsWith(w.classRestrict));
+                return w.key !== playerEquippedKey && !w.equippedBy && companionCanUse;
+            });
+
+            let unusedWeaponsHtml = "";
+            if (unusedWeapons.length > 0) {
+                unusedWeaponsHtml = unusedWeapons.map((w, idx) => {
+                    return `
+                        <div class="flex items-center justify-between bg-surface-lowest p-3 border border-outline-variant/40 rounded-lg hover:border-primary/40 transition-all">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-surface-container border border-outline-variant rounded flex items-center justify-center overflow-hidden shrink-0">
+                                    <div style="width:40px; height:40px; background-image:url('${w.iconSrc || 'src/assets/wooden_staff.png'}'); background-size:contain; background-position:center; background-repeat:no-repeat; image-rendering:pixelated;"></div>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-[13px] text-on-surface uppercase">${w.name}</h5>
+                                    <p class="text-[11px] text-[#4ade80] font-semibold">+${w.damageBonus} ATK</p>
+                                </div>
+                            </div>
+                            <button class="btn-equip-weapon px-3 py-1.5 bg-primary text-background font-bold text-[11px] uppercase tracking-wider rounded hover:bg-primary/80 transition-all cursor-pointer" data-weapon-key="${w.key}">Equip</button>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                unusedWeaponsHtml = `<div class="text-on-surface-variant italic text-center py-4 text-[12px]">No unused weapons in player inventory</div>`;
+            }
+
+            modal.innerHTML = `
+                <div class="bg-surface-container/95 border-2 border-outline-variant rounded p-6 max-w-2xl w-full shadow-[0_0_50px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col font-body-md text-on-surface" style="background-image: url('data:image/svg+xml;base64,${btoa(noiseSvg)}'); border-color: #a0832b;">
+                    <!-- Decorative Corner Ornaments -->
+                    <div class="absolute top-0 left-0 opacity-50" style="width:32px;height:32px;border-top:3px solid #a0832b;border-left:3px solid #a0832b;border-top-left-radius:3px;"></div>
+                    <div class="absolute top-0 right-0 opacity-50" style="width:32px;height:32px;border-top:3px solid #a0832b;border-right:3px solid #a0832b;border-top-right-radius:3px;"></div>
+                    <div class="absolute bottom-0 left-0 opacity-50" style="width:32px;height:32px;border-bottom:3px solid #a0832b;border-left:3px solid #a0832b;border-bottom-left-radius:3px;"></div>
+                    <div class="absolute bottom-0 right-0 opacity-50" style="width:32px;height:32px;border-bottom:3px solid #a0832b;border-right:3px solid #a0832b;border-bottom-right-radius:3px;"></div>
+
+                    <button id="companion-inspect-close" class="text-on-surface-variant hover:text-error transition-colors uppercase font-label-caps tracking-widest text-[12px] font-bold" style="position:absolute; top:20px; right:20px; z-index:50;">Back</button>
+
+                    <!-- Header -->
+                    <div class="flex items-center gap-4 mb-6 border-b border-outline-variant pb-4">
+                        <div class="w-16 h-16 bg-surface-container-lowest border border-primary rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                            <canvas id="companion-inspect-portrait" width="64" height="64" class="w-full h-full" style="image-rendering: pixelated;"></canvas>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-md text-[24px] text-primary uppercase tracking-widest leading-tight">${member.npcName || 'Companion'}</h3>
+                            <p class="font-body-sm text-[12px] text-outline capitalize">Level ${saveData ? saveData.level : 1} ${cd.name || cd.id}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                        <!-- Left Panel: Stats -->
+                        <div class="space-y-4 flex flex-col bg-surface-container-highest/30 p-4 rounded-lg border border-outline-variant/40">
+                            <h4 class="font-headline-sm text-secondary uppercase text-[15px] font-bold tracking-widest border-b border-outline-variant/30 pb-2">Character Stats</h4>
+                            
+                            <div class="grid grid-cols-2 gap-2 text-[13px] flex-grow">
+                                <div class="bg-surface p-2 border border-outline-variant/30 rounded flex justify-between px-3">
+                                    <span class="text-outline">VIT</span>
+                                    <span class="text-[#ff6b6b] font-bold">${stats.vit}</span>
+                                </div>
+                                <div class="bg-surface p-2 border border-outline-variant/30 rounded flex justify-between px-3">
+                                    <span class="text-outline">${mainStatName}</span>
+                                    <span class="${mainStatColor} font-bold">${mainStatVal}</span>
+                                </div>
+                                <div class="bg-surface p-2 border border-outline-variant/30 rounded flex justify-between px-3">
+                                    <span class="text-outline">Max HP</span>
+                                    <span class="text-on-surface font-bold">${member.maxHp}</span>
+                                </div>
+                                <div class="bg-surface p-2 border border-outline-variant/30 rounded flex justify-between px-3">
+                                    <span class="text-outline">Max MP</span>
+                                    <span class="text-on-surface font-bold">${member.maxMp || 0}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-surface p-3 border-2 border-primary/30 rounded-lg flex justify-between items-center mt-auto">
+                                <span class="font-headline-sm text-primary uppercase text-[13px] font-bold tracking-wider">Combat ATK Prowess</span>
+                                <span class="text-[20px] font-bold text-[#2ddbde]">${totalAtk}</span>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Equipment Swap -->
+                        <div class="flex flex-col bg-surface-container-highest/30 p-4 rounded-lg border border-outline-variant/40">
+                            <h4 class="font-headline-sm text-secondary uppercase text-[15px] font-bold tracking-widest border-b border-outline-variant/30 pb-2">Active Gear</h4>
+                            
+                            <!-- Current Weapon Slot -->
+                            <div class="bg-surface-lowest p-3 border-2 border-primary/20 rounded-lg flex justify-between items-center mb-4 mt-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-surface-container border border-outline-variant rounded flex items-center justify-center overflow-hidden shrink-0">
+                                        <div style="width:40px; height:40px; background-image:url('${eqWeapon.iconSrc || 'src/assets/wooden_staff.png'}'); background-size:contain; background-position:center; background-repeat:no-repeat; image-rendering:pixelated;"></div>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-bold text-[14px] text-on-surface uppercase leading-tight">${eqWeapon.name}</h5>
+                                        <p class="text-[10px] text-on-surface-variant leading-snug mt-0.5">${eqWeaponDesc}</p>
+                                    </div>
+                                </div>
+                                ${!isStick ? `<button id="btn-unequip-weapon" class="px-3 py-1.5 bg-error/20 text-error hover:bg-error/30 border border-error/40 rounded font-label-caps text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer">Unequip</button>` : ''}
+                            </div>
+
+                            <!-- Inventory List -->
+                            <h5 class="font-headline-sm text-outline uppercase text-[11px] font-bold tracking-wider mb-2">Equip Unused Weapon</h5>
+                            <div class="flex-grow overflow-y-auto max-h-[160px] space-y-2 pr-1">
+                                ${unusedWeaponsHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Draw headshot portrait inside the modal canvas
+            const companionCanvas = document.getElementById('companion-inspect-portrait');
+            if (companionCanvas && member.sprite && member.sprite.active) {
+                const shouldFlip = cd.flipX || false;
+                const ctx = companionCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                ctx.clearRect(0, 0, companionCanvas.width, companionCanvas.height);
+                
+                const frame = member.sprite.frame;
+                if (frame && frame.texture) {
+                    const sourceImage = typeof frame.texture.getSourceImage === 'function' ? frame.texture.getSourceImage() : null;
+                    if (sourceImage) {
+                        const sWidth = frame.cutWidth || frame.width || 64;
+                        const sHeight = frame.cutHeight || frame.height || 64;
+                        
+                        let cropW, cropH, cropX, cropY;
+                        if (sHeight >= 128) {
+                            cropW = 36;
+                            cropH = 36;
+                            cropX = frame.cutX + (sWidth - cropW) / 2;
+                            cropY = frame.cutY + 58;
+                        } else {
+                            cropW = 24;
+                            cropH = 24;
+                            cropX = frame.cutX + (sWidth - cropW) / 2;
+                            cropY = frame.cutY + 16;
+                        }
+                        
+                        if (shouldFlip) {
+                            ctx.save();
+                            ctx.translate(companionCanvas.width, 0);
+                            ctx.scale(-1, 1);
+                        }
+                        
+                        try {
+                            ctx.drawImage(
+                                sourceImage,
+                                cropX, cropY, cropW, cropH,
+                                0, 0, companionCanvas.width, companionCanvas.height
+                            );
+                        } catch (drawErr) {
+                            console.error("Failed to draw companion portrait:", drawErr);
+                        }
+                        
+                        if (shouldFlip) {
+                            ctx.restore();
+                        }
+                    }
+                }
+            }
+
+            // Close button click listener
+            document.getElementById('companion-inspect-close').onclick = () => {
+                modal.style.display = 'none';
+            };
+
+            // Equip button listeners
+            modal.querySelectorAll('.btn-equip-weapon').forEach(btn => {
+                btn.onclick = (e) => {
+                    const wKey = e.target.dataset.weaponKey;
+                    const newWeapon = (player.inventory && player.inventory.weapons || []).find(w => w.key === wKey);
+                    if (newWeapon) {
+                        // Reclaim any currently equipped custom weapon
+                        if (eqWeapon && eqWeapon.key !== 'weapon-stick') {
+                            const oldWeaponObj = (player.inventory && player.inventory.weapons || []).find(w => w.key === eqWeapon.key && w.equippedBy === member.npcName);
+                            if (oldWeaponObj) oldWeaponObj.equippedBy = null;
+                        }
+
+                        // If this weapon was equipped by the player, unequip it and find a replacement
+                        if (player.inventory.weapon && player.inventory.weapon.key === newWeapon.key) {
+                            const remainingUsable = (player.inventory.weapons || []).filter(w => {
+                                const playerCanUse = !w.classRestrict || 
+                                                     w.classRestrict === player.classData.id || 
+                                                     (player.classData.id && player.classData.id.startsWith(w.classRestrict)) ||
+                                                     ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
+                                                      (w.classRestrict === 'knight' || w.classRestrict === 'samurai'));
+                                return playerCanUse && !w.equippedBy && w.key !== newWeapon.key;
+                            });
+                            if (remainingUsable.length > 0) {
+                                player.inventory.weapon = remainingUsable[0];
+                            } else {
+                                player.inventory.weapon = { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 0, desc: 'A basic stick.' };
+                            }
+                            player.recalculateStats();
+                            if (player.inventoryManager) {
+                                player.inventoryManager.updateInventoryUI();
+                            }
+                        }
+
+                        // Mark new weapon as equipped by this companion
+                        newWeapon.equippedBy = member.npcName;
+                        member.inventory.weapon = newWeapon;
+                        member.recalculateStats();
+
+                        // Save game state
+                        if (typeof player.saveGame === 'function') {
+                            player.saveGame();
+                        }
+
+                        // Play audio visual feedback
+                        if (hudManager.scene.showFloatingText && member.sprite && member.sprite.active) {
+                            hudManager.scene.showFloatingText(member.sprite.x, member.sprite.y - 60, `Equipped ${newWeapon.name}!`, 0x2ddbde);
+                        }
+
+                        // Refresh character sheet, HUD and inspect modal content
+                        if (hudManager.scene.updateHUD) hudManager.scene.updateHUD();
+                        hudManager._updateCharacterSheet();
+                        renderContent();
+                    }
+                };
+            });
+
+            // Unequip button listener
+            const unequipBtn = document.getElementById('btn-unequip-weapon');
+            if (unequipBtn) {
+                unequipBtn.onclick = () => {
+                    if (eqWeapon && eqWeapon.key !== 'weapon-stick') {
+                        // Return old weapon to player pool
+                        const oldWeaponObj = (player.inventory && player.inventory.weapons || []).find(w => w.key === eqWeapon.key && w.equippedBy === member.npcName);
+                        if (oldWeaponObj) oldWeaponObj.equippedBy = null;
+
+                        // Clear companion's weapon slot
+                        member.inventory.weapon = { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 0, desc: 'A basic stick.' };
+                        member.recalculateStats();
+
+                        // Save game state
+                        if (typeof player.saveGame === 'function') {
+                            player.saveGame();
+                        }
+
+                        // Feedback
+                        if (hudManager.scene.showFloatingText && member.sprite && member.sprite.active) {
+                            hudManager.scene.showFloatingText(member.sprite.x, member.sprite.y - 60, `Unequipped ${eqWeapon.name}`, 0xffaa00);
+                        }
+
+                        // Refresh UI
+                        if (hudManager.scene.updateHUD) hudManager.scene.updateHUD();
+                        hudManager._updateCharacterSheet();
+                        renderContent();
+                    }
+                };
+            }
+        };
+
+        renderContent();
     }
+};
+
+window.reclaimCompanionEquipment = function(scene, companion) {
+    if (!companion || !scene || !scene.player || !scene.player.inventory) return;
+    
+    const companionWeapon = companion.inventory && companion.inventory.weapon;
+    if (companionWeapon && companionWeapon.key !== 'weapon-stick') {
+        const playerWeapons = scene.player.inventory.weapons || [];
+        // Find the weapon in player's inventory equipped by this companion
+        let weaponObj = playerWeapons.find(w => w.key === companionWeapon.key && w.equippedBy === companion.npcName);
+        if (!weaponObj) {
+            // Fallback: match by equippedBy
+            weaponObj = playerWeapons.find(w => w.equippedBy === companion.npcName);
+        }
+        
+        if (weaponObj) {
+            weaponObj.equippedBy = null;
+        }
+        
+        // Visual feedback
+        if (scene.showFloatingText && companion.sprite && companion.sprite.active) {
+            scene.showFloatingText(companion.sprite.x, companion.sprite.y - 60, `Reclaimed ${companionWeapon.name}`, 0x2ddbde);
+        }
+        
+        // Auto-save immediately
+        if (typeof scene.player.saveGame === 'function') {
+            scene.player.saveGame();
+        }
+    }
+};
+
+const DETAILED_PORTRAITS = {
+    'knight': 'src/assets/portraits/knight.png',
+    'heavy_knight': 'src/assets/portraits/heavy_knight.png',
+    'wizard': 'src/assets/portraits/wizard.png',
+    'wizard_rival': 'src/assets/portraits/wizard_rival.png',
+    'samurai': 'src/assets/portraits/samurai.png',
+    'ranger': 'src/assets/portraits/ranger.png',
+    'priest': 'src/assets/portraits/priest.png',
+    'witch': 'src/assets/portraits/witch.png',
+    'pyromancer': 'src/assets/portraits/pyromancer.png',
+    'elven_spellblade': 'src/assets/portraits/elven_spellblade.png',
+    'elven_king': 'src/assets/portraits/elven_king.png',
+    'elven_queen': 'src/assets/portraits/elven_queen.png',
+    'human_king': 'src/assets/portraits/human_king.png',
+    'human_queen': 'src/assets/portraits/human_queen.png',
+    'dwarf_warrior': 'src/assets/portraits/dwarf_warrior.png',
+    'dwarf_king': 'src/assets/portraits/dwarf_king.png',
+};
+
+window.drawDetailedPortrait = function(canvas, classId, customConfig = null, shouldFlip = false) {
+    let taskId = classId;
+    if (classId) {
+        if (classId.startsWith('wizard_')) taskId = 'wizard';
+        if (classId.startsWith('priest_')) taskId = 'priest';
+        if (classId.startsWith('witch_')) taskId = 'witch';
+        if (classId.startsWith('pyromancer_')) taskId = 'pyromancer';
+        
+        // Map rival class IDs to their detailed portrait counterparts
+        if (classId === 'samurai_rival') taskId = 'samurai';
+        if (classId === 'knight_rival') taskId = 'heavy_knight';
+        if (classId === 'ranger_rival') taskId = 'ranger';
+        
+        // Map generic NPC dialog portrait keys
+        if (classId === 'npc_guard') taskId = 'heavy_knight';
+        if (classId === 'npc_crier') taskId = 'wizard';
+        if (classId === 'npc_angel') taskId = 'priest';
+        if (classId === 'npc_demon') taskId = 'witch';
+        if (classId === 'npc_king') taskId = 'human_king';
+        if (classId === 'npc_queen') taskId = 'human_queen';
+        if (classId === 'npc_fiend') taskId = 'witch';
+        if (classId === 'npc_chancellor') taskId = 'wizard';
+        if (classId === 'npc_sentinel') taskId = 'samurai';
+    }
+    
+    // Only load if portrait is successfully generated and exists in the manifest
+    const hasPortrait = window.generatedPortraits && window.generatedPortraits.includes(taskId);
+    if (!hasPortrait) return false;
+    
+    const src = DETAILED_PORTRAITS[taskId];
+    if (!src) return false;
+    
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = src;
+    img.onload = () => {
+        canvas.width = img.naturalWidth || 256;
+        canvas.height = img.naturalHeight || 256;
+        const ctx2 = canvas.getContext('2d');
+        ctx2.imageSmoothingEnabled = false;
+        ctx2.clearRect(0, 0, canvas.width, canvas.height);
+        if (shouldFlip) {
+            ctx2.save();
+            ctx2.translate(canvas.width, 0);
+            ctx2.scale(-1, 1);
+        }
+        ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
+        if (shouldFlip) {
+            ctx2.restore();
+        }
+    };
+    img.onerror = () => {
+        // Fallback silently if image is missing so game doesn't break
+    };
+    return true;
 };

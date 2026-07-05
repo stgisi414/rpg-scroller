@@ -98,6 +98,7 @@ const PlayerController_Helper = {
                     persona: hero.persona,
                     camaraderie: hero.camaraderie || 0,
                     weaponType: hero.classData.weaponType || hero.weaponType || 'sword',
+                    equippedWeapon: hero.inventory && hero.inventory.weapon ? hero.inventory.weapon : null,
                     customConfig: hero.customConfig || (window.npcLayers && window.npcLayers[hero.classId] ? { layers: window.npcLayers[hero.classId], weaponType: hero.classData.weaponType || hero.weaponType || 'sword' } : null)
                 }));
         }

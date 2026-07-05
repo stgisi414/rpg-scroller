@@ -148,8 +148,12 @@ class RescueeNPCFactory {
                 console.warn(`[RescueeNPCFactory] Missing texture: ${layerKey}`);
                 continue;
             }
-            const sourceImage = tex.getSourceImage();
-            ctx.drawImage(sourceImage, 0, 0, sheetWidth, sheetHeight);
+            const sourceImage = (typeof CharacterComposer !== 'undefined' && typeof CharacterComposer.getPatchedLayer === 'function')
+                ? CharacterComposer.getPatchedLayer(this.scene, layerKey)
+                : tex.getSourceImage();
+            if (sourceImage) {
+                ctx.drawImage(sourceImage, 0, 0, sheetWidth, sheetHeight);
+            }
         }
 
         // Remove existing texture if it exists (for regeneration after load)

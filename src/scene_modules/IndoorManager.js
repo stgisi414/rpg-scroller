@@ -760,22 +760,18 @@ class IndoorManager {
                         saveData.visitedThroneRooms[currentZoneIdx] = true;
                         
                         const titleAndName = `${npc.politicalTitle} ${npc.npcName}`;
-                        const dialogue = [
-                            {
-                                speaker: "Narrator",
-                                text: `You step into the grand throne room. The heavy scent of incense and the weight of sovereign authority hang in the air.`
-                            },
-                            {
-                                speaker: titleAndName,
-                                portrait: spriteKey,
-                                side: 'right',
-                                text: `Who approaches the throne? State your purpose, traveler. In these times of conflict, every visitor is either a potential ally... or a spy.`
-                            }
-                        ];
+                        const context = {
+                            leaderName: `${npc.politicalTitle} ${npc.npcName}`,
+                            factionName: faction ? faction.name : "the ruling council",
+                            playerName: (scene.player && scene.player.name) ? scene.player.name : "traveler",
+                            reason: "audience",
+                            kingdomName: (window.getKingdomForZone && window.getKingdomForZone(currentZoneIdx)) ? window.getKingdomForZone(currentZoneIdx).name : "the kingdom",
+                            zoneName: "Throne Room"
+                        };
                         
                         scene.time.delayedCall(600, () => {
                             if (scene.cutsceneController) {
-                                scene.cutsceneController.playCutscene(dialogue);
+                                scene.cutsceneController.playCutscene('throne_room_entrance', context);
                             }
                         });
                     }

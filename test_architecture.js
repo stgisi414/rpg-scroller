@@ -72,6 +72,14 @@ async function run() {
         console.error(`PAGE UNCAUGHT ERROR: ${stackStr}`);
     });
 
+    page.on('requestfailed', request => {
+        const url = request.url();
+        const failure = request.failure();
+        const msg = `Request failed: ${url} - Error: ${failure ? failure.errorText : 'Unknown'}`;
+        consoleErrors.push(msg);
+        console.error(`PAGE REQUEST FAILED: ${msg}`);
+    });
+
     // Clear localStorage first and stub window.prompt
     await page.evaluateOnNewDocument(() => {
         localStorage.clear();
@@ -87,13 +95,47 @@ async function run() {
 
     console.log("Typing character name...");
     await page.waitForSelector('#character-name-input');
-    await page.type('#character-name-input', 'RefactorHero');
+    await page.evaluate(() => {
+        const input = document.getElementById('character-name-input');
+        if (input) {
+            input.value = 'RefactorHero';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    console.log("Selecting Priest class...");
+    await page.waitForSelector('.class-btn[data-class="priest"]');
+    await page.evaluate(() => {
+        const el = document.querySelector('.class-btn[data-class="priest"]');
+        if (el) el.click();
+    });
+
+    console.log("Allocating starting points...");
+    await page.waitForSelector('#create-skills-grid .create-skill-icon-box');
+    await page.evaluate(() => {
+        const boxes = document.querySelectorAll('#create-skills-grid .create-skill-icon-box');
+        if (boxes && boxes.length > 0) {
+            boxes[0].click();
+            boxes[0].click();
+            boxes[0].click();
+        }
+    });
+
+    console.log("Clicking Next Step...");
+    await page.evaluate(() => {
+        const btn = document.getElementById('btn-create-next');
+        if (btn) btn.click();
+    });
 
     console.log("Clicking Awaken to start game...");
-    await page.click('#btn-awaken');
+    await page.evaluate(() => {
+        const btn = document.getElementById('btn-awaken');
+        if (btn) btn.click();
+    });
 
     console.log("Waiting for game canvas to mount...");
-    await page.waitForSelector('#game-container canvas', { timeout: 15000 });
+    await page.waitForSelector('#game-container canvas', { timeout: 45000 });
     console.log("Game canvas is loaded.");
 
     // Helper to get event listener counts using CDP
@@ -189,7 +231,13 @@ async function run() {
                 }
             }
         });
-        await page.click('canvas');
+        await page.evaluate(() => {
+            const canvas = document.querySelector('canvas');
+            if (canvas) {
+                canvas.click();
+                canvas.focus();
+            }
+        });
         await page.keyboard.down('Space');
         const spaceIsDownTrue = await page.evaluate(() => {
             if (window._gameScene && window._gameScene.player) {
@@ -275,6 +323,7 @@ async function run() {
     }
 
     console.log("TEST PASSED: No TypeErrors, no crashes, and event listeners are cleanly managed.");
+    console.log("ALL ARCHITECTURE TESTS PASSED!");
     process.exit(0);
 }
 

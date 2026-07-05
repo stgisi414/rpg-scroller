@@ -108,12 +108,16 @@ class HUDManager {
         const mpBar = this.scene.hudElements.mpFill ? this.scene.hudElements.mpFill.closest('.relative') : null;
         const spBar = this.scene.hudElements.spFill ? this.scene.hudElements.spFill.closest('.relative') : null;
         
-        if (classId === 'wizard' || classId === 'elven_spellblade' || classId === 'elven_spellblade_rival') {
-            // Magic/Spellblade classes: show MP, hide SP
+        if (classId.startsWith('wizard') || 
+            classId.startsWith('elven_spellblade') || 
+            classId.startsWith('pyromancer') || 
+            classId.startsWith('priest') || 
+            classId.startsWith('witch')) {
+            // Magic/Spellblade/Priest/Witch/Pyromancer classes: show MP, hide SP
             if (mpBar) mpBar.style.display = '';
             if (spBar) spBar.style.display = 'none';
         } else {
-            // Melee classes: show SP, hide MP
+            // Melee/Physical classes: show SP, hide MP
             if (mpBar) mpBar.style.display = 'none';
             if (spBar) spBar.style.display = '';
         }
@@ -234,7 +238,7 @@ class HUDManager {
             pacifist: { selfPotionPct: 50, partyPotionPct: 70, spellRate: 20, dashFreq: 40, blockRate: 90, townFocus: 60, partyBuildFocus: 70, questFocus: 80, heroPersonality: "A passive traveler focusing on block defense and healing party members rather than fighting." },
             merchant_trader: { selfPotionPct: 40, partyPotionPct: 40, spellRate: 40, dashFreq: 30, blockRate: 50, townFocus: 95, partyBuildFocus: 80, questFocus: 10, heroPersonality: "A profit-minded merchant trader. Values gold above glory, seeks out trade cargo in towns, and is obsessed with market arbitrage." },
             caravan_bodyguard: { selfPotionPct: 50, partyPotionPct: 85, spellRate: 80, dashFreq: 50, blockRate: 70, townFocus: 30, partyBuildFocus: 90, questFocus: 90, heroPersonality: "A stout caravan bodyguard. Sworn to defend the pack mules and party from wilderness threats. Prioritizes healing allies and blocking enemy attacks." },
-            faction_politician: { selfPotionPct: 35, partyPotionPct: 35, spellRate: 60, dashFreq: 40, blockRate: 40, townFocus: 70, partyBuildFocus: 40, questFocus: 95, heroPersonality: "A diplomat and faction politician. Highly immersed in the local lore. Focuses on completing court contracts and espionage missions." },
+            faction_politician: { selfPotionPct: 35, partyPotionPct: 35, spellRate: 60, dashFreq: 40, blockRate: 40, townFocus: 70, partyBuildFocus: 40, questFocus: 95, heroPersonality: "A silver-tongued diplomat and faction politician, deeply versed in local lore and courtly etiquette. Always bows to rulers and asks them for court contracts — espionage, diplomacy, or intelligence work — and weaves faction standings into conversation." },
             high_roller: { selfPotionPct: 45, partyPotionPct: 40, spellRate: 50, dashFreq: 80, blockRate: 30, townFocus: 80, partyBuildFocus: 50, questFocus: 20, heroPersonality: "A wealthy traveler. Disdains long, muddy roads; prefers fast traveling using town portal networks and pays transit taxes without batting an eye." }
         };
 
@@ -545,6 +549,10 @@ class HUDManager {
                 this.scene.player.saveGame();
             }
         }
+    }
+
+    inspectPartyMember(index) {
+        window.HUDCharacterSheet.inspectPartyMember(this, index);
     }
 
     startPartyChat(index) {

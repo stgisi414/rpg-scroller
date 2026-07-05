@@ -2,6 +2,10 @@
 
 const NPCController_Helper = {
     openChat(isIntro = false) {
+        if (this.scene && this.scene.isCutscene) {
+            console.warn("NPCController: Cannot open chat during a cutscene.");
+            return;
+        }
         this.isChatOpen = true;
         this.isIntroCutscene = isIntro;
         this.player.isTalking = true;
@@ -63,7 +67,13 @@ const NPCController_Helper = {
                     'pray': 'Pray (Heal + Bless)',
                     'study': 'Study Riddles',
                     'train': 'Train (Fight)',
-                    'arena': 'Fight in Arena'
+                    'arena': 'Fight in Arena',
+                    'recruit_warrior': 'Recruit Warrior',
+                    'recruit_mage': 'Recruit Mage',
+                    'recruit_priest': 'Recruit Priest',
+                    'recruit_ranger': 'Recruit Ranger',
+                    'recruit_spellblade': 'Recruit Spellblade',
+                    'recruit_witch': 'Recruit Witch'
                 };
                 this.chatActivityBtn.innerText = actionNames[this.indoorAction] || 'Activity';
                 this.chatActivityBtn.style.display = 'inline-block';
@@ -124,7 +134,13 @@ const NPCController_Helper = {
             'brew': "The player wants to brew a free potion. Roleplay asking them to help by stirring the cauldron clockwise, whispering a magical phrase, or regulating the heat. If they describe helping successfully in their reply, end your next message with the exact string [ACTION_SUCCESS].",
             'contracts': "The player wants to check the bounty board. Roleplay presenting a small bounty and asking them how they plan to defeat the target. If their plan is good, end your next message with the exact string [ACTION_SUCCESS].",
             'pray': "The player wants to pray for a blessing. Roleplay asking them to chant a short holy phrase or make an offering. If they do, end your next message with the exact string [ACTION_SUCCESS].",
-            'study': "The player wants to study in the library. Roleplay giving them a short riddle. If they answer correctly, end your next message with the exact string [ACTION_SUCCESS]."
+            'study': "The player wants to study in the library. Roleplay giving them a short riddle. If they answer correctly, end your next message with the exact string [ACTION_SUCCESS].",
+            'recruit_warrior': "The player wants to recruit a warrior companion. Introduce yourself and ask if they wish to hire a Knight (100 gold) or a Samurai (150 gold) for their party. Ask them to explain why they deserve their loyalty or what battles they will face. Assess their reply. If they choose Knight and reply well, end your response with [ACTION_SUCCESS:knight]. If they choose Samurai and reply well, end your response with [ACTION_SUCCESS:samurai].",
+            'recruit_mage': "The player wants to recruit a spellcaster companion. Introduce yourself and ask if they wish to hire a Wizard (150 gold) or a Pyromancer (200 gold) for their party. Ask them to describe how they will employ the arcane arts. Assess their reply. If they choose Wizard and reply well, end your response with [ACTION_SUCCESS:wizard]. If they choose Pyromancer and reply well, end your response with [ACTION_SUCCESS:pyromancer].",
+            'recruit_priest': "The player wants to recruit a holy Priest. Ask them to make a temple donation of 150 gold or demonstrate high holy virtues (Good Alignment >= 30). Ask them how they will honor the light. Assess their reply. If they reply well, end your response with [ACTION_SUCCESS:priest].",
+            'recruit_ranger': "The player wants to recruit a wilderness Ranger. Ask them to pay 120 gold or demonstrate deep connection to nature (Good Alignment >= 20). Ask them how they will protect the wildlands. Assess their reply. If they reply well, end your response with [ACTION_SUCCESS:ranger].",
+            'recruit_spellblade': "The player wants to recruit an Elven Spellblade. Ask them to pay 180 gold or show high elven faction trust (Good Alignment >= 40). Ask them to pledge their sword to the light. Assess their reply. If they reply well, end your response with [ACTION_SUCCESS:elven_spellblade].",
+            'recruit_witch': "The player wants to recruit a dark Witch. Ask them to make a dark sacrifice of 200 gold or prove their chaotic/evil nature (Negative Alignment <= -30). Ask them to embrace the shadows. Assess their reply. If they reply well, end your response with [ACTION_SUCCESS:witch]."
         };
 
         let prompt = prompts[this.indoorAction];
@@ -184,6 +200,9 @@ const NPCController_Helper = {
                 
                 this.pendingQuestTargetName = rescueeName;
                 this.pendingQuestTargetClass = rescueeClass;
+                this.pendingQuestName = rescueeName;
+                this.pendingQuestZone = targetZoneIdx;
+                this.pendingQuestGender = Math.random() < 0.5 ? 'male' : 'female';
 
                 prompt += `\n*The contract requires rescuing a captive ally named ${rescueeName} (a ${rescueeClass}) who is held captive in Zone ${targetZoneIdx}. Describe this rescue bounty. Ask them for their plan.*`;
             } else {
@@ -220,6 +239,8 @@ const NPCController_Helper = {
                 }
                 
                 this.pendingQuestTargetNPC = targetNPC;
+                this.pendingQuestItem = "Trade Documents";
+                this.pendingQuestZone = targetZoneIdx;
 
                 prompt += `\n*The contract is a critical delivery. The player must carry trade documents to ${targetNPC} in the capital of ${kingdomName} (Zone ${targetZoneIdx}). Explain that they must protect the documents at all costs. Ask them if they accept this responsibility.*`;
             }
@@ -230,6 +251,25 @@ const NPCController_Helper = {
         this.chatActivityBtn.disabled = true;
 
         this.activeActivity = this.indoorAction;
+
+        const hints = {
+            'rest': "Tell the innkeeper a short story/adventure about your travels to successfully rest.",
+            'forge': "Describe helping the blacksmith pump the bellows or strike the hot iron to upgrade your weapon.",
+            'brew': "Describe stirring the cauldron, regulating the heat, or chanting a magic phrase to brew a potion.",
+            'contracts': "Explain your combat plan to defeat the bounty target to accept the quest.",
+            'pray': "Chant a short holy phrase or describe making an offering to receive a blessing.",
+            'study': "Answer the riddle correctly to complete your library study session.",
+            'recruit_warrior': "Choose between Knight (100g) or Samurai (150g) and explain why you deserve their loyalty.",
+            'recruit_mage': "Choose between Wizard (150g) or Pyromancer (200g) and explain how you will use magic.",
+            'recruit_priest': "Donate 150 gold or have Good Alignment >= 30, and explain how you will honor the light.",
+            'recruit_ranger': "Pay 120 gold or have Good Alignment >= 20, and explain how you will protect the wildlands.",
+            'recruit_spellblade': "Pay 180 gold or have Good Alignment >= 40, and explain how you will pledge your blade.",
+            'recruit_witch': "Pay 200 gold or have Evil Alignment <= -30, and explain how you will embrace the dark.",
+        };
+        const hint = hints[this.indoorAction];
+        if (hint) {
+            this.addMessageToUI("System", `<span style="color:#ffaa00; font-weight:bold;">Activity Hint: ${hint}</span>`);
+        }
 
         this.triggerHiddenPrompt(prompt, this.npcName);
     },
@@ -285,14 +325,15 @@ const NPCController_Helper = {
             if (loadingElement) loadingElement.remove();
 
             // Strip action tags from shown chat speech
-            let cleanResponse = response.response.replace('[ACTION_SUCCESS]', '').trim();
+            let cleanResponse = response.response.replace(/\[ACTION_SUCCESS(?::\w+)?\]/g, '').trim();
             this.addMessageToUI(this.npcName, cleanResponse);
             this.chatHistory.push({ sender: this.npcName, text: cleanResponse });
 
             // 5. Handle Action Success
-            if (this.activeActivity && response.response.includes('[ACTION_SUCCESS]')) {
+            const successMatch = response.response.match(/\[ACTION_SUCCESS(?::(\w+))?\]/);
+            if (this.activeActivity && successMatch) {
                 this.activeActivity = null;
-                this.executeActivityEffect();
+                this.executeActivityEffect(successMatch[1] || null);
             }
 
             // Apply Social shifts
@@ -411,8 +452,10 @@ const NPCController_Helper = {
         
         const action = match[1].trim().toLowerCase();
         
-        // Give gold: *give 500 gold* or *give gold 500*
-        const giveGoldMatch = action.match(/give\s+(\d+)\s*gold/) || action.match(/give\s+gold\s+(\d+)/);
+        // Give gold: *give 500 gold* or *give gold 500* or *give the archmage 200 gold*
+        const giveGoldMatch = action.match(/give\s+(?:.*\s+)?(\d+)\s*gold/i) || 
+                              action.match(/give\s+gold\s+(\d+)/i) || 
+                              action.match(/give\s+(?:.*\s+)?gold\s+(\d+)/i);
         if (giveGoldMatch) {
             const amount = parseInt(giveGoldMatch[1]);
             const currentGold = (saveData && typeof saveData.gold === 'number') ? saveData.gold : (this.player.gold || 0);
@@ -433,17 +476,96 @@ const NPCController_Helper = {
         
         // Give item: *give [item name]*
         const giveItemMatch = action.match(/^give\s+(.+)$/);
-        if (giveItemMatch && !giveGoldMatch) {
+        if (giveItemMatch) {
             const itemName = giveItemMatch[1].trim();
-            const inventory = this.player.inventory || [];
-            const itemIdx = inventory.findIndex(i => (i.name || '').toLowerCase().includes(itemName));
-            if (itemIdx === -1) {
+            
+            // Gather all giveable items from the inventory object
+            const giveableItems = [];
+            const inv = this.player.inventory || {};
+            
+            // 1. Equipped Weapon
+            if (inv.weapon) {
+                giveableItems.push({
+                    type: 'weapon',
+                    name: inv.weapon.name,
+                    ref: inv.weapon
+                });
+            }
+            
+            // 2. Cargo
+            if (Array.isArray(inv.cargo)) {
+                inv.cargo.forEach(c => {
+                    giveableItems.push({
+                        type: 'cargo',
+                        name: c.name,
+                        ref: c
+                    });
+                });
+            }
+            
+            // 3. Potion/Food Lists
+            const lists = [
+                { key: 'potionList', name: 'Health Potion' },
+                { key: 'mpPotionList', name: 'Mana Potion' },
+                { key: 'spPotionList', name: 'Stamina Potion' },
+                { key: 'meatList', name: 'Boar Meat' },
+                { key: 'miscPotionList', name: 'Utility Potion' }
+            ];
+            
+            lists.forEach(listInfo => {
+                const list = inv[listInfo.key];
+                if (Array.isArray(list) && list.length > 0) {
+                    const topItem = list[list.length - 1];
+                    giveableItems.push({
+                        type: 'list_item',
+                        listKey: listInfo.key,
+                        name: topItem.name,
+                        ref: topItem
+                    });
+                }
+            });
+            
+            // Find match (bidirectional name inclusion for natural roleplay phrasing)
+            const matchItem = giveableItems.find(i => {
+                const itemLabel = (i.name || '').toLowerCase();
+                return itemLabel.includes(itemName) || itemName.includes(itemLabel);
+            });
+            
+            if (!matchItem) {
                 return { success: false, reason: `You don't have "${itemName}" in your inventory.` };
             }
-            const item = inventory.splice(itemIdx, 1)[0];
+            
+            // Remove item from inventory
+            if (matchItem.type === 'weapon') {
+                inv.weapon = null;
+                this.player.recalculateStats();
+            } else if (matchItem.type === 'cargo') {
+                inv.cargo = inv.cargo.filter(c => c !== matchItem.ref);
+            } else if (matchItem.type === 'list_item') {
+                const list = inv[matchItem.listKey];
+                const idx = list.indexOf(matchItem.ref);
+                if (idx !== -1) {
+                    list.splice(idx, 1);
+                }
+                
+                // Adjust fast counters
+                if (matchItem.listKey === 'potionList') inv.potions = Math.max(0, (inv.potions || 0) - 1);
+                else if (matchItem.listKey === 'mpPotionList') inv.mpPotions = Math.max(0, (inv.mpPotions || 0) - 1);
+                else if (matchItem.listKey === 'spPotionList') inv.spPotions = Math.max(0, (inv.spPotions || 0) - 1);
+                else if (matchItem.listKey === 'meatList') inv.meat = Math.max(0, (inv.meat || 0) - 1);
+                else if (matchItem.listKey === 'miscPotionList') inv.miscPotions = Math.max(0, (inv.miscPotions || 0) - 1);
+            }
+            
+            if (this.player.inventoryManager) {
+                this.player.inventoryManager.updateInventoryUI();
+            }
+            if (this.scene && this.scene.updateHUD) {
+                this.scene.updateHUD();
+            }
+            
             return {
                 success: true,
-                contextNote: `[PLAYER ACTION]: *${match[1]}*\n(The player handed you their "${item.name}". React based on the item's value and your persona. Consider a socialShift bonus.)`
+                contextNote: `[PLAYER ACTION]: *${match[1]}*\n(The player handed you their "${matchItem.name}". React based on the item's value and your persona. Consider a socialShift bonus.)`
             };
         }
         

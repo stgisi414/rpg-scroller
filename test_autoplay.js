@@ -166,6 +166,9 @@ async function setupInstance(presetName) {
         }
     });
 
+    console.log(`[${presetName}] Clicking Next Step...`);
+    await clickElement(page, '#btn-create-next');
+
     console.log(`[${presetName}] Clicking Awaken to start game...`);
     await clickElement(page, '#btn-awaken');
 

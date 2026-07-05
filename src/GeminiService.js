@@ -1140,4 +1140,215 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             return { personality: currentPersonality || `A level ${state.player.level} ${state.player.class} seeking fortune in the realm.` };
         }
     }
+
+    async generateOmniVideoOnTheFly(category, promptText, screenshotBase64, portraitLeftBase64 = null, portraitRightBase64 = null) {
+        if (!this.apiKey) {
+            console.warn("GeminiService: No API key for on-the-fly video generation.");
+            return null;
+        }
+        
+        console.log(`[GeminiService] Initiating on-the-fly video generation for category: '${category}'`);
+        
+        // Clean base64 strings to get raw bytes
+        const cleanBase64 = (b64) => {
+            if (!b64) return null;
+            return b64.replace(/^data:image\/\w+;base64,/, "");
+        };
+
+        const imgBytes = cleanBase64(screenshotBase64);
+        const pLeftBytes = cleanBase64(portraitLeftBase64);
+        const pRightBytes = cleanBase64(portraitRightBase64);
+
+        const inputParts = [];
+        
+        // Add the screenshot reference
+        if (imgBytes) {
+            inputParts.push({
+                type: "image",
+                data: imgBytes,
+                mime_type: "image/png"
+            });
+        }
+        // Add left character portrait reference
+        if (pLeftBytes) {
+            inputParts.push({
+                type: "image",
+                data: pLeftBytes,
+                mime_type: "image/png"
+            });
+        }
+        // Add right character portrait reference
+        if (pRightBytes) {
+            inputParts.push({
+                type: "image",
+                data: pRightBytes,
+                mime_type: "image/png"
+            });
+        }
+        
+        // Add the prompt instruction
+        inputParts.push({
+            type: "text",
+            text: promptText
+        });
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${this.apiKey}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "gemini-omni-flash-preview",
+                    input: inputParts,
+                    response_modalities: ["video"]
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API returned error status ${response.status}: ${errText}`);
+            }
+
+            const data = await response.json();
+            console.log("[GeminiService] Omni API response data:", JSON.stringify(data, null, 2));
+
+            // Helper to recursively look for any base64-like video data in the response structure
+            const findVideoInObject = (obj, path = "") => {
+                if (!obj || typeof obj !== 'object') return null;
+                
+                // Check direct fields (support both camelCase and snake_case)
+                if (obj.outputVideo && obj.outputVideo.data) return `data:video/mp4;base64,${obj.outputVideo.data}`;
+                if (obj.output_video && obj.output_video.data) return `data:video/mp4;base64,${obj.output_video.data}`;
+                if (obj.outputVideo && obj.outputVideo.bytes) return `data:video/mp4;base64,${obj.outputVideo.bytes}`;
+                if (obj.output_video && obj.output_video.bytes) return `data:video/mp4;base64,${obj.output_video.bytes}`;
+                
+                if (obj.inlineData && obj.inlineData.mimeType && obj.inlineData.mimeType.startsWith('video/')) {
+                    return `data:${obj.inlineData.mimeType};base64,${obj.inlineData.data}`;
+                }
+                if (obj.inline_data && obj.inline_data.mime_type && obj.inline_data.mime_type.startsWith('video/')) {
+                    return `data:${obj.inline_data.mime_type};base64,${obj.inline_data.data}`;
+                }
+                
+                // Recurse into children
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                        const currentPath = path ? `${path}.${key}` : key;
+                        const val = obj[key];
+                        
+                        // Exclude keys containing signature or id to prevent false positives
+                        const lowerKey = key.toLowerCase();
+                        if (lowerKey.includes("signature") || lowerKey === "id") {
+                            continue;
+                        }
+                        
+                        // Check if this string is a base64 video payload
+                        if (typeof val === 'string' && val.length > 5000) {
+                            const isBase64 = /^[A-Za-z0-9+/=\s\n]+$/.test(val.substring(0, 100).trim());
+                            if (isBase64) {
+                                console.log(`[GeminiService] Found base64 string payload at path: ${currentPath} (length: ${val.length})`);
+                                let mime = "video/mp4";
+                                if (currentPath.toLowerCase().includes("gif")) mime = "image/gif";
+                                return `data:${mime};base64,${val.replace(/\s/g, '')}`;
+                            }
+                        }
+                        
+                        if (val && typeof val === 'object') {
+                            const result = findVideoInObject(val, currentPath);
+                            if (result) return result;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            // Check for long-running operation name
+            if (data && data.name) {
+                console.log(`[GeminiService] Video generation job started: ${data.name}. Polling status...`);
+                return await this.pollVideoGenerationJob(data.name);
+            }
+
+            const videoSrc = findVideoInObject(data);
+            if (videoSrc) return videoSrc;
+
+            throw new Error("No video data returned in Omni response.");
+        } catch (err) {
+            console.error("[GeminiService] Failed to generate video on-the-fly:", err);
+            return null;
+        }
+    }
+
+    async pollVideoGenerationJob(operationName) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${this.apiKey}`;
+        const maxRetries = 20;
+        const delayMs = 3000;
+
+        // Recursive helper also accessible inside polling
+        const findVideoInObject = (obj, path = "") => {
+            if (!obj || typeof obj !== 'object') return null;
+            if (obj.outputVideo && obj.outputVideo.data) return `data:video/mp4;base64,${obj.outputVideo.data}`;
+            if (obj.output_video && obj.output_video.data) return `data:video/mp4;base64,${obj.output_video.data}`;
+            if (obj.outputVideo && obj.outputVideo.bytes) return `data:video/mp4;base64,${obj.outputVideo.bytes}`;
+            if (obj.output_video && obj.output_video.bytes) return `data:video/mp4;base64,${obj.output_video.bytes}`;
+            if (obj.inlineData && obj.inlineData.mimeType && obj.inlineData.mimeType.startsWith('video/')) {
+                return `data:${obj.inlineData.mimeType};base64,${obj.inlineData.data}`;
+            }
+            if (obj.inline_data && obj.inline_data.mime_type && obj.inline_data.mime_type.startsWith('video/')) {
+                return `data:${obj.inline_data.mime_type};base64,${obj.inline_data.data}`;
+            }
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    const currentPath = path ? `${path}.${key}` : key;
+                    const val = obj[key];
+                    
+                    // Exclude signature and id keys
+                    const lowerKey = key.toLowerCase();
+                    if (lowerKey.includes("signature") || lowerKey === "id") {
+                        continue;
+                    }
+                    
+                    if (typeof val === 'string' && val.length > 5000) {
+                        const isBase64 = /^[A-Za-z0-9+/=\s\n]+$/.test(val.substring(0, 100).trim());
+                        if (isBase64) {
+                            console.log(`[GeminiService] Found base64 string payload at path: ${currentPath} (length: ${val.length})`);
+                            let mime = "video/mp4";
+                            if (currentPath.toLowerCase().includes("gif")) mime = "image/gif";
+                            return `data:${mime};base64,${val.replace(/\s/g, '')}`;
+                        }
+                    }
+                    if (val && typeof val === 'object') {
+                        const result = findVideoInObject(val, currentPath);
+                        if (result) return result;
+                    }
+                }
+            }
+            return null;
+        };
+
+        for (let i = 0; i < maxRetries; i++) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Failed to poll status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log(`[GeminiService] Polled operation ${operationName} data:`, JSON.stringify(data, null, 2));
+                if (data.done) {
+                    if (data.error) {
+                         throw new Error(`Operation failed: ${data.error.message}`);
+                    }
+                    const videoSrc = findVideoInObject(data.response);
+                    if (videoSrc) return videoSrc;
+                    throw new Error("Operation completed but no video data was found.");
+                }
+                console.log(`[GeminiService] Polling LRO ${operationName} (attempt ${i + 1}/${maxRetries}): not done yet...`);
+            } catch (err) {
+                console.warn("[GeminiService] Error polling operation status:", err);
+            }
+        }
+        throw new Error("Timed out waiting for video generation operation to complete.");
+    }
 }

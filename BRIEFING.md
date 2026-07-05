@@ -1,4 +1,4 @@
-# BRIEFING — 2026-06-30T20:17:50Z
+# BRIEFING — 2026-06-30T21:44:00Z
 
 ## Mission
 Implement the second round of victory fixes for the RPG-Scroller game, ensuring autoplay persists, button states update dynamically, helper NPC actions include indoor context, resolving angel statue interaction conflicts, and ensuring horizontal 1D distance comparisons and interact cooldowns are in place.
@@ -17,7 +17,7 @@ Implement the second round of victory fixes for the RPG-Scroller game, ensuring 
 
 ## Current Parent
 - Conversation ID: e27b0885-38b4-467c-abff-9f78a0a21bef
-- Updated: 2026-06-30T20:13:05Z
+- Updated: 2026-06-30T21:40:27Z
 
 ## Task Summary
 - **What to build**: 
@@ -27,19 +27,24 @@ Implement the second round of victory fixes for the RPG-Scroller game, ensuring 
   4. CompanionAI_Helper.js angel statue interaction threshold reduction (`dist > 10`) and chat closing condition check when outdoors.
   5. GameScene.js 1D (horizontal) distance comparison for angel statue vs nearby NPCs.
   6. CompanionAI_Helper.js interaction cooldown (4s chat closed, 2s interact press) for angel statue interaction.
+  7. NPCController_Helper.js set pending quest target properties for rescue & delivery.
+  8. CompanionAI_Helper.js hero chat submit button disabled race condition fix.
+  9. CompanionAI_Helper.js wantsToAdventure setting disabled indoors.
+  10. WorldManager.js zoneIndex undefined ReferenceError fix.
+  11. GameScene.js infinite rebirth loop fix for abyss falls when isCutscene is true.
 - **Success criteria**: All tests pass cleanly (`test_mechanics.js`, `test_logic_constraints.js`, `test_autoplay.js`).
 - **Interface contracts**: Source code.
 - **Code layout**: Source in `src/`, tests in root.
 
 ## Change Tracker
 - **Files modified**:
-  - `src/npc/NPCController_Helper.js` — Updated getNpcResponse calls to pass `this.indoorAction || ''` as the fifth argument.
+  - `src/npc/NPCController_Helper.js` — Updated getNpcResponse calls to pass `this.indoorAction || ''` as the fifth argument, and set pending quest properties.
   - `src/PlayerController.js` — Checked `window.autoplayConfig` in constructor to persist `isAI` across restarts.
   - `src/scene_modules/HUDManager.js` — Dynamically styled Auto-Play button and updated `window.autoplayConfig.isActive` on click.
-  - `src/player/CompanionAI_Helper.js` — Reduced angel statue walk distance threshold to `dist > 10`, adjusted chat closing logic, and added interaction cooldown checks.
-  - `src/scenes/GameScene.js` — Implemented 1D horizontal distance checking for angel statue vs NPCs.
-  - `src/NPCController.js` — User-updated with horizontal 1D distance calculations.
-- **Build status**: Pass (Mechanics, Logic Constraints, and 30s Autoplay tests passed).
+  - `src/player/CompanionAI_Helper.js` — Reduced angel statue walk distance threshold to `dist > 10`, adjusted chat closing logic, added interaction cooldown checks, fixed submitBtn disabled race condition, and disabled wantsToAdventure outdoors-only.
+  - `src/scenes/GameScene.js` — Implemented 1D horizontal distance checking for angel statue vs NPCs, and prevented infinite rebirth loops.
+  - `src/WorldManager.js` — Fixed zoneIndex ReferenceError by referencing `this.currentZoneIndex`.
+- **Build status**: Pass (Mechanics, Logic Constraints, and 5-minute Autoplay tests passed successfully).
 - **Pending issues**: None
 
 ## Quality Status
@@ -54,6 +59,7 @@ Implement the second round of victory fixes for the RPG-Scroller game, ensuring 
 - Synchronized `window.autoplayEnabled` with `this.scene.player.isAI` to retain maximum compatibility with GameScene.js checks.
 - Prevented chatbot lockout by closing external chats when wanting travel/guild hall and outdoors.
 - Replaced 2D distance checks for interactable priorities with 1D horizontal checks to prevent vertical-offset hijacks.
+- Added disabled checks to Autoplay hero chat to avoid locking the text entry submission.
 
 ## Artifact Index
 - None

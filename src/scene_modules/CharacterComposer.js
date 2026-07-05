@@ -106,7 +106,7 @@ class CharacterComposer {
         layers.forEach(layerKey => {
             if (!layerKey) return;
             if (scene.textures.exists(layerKey)) {
-                const img = scene.textures.get(layerKey).getSourceImage();
+                const img = CharacterComposer.getPatchedLayer(scene, layerKey);
                 if (img) {
                     ctx.drawImage(img, 0, 0);
                 }
@@ -390,7 +390,7 @@ class CharacterComposer {
         layers.forEach(layerKey => {
             if (!layerKey) return;
             if (scene.textures.exists(layerKey)) {
-                const img = scene.textures.get(layerKey).getSourceImage();
+                const img = CharacterComposer.getPatchedLayer(scene, layerKey);
                 if (img) {
                     ctx.drawImage(img, 0, 0);
                 }
@@ -711,7 +711,7 @@ class CharacterComposer {
         layers.forEach(layerKey => {
             if (!layerKey) return;
             if (scene.textures.exists(layerKey)) {
-                const img = scene.textures.get(layerKey).getSourceImage();
+                const img = CharacterComposer.getPatchedLayer(scene, layerKey);
                 if (img) {
                     ctx.drawImage(img, 0, 0);
                 }
@@ -984,7 +984,7 @@ class CharacterComposer {
             tempCtx.drawImage(skinImg, 0, 0);
             
             if (bootsKey && scene.textures.exists(bootsKey)) {
-                const bootsImg = scene.textures.get(bootsKey).getSourceImage();
+                const bootsImg = CharacterComposer.getPatchedLayer(scene, bootsKey);
                 if (bootsImg) {
                     tempCtx.drawImage(bootsImg, 0, 0);
                 }
@@ -1024,6 +1024,38 @@ class CharacterComposer {
         const absoluteFootY = origY + foundYY;
         const tunedFootY = absoluteFootY - tunedY;
         return Math.max(0, Math.min(tunedH - 1, tunedFootY));
+    }
+
+    static getPatchedLayer(scene, layerKey) {
+        if (!layerKey || !scene.textures.exists(layerKey)) return null;
+        const img = scene.textures.get(layerKey).getSourceImage();
+        if (!img) return null;
+
+        if (layerKey === 'npc_female_boots' || layerKey === 'npc_male_boots') {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 800;
+            tempCanvas.height = 448;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0);
+
+            if (layerKey === 'npc_female_boots') {
+                // Row 1 Col 5: copy Right Boot from Row 1 Col 1
+                tempCtx.drawImage(img, 190, 64, 10, 64, 590, 64, 10, 64);
+                // Row 2 Col 5: copy Right Boot from Row 2 Col 1
+                tempCtx.drawImage(img, 190, 128, 10, 64, 590, 128, 10, 64);
+                // Row 6 Col 1: copy Right Boot from Row 6 Col 2
+                tempCtx.drawImage(img, 280, 384, 10, 64, 180, 384, 10, 64);
+                // Row 6 Col 7: copy Left Boot from Row 6 Col 6
+                tempCtx.drawImage(img, 600, 384, 25, 64, 700, 384, 25, 64);
+            } else if (layerKey === 'npc_male_boots') {
+                // Row 6 Col 5: copy Right Boot from Row 6 Col 1
+                tempCtx.drawImage(img, 190, 384, 10, 64, 590, 384, 10, 64);
+                // Row 6 Col 7: copy Left Boot from Row 6 Col 6
+                tempCtx.drawImage(img, 600, 384, 25, 64, 700, 384, 25, 64);
+            }
+            return tempCanvas;
+        }
+        return img;
     }
 }
 

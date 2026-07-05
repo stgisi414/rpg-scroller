@@ -86,6 +86,12 @@ window.EnemyBehaviors = {
             this.sprite.setScale(0.6 * this.scaleMultiplier);
             this.sprite.setSize(30, 40);
             this.sprite.setOffset(49, 40);
+        } else if (this.type === 'flame_elemental') {
+            this.sprite.setScale(1.1 * this.scaleMultiplier);
+            this.sprite.setSize(40, 90);
+            this.sprite.setOffset(42, 1);
+            if (!window.npcFootData) window.npcFootData = {};
+            window.npcFootData['flame_elemental'] = Array(50).fill(91);
         } else if (this.type === 'giant') {
             this.sprite.setScale(2.0 * this.bossScaleMultiplier);
             this.sprite.setSize(50, 62);
@@ -423,6 +429,98 @@ window.EnemyBehaviors = {
             case "CHASE":
                 const enemyOnGround = this.sprite.body.touching.down || this.sprite.body.blocked.down;
                 
+                 if (this.type === 'flame_elemental') {
+                    const dir = isPlayerLeft ? -1 : 1;
+                    const dist = distanceX;
+                    const damage = Math.floor(25 * 2.5) * (this.damageMultiplier || 1.0); // 25 INT * 2.5 = 62 base dmg
+                    
+                    if (dist < 80) {
+                        // Melee Punch
+                        if (enemyOnGround) this.sprite.setVelocityX(0);
+                        this.sprite.setFlipX(shouldFlip);
+                        this.isAttacking = true;
+                        
+                        const animKey = `${this.textureKey}-attack`;
+                        this._playAnim(animKey);
+                        
+                        this.scene.time.delayedCall(300, () => {
+                            if (!this.sprite || !this.sprite.active || this.isDead) return;
+                            if (Math.abs(this.player.sprite.x - this.sprite.x) <= 85 && this.checkCombatYRange()) {
+                                this.player.takeDamage(damage, dir);
+                                if (this.player.applyStatusEffect) {
+                                    this.player.applyStatusEffect('burn', 5000, 10);
+                                }
+                            }
+                        });
+                        this.sprite.off('animationcomplete-' + animKey);
+                        this.sprite.once('animationcomplete-' + animKey, () => {
+                            if (this.sprite && this.sprite.active) {
+                                this.isAttacking = false;
+                                this._playAnim(`${this.textureKey}-idle`);
+                            }
+                        });
+                    } else if (dist <= 300) {
+                        // Ranged Fireball (with a 15% random chance per frame to attack so it doesn't machine-gun fireballs!)
+                        if (Math.random() < 0.15) {
+                            if (enemyOnGround) this.sprite.setVelocityX(0);
+                            this.sprite.setFlipX(shouldFlip);
+                            this.isAttacking = true;
+                            
+                            const animKey = `${this.textureKey}-attack2`;
+                            this._playAnim(animKey);
+                            
+                            this.scene.time.delayedCall(200, () => {
+                                if (!this.sprite || !this.sprite.active || this.isDead) return;
+                                const p = this.scene.physics.add.sprite(this.sprite.x + (dir * 30), this.sprite.y - 10, 'projectile_blue');
+                                p.body.setAllowGravity(false);
+                                p.setScale(0.75);
+                                p.setTint(0xff3300); // red-orange fireball tint
+                                p.setVelocity(dir * 500, 0);
+                                if (dir === -1) p.setFlipX(true);
+
+                                if (this.scene.anims.exists('projectile_blue_anim')) {
+                                    p.play('projectile_blue_anim');
+                                }
+
+                                const overlap = this.scene.physics.add.overlap(p, this.player.sprite, (proj, playerSprite) => {
+                                    proj.destroy();
+                                    if (!this.player.isDead) {
+                                        this.player.takeDamage(damage, dir);
+                                        if (this.player.applyStatusEffect) {
+                                            this.player.applyStatusEffect('burn', 5000, 10);
+                                        }
+                                    }
+                                });
+                                
+                                this.scene.time.delayedCall(2000, () => {
+                                    if (p && p.active) p.destroy();
+                                });
+                            });
+
+                            this.sprite.off('animationcomplete-' + animKey);
+                            this.sprite.once('animationcomplete-' + animKey, () => {
+                                if (this.sprite && this.sprite.active) {
+                                    this.isAttacking = false;
+                                    this._playAnim(`${this.textureKey}-idle`);
+                                }
+                            });
+                        } else {
+                            // Walk towards the player to close distance
+                            const moveDir = isPlayerLeft ? -1 : 1;
+                            this.sprite.setVelocityX(moveDir * this.speed);
+                            this.sprite.setFlipX(shouldFlip);
+                            this._playAnim(`${this.textureKey}-move`);
+                        }
+                    } else {
+                        // Walk towards the player to close distance (from far away)
+                        const moveDir = isPlayerLeft ? -1 : 1;
+                        this.sprite.setVelocityX(moveDir * this.speed);
+                        this.sprite.setFlipX(shouldFlip);
+                        this._playAnim(`${this.textureKey}-move`);
+                    }
+                    break;
+                }
+
                 // Special Boss Attack Logic
                 if (this.type === 'dwarf_king' || this.type === 'dwarf_king_rival') {
                     if (enemyOnGround) this.sprite.setVelocityX(0);

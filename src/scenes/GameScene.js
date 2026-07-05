@@ -18,6 +18,29 @@ class GameScene extends Phaser.Scene {
 
     create() {
         window._gameScene = this; // Expose for debug toggle button
+        window.replayIntro = () => {
+            if (window.saveData && window.saveData.visitedCapitals) {
+                delete window.saveData.visitedCapitals[0];
+            }
+            const currentZoneIdx = 0;
+            const kingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdx) : null;
+            const rulingFactionId = kingdom ? kingdom.rulingFaction : null;
+            const factionName = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].name : "the Local Ruler";
+            const leaderObj = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].leader : null;
+            const leaderName = leaderObj ? `${leaderObj.title} ${leaderObj.name}` : "the Sovereign";
+            
+            const context = {
+                kingdomName: kingdom ? kingdom.name : 'this region',
+                leaderName: leaderName,
+                factionName: factionName,
+                playerName: (this.player && this.player.name) ? this.player.name : "traveler"
+            };
+            
+            if (this.cutsceneController) {
+                this.cutsceneController.playCutscene('town_entrance', context);
+                console.log("[DEBUG] Triggered replay of town_entrance cutscene.");
+            }
+        };
         this.isSceneDestroyed = false;
         this.events.on('shutdown', this.cleanupScene, this);
         this.events.on('destroy', this.cleanupScene, this);
@@ -157,15 +180,27 @@ class GameScene extends Phaser.Scene {
                 // Wait briefly for physics to settle and sprites to spawn
                 this.time.delayedCall(500, () => {
                     const sage = this.npcs.find(n => n.npcName === "Elara the Sage");
-                    if (sage) {
-                        this.player.sprite.x = sage.sprite.x - 60;
-                        sage.openChat(true); // true = isIntro
-                    } else {
-                        // Fallback if Sage is missing
-                        if (this.npcs.length > 0) {
-                            this.player.sprite.x = this.npcs[0].sprite.x - 60;
-                            this.npcs[0].openChat(true);
+                    const startIntroChat = () => {
+                        if (sage) {
+                            this.player.sprite.x = sage.sprite.x - 60;
+                            sage.openChat(true); // true = isIntro
+                        } else {
+                            // Fallback if Sage is missing
+                            if (this.npcs.length > 0) {
+                                this.player.sprite.x = this.npcs[0].sprite.x - 60;
+                                this.npcs[0].openChat(true);
+                            }
                         }
+                    };
+
+                    if (this.cutsceneController && this.isCutscene) {
+                        const originalOnComplete = this.cutsceneController.onCompleteCallback;
+                        this.cutsceneController.onCompleteCallback = () => {
+                            if (originalOnComplete) originalOnComplete();
+                            startIntroChat();
+                        };
+                    } else {
+                        startIntroChat();
                     }
                 });
             }
@@ -225,7 +260,8 @@ class GameScene extends Phaser.Scene {
                      npcName: memberData.npcName,
                      persona: memberData.persona,
                      camaraderie: memberData.camaraderie || 0,
-                     weaponType: memberData.weaponType || 'sword'
+                     weaponType: memberData.weaponType || 'sword',
+                     equippedWeapon: memberData.equippedWeapon || null
                  });
                 hero.hp = memberData.hp || hero.maxHp;
                 this.partyMembers.push(hero);
@@ -405,6 +441,10 @@ class GameScene extends Phaser.Scene {
     
     dismissPartyMember(index) {
         this.hudManager.dismissPartyMember(index);
+    }
+
+    inspectPartyMember(index) {
+        this.hudManager.inspectPartyMember(index);
     }
 
     startPartyChat(index) {
@@ -590,7 +630,7 @@ transitionZone(direction) {
             }
         });
         
-        if (this.player && this.player.sprite && this.player.sprite.y > 800 && this.player.hp > 0) {
+        if (!this.isCutscene && this.player && this.player.sprite && this.player.sprite.y > 800 && this.player.hp > 0) {
             console.error(`%c[DIAGNOSTIC] GameScene detected player below abyss! Y: ${this.player.sprite.y}. HP: ${this.player.hp}. Platforms count: ${this.platforms.getLength()}`, "color: #ff3333; font-weight: bold;");
             this.player.takeDamage(this.player.hp);
         }
@@ -984,8 +1024,8 @@ showFloatingText(x, y, message, color) {
         this.cutsceneController.cancelCutscene();
     }
 
-    playCutscene(lines, onComplete) {
-        this.cutsceneController.playCutscene(lines, onComplete);
+    playCutscene(linesOrCategory, contextOrOnComplete, onComplete) {
+        this.cutsceneController.playCutscene(linesOrCategory, contextOrOnComplete, onComplete);
     }
 
     grantRewards(xpEarned, goldEarned) {

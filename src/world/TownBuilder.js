@@ -378,15 +378,14 @@ window.TownBuilder = {
                 scene.guardWarningCutscenePlayed = true;
                 if (scene.cutsceneController) {
                     const reason = hostility.reason || "The King has ordered your arrest!";
-                    const dialogue = [
-                        {
-                            speaker: "King's Guard",
-                            portrait: 'knight_rival',
-                            side: 'left',
-                            text: `STOP RIGHT THERE, OUTLAW! ${reason} Defend yourself!`
-                        }
-                    ];
-                    scene.cutsceneController.playCutscene(dialogue);
+                    const context = {
+                        reason: reason,
+                        playerName: (scene.player && scene.player.name) ? scene.player.name : "Outlaw",
+                        factionName: (window.getFactionForZone && window.getFactionForZone(currentZoneIdx)) ? window.getFactionForZone(currentZoneIdx).name : "the ruling council",
+                        kingdomName: (window.getKingdomForZone && window.getKingdomForZone(currentZoneIdx)) ? window.getKingdomForZone(currentZoneIdx).name : "the kingdom",
+                        zoneName: "Town Entrance"
+                    };
+                    scene.cutsceneController.playCutscene('guard_warning', context);
                 }
             }
         } else {

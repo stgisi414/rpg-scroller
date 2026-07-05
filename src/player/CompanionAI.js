@@ -14,6 +14,10 @@ _getQuestTargetZone(player) {
     return CompanionAI_Helper._getQuestTargetZone.call(this, player);
 }
 
+_getIdealAutoplayZone(player) {
+    return CompanionAI_Helper._getIdealAutoplayZone.call(this, player);
+}
+
     updateAI(time, delta) {
         const player = this.player;
         if (!player.sprite || !player.sprite.active || !player.classData) {
@@ -24,6 +28,10 @@ _getQuestTargetZone(player) {
         const currentZoneIndex = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : 0;
         if (this._lastZoneIndex !== currentZoneIndex) {
             this._lastZoneIndex = currentZoneIndex;
+            // Per-town flags: merchant potion restock retries in each new town; a throne-room
+            // errand never carries across zones (thrones are re-evaluated per capital).
+            this._merchantPotionRestockDone = false;
+            this._wantsThroneRoom = false;
             if (player.scene.zoneType === 'Safe') {
                 this._wantsToAdventure = false;
                 this._wantsToTravel = false;
@@ -77,7 +85,17 @@ _getQuestTargetZone(player) {
         }
         
         if (player.isAI && player === p) {
-            this._handleMainHeroAutoPlay(time, delta);
+            // A throw inside town/shop/chat handling must not kill the whole AI tick —
+            // combat, movement, and stuck-escape logic below still have to run. Log loudly
+            // (throttled) so real bugs surface instead of silently freezing autoplay.
+            try {
+                this._handleMainHeroAutoPlay(time, delta);
+            } catch (err) {
+                if (!this._lastAutoPlayErrTime || time - this._lastAutoPlayErrTime > 5000) {
+                    this._lastAutoPlayErrTime = time;
+                    console.error('[AutoPlay] town-logic error (AI continues):', err);
+                }
+            }
         }
         
         let target = null;
@@ -273,6 +291,8 @@ _getQuestTargetZone(player) {
                         optimalDist = 65; // Account for wider body collision limits
                     } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
                         optimalDist = 60;
+                    } else if (player.classData.id === 'flame_elemental') {
+                        optimalDist = 100;
                     }
 
                     const battleState = {
@@ -328,6 +348,8 @@ _getQuestTargetZone(player) {
                             optimalDist = 65; // Account for wider body collision limits
                         } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
                             optimalDist = 60;
+                        } else if (player.classData.id === 'flame_elemental') {
+                            optimalDist = 100;
                         }
                         if (dist > optimalDist - 20) {
                             if (dx > 0) player.aiInput.right = true; else player.aiInput.left = true;
@@ -366,6 +388,8 @@ _getQuestTargetZone(player) {
                 optimalDist = 65; // Account for wider body collision limits
             } else if (player.classData.id && player.classData.id.startsWith('pyromancer')) {
                 optimalDist = 60;
+            } else if (player.classData.id === 'flame_elemental') {
+                optimalDist = 100;
             }
             if (player.isCargoCarrier) {
                 optimalDist = player.isCargoWagon ? 100 : 60;
@@ -459,6 +483,7 @@ _getQuestTargetZone(player) {
             const isEnemy = !player.isCargoCarrier && target && !target.isVirtual && target !== p.sprite && target !== player.sprite && (!player.scene.activeRescuee || target !== player.scene.activeRescuee.sprite);
             if (player.aiState === 'hostile' || isEnemy) {
                 let attackRange = optimalDist + 30;
+                if (player.classData.id === 'flame_elemental') attackRange = 300;
                 if (!isVirtual && target.type === 'spider') attackRange = optimalDist + 60;
 
                 // --- PART 2: SLIDER INTEGRATION (Spell Casting Frequency) ---

@@ -191,22 +191,16 @@ class WorldManager {
                 const leaderObj = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].leader : null;
                 const leaderName = leaderObj ? `${leaderObj.title} ${leaderObj.name}` : "the Sovereign";
                 
-                const dialogue = [
-                    {
-                        speaker: "Narrator",
-                        text: `You have entered the capital of ${kingdom ? kingdom.name : 'this region'} — a grand center of power and political intrigue.`
-                    },
-                    {
-                        speaker: `${kingdom ? kingdom.name : 'Capital'} Gatekeeper`,
-                        portrait: 'knight_rival',
-                        side: 'left',
-                        text: `Hold, traveler. State your business in our capital. ${leaderName} rules here, and the ${factionName} demands respect from all who walk these streets.`
-                    }
-                ];
+                const context = {
+                    kingdomName: kingdom ? kingdom.name : 'this region',
+                    leaderName: leaderName,
+                    factionName: factionName,
+                    playerName: (this.scene.player && this.scene.player.name) ? this.scene.player.name : "traveler"
+                };
                 
                 this.scene.time.delayedCall(500, () => {
                     if (this.scene.cutsceneController) {
-                        this.scene.cutsceneController.playCutscene(dialogue);
+                        this.scene.cutsceneController.playCutscene('town_entrance', context);
                     }
                 });
             }
@@ -861,15 +855,24 @@ class WorldManager {
                         displayName = `Rival ${capitalized}`;
                     }
                     
-                    const dialogue = [
-                        {
-                            speaker: displayName,
-                            portrait: rivalPortrait,
-                            side: 'left',
-                            text: immediateLine
-                        }
-                    ];
-                    this.scene.cutsceneController.playCutscene(dialogue, () => {});
+                    const currentZoneIdx = this.currentZoneIndex;
+                    const kingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdx) : null;
+                    const rulingFactionId = kingdom ? kingdom.rulingFaction : null;
+                    const leaderObj = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].leader : null;
+                    const leaderName = leaderObj ? `${leaderObj.title} ${leaderObj.name}` : "the Sovereign";
+                    const factionName = window.WORLD_FACTIONS[rivalFaction] ? window.WORLD_FACTIONS[rivalFaction].name : rivalFaction;
+                    const context = {
+                        kingdomName: kingdom ? kingdom.name : "the realm",
+                        leaderName: leaderName,
+                        factionName: factionName,
+                        rivalName: displayName,
+                        rivalClass: rivalClass,
+                        rivalPortrait: rivalPortrait,
+                        zoneName: zoneData.name || `Zone ${currentZoneIdx}`,
+                        reason: "infamy",
+                        playerName: (this.scene.player && this.scene.player.name) ? this.scene.player.name : "Adventurer"
+                    };
+                    this.scene.cutsceneController.playCutscene('rival_ambush', context, () => {});
                 }
 
                 // Also fire async Gemini request to potentially upgrade the cutscene with a better line (Phase 8)
@@ -924,7 +927,7 @@ class WorldManager {
             if (zoneData.type === 'Dangerous' && saveData && saveData.quests) {
                 const rescueQuest = saveData.quests.find(q => 
                     q.type === 'rescue' && 
-                    q.rescueeZone === zoneIndex && 
+                    q.rescueeZone === this.currentZoneIndex && 
                     q.rescueState === 'captive'
                 );
                 if (rescueQuest && typeof RescueeNPCFactory !== 'undefined' && typeof RescueeNPC !== 'undefined') {

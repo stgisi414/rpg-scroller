@@ -28,7 +28,7 @@ This document tracks upcoming features, modifications, and experimental suites f
   - [x] Configure matches: Human vs AI, AI vs AI, or Human vs Human.
 
 ## 4. Ambient NPC Combat Prowess (Active)
-- [/] Debug the ambient NPC party members' combat prowess to optimize their AI and effectiveness.
+- [x] Debug the ambient NPC party members' combat prowess to optimize their AI and effectiveness. (Completed via Companion Equipment and Inspection modal).
 
 ## 5. PixelLab Jump Animations (Future)
 - [ ] Add jump animations for all the PixelLab characters created so far.

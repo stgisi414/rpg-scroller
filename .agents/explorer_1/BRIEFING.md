@@ -1,7 +1,7 @@
-# BRIEFING — 2026-06-16T21:17:15Z
+# BRIEFING — 2026-06-30T22:40:56Z
 
 ## Mission
-Analyze the Elden Soul codebase to locate and document 5 specific architectural issues (async API race conditions, event listener memory leaks, save data reference loops, animation frame freezes, physics garbage collection).
+Explore the settings menu structure in index.html and settings logic in src/main.js (and other files) to identify how settings are displayed, closed, saved, cleared, and stored, and how to add a Traditional vs Omni Cutscene toggle that persists between sessions.
 
 ## 🔒 My Identity
 - Archetype: explorer
@@ -9,24 +9,25 @@ Analyze the Elden Soul codebase to locate and document 5 specific architectural 
 - Working directory: C:\Code2\rpg-scroller\.agents\explorer_1
 - Original parent: de78dca1-6b88-4842-bc20-59c7ca25e2c8
 - Milestone: codebase architecture audit
+- Parent (June 2026): d8ab3a5f-d2e6-41b0-b6d4-1c3ee393b277
 
 ## 🔒 Key Constraints
 - Read-only investigation — do NOT implement
 - Analyze issues and document them in handoff.md with exact filenames, line numbers, and snippets, along with clear recommended fix strategies.
+- Investigate settings menu structure in index.html and logic in src/main.js.
+- Determine settings storage mechanism and toggle addition details.
 
 ## Current Parent
-- Conversation ID: de78dca1-6b88-4842-bc20-59c7ca25e2c8
-- Updated: 2026-06-16T21:17:15Z
+- Conversation ID: d8ab3a5f-d2e6-41b0-b6d4-1c3ee393b277
+- Updated: 2026-06-30T22:40:56Z
 
 ## Investigation State
-- **Explored paths**: `src/GeminiService.js`, `src/NPCController.js`, `src/PlayerController.js`, `src/WorldManager.js`, `src/scenes/GameScene.js`, `src/main.js`, `src/InputManager.js`
-- **Key findings**: Located all 5 targeted architectural issues (API race conditions, listener leaks, save data mutation reference loops, generic animation completion freezes, and infinite falling enemy GC leaks) and documented them in `handoff.md`.
-- **Unexplored areas**: None.
+- **Explored paths**: [TBD]
+- **Key findings**: [TBD]
+- **Unexplored areas**: Settings display, close, save, clear logic; settings storage mechanism; adding cutscene setting toggle.
 
 ## Key Decisions Made
-- Performed detailed grep and view audit across all primary source files.
-- Documented findings using exact filenames, line numbers, and snippets.
-- Formulated specific code fix strategies for each issue.
+- Initiating investigation of index.html and src/main.js.
 
 ## Artifact Index
 - C:\Code2\rpg-scroller\.agents\explorer_1\handoff.md — Main findings and analysis handoff report

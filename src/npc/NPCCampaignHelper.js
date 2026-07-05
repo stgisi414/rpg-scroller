@@ -314,8 +314,44 @@ window.NPCCampaignHelper = {
         };
     },
 
-    executeActivityEffect(npc) {
+    executeActivityEffect(npc, targetParam = null) {
         npc.activeActivity = null;
+        
+        let rewardText = "";
+        const tryRecruit = (classId, cost, alignmentReq = null) => {
+            const party = npc.scene.partyMembers || [];
+            if (party.length >= 6) {
+                rewardText = "Party is full (max 6 members)!";
+                return;
+            }
+            const alignment = (saveData && saveData.alignment !== undefined) ? saveData.alignment : 0;
+            
+            // Check if alignment requirement is met for free recruitment
+            let meetsAlignment = false;
+            if (alignmentReq !== null) {
+                if (alignmentReq > 0 && alignment >= alignmentReq) meetsAlignment = true;
+                if (alignmentReq < 0 && alignment <= alignmentReq) meetsAlignment = true;
+            }
+            
+            const finalCost = meetsAlignment ? 0 : cost;
+            
+            if (saveData && typeof saveData.gold === 'number' && saveData.gold >= finalCost) {
+                saveData.gold -= finalCost;
+                if (npc.player) npc.player.gold = saveData.gold;
+                
+                // Spawn companion
+                if (npc.scene.spawnHeroAI) {
+                    const companionName = window.CharacterComposer ? window.CharacterComposer.generateRandomName(classId) : classId.toUpperCase();
+                    npc.scene.spawnHeroAI(classId, npc.player.sprite.x, npc.player.sprite.y, 'party', companionName);
+                }
+                
+                if (npc.scene && npc.scene.updateHUD) npc.scene.updateHUD();
+                npc.closeChat();
+                rewardText = `Recruited ${classId.toUpperCase()}!${finalCost > 0 ? ` -${finalCost}g` : ' (Alignment Bonus!)'}`;
+            } else {
+                rewardText = `Need ${finalCost}g to recruit ${classId.toUpperCase()}!`;
+            }
+        };
         if (npc.indoorAction === 'train') {
             if (!npc.scene.anims.exists('training_dummy-idle')) {
                 npc.scene.anims.create({ key: 'training_dummy-idle', frames: npc.scene.anims.generateFrameNumbers('training_dummy', { start: 0, end: 8 }), frameRate: 8, repeat: -1 });
@@ -349,7 +385,7 @@ window.NPCCampaignHelper = {
             return;
         }
 
-        let rewardText = "";
+        rewardText = "";
         switch (npc.indoorAction) {
             case 'rest':
                 npc.player.hp = npc.player.maxHp;
@@ -459,6 +495,36 @@ window.NPCCampaignHelper = {
                 }
                 if (npc.scene && npc.scene.updateHUD) npc.scene.updateHUD();
                 rewardText = "Temporary +1 INT Buff!";
+                break;
+            case 'recruit_warrior':
+                if (targetParam === 'knight') {
+                    tryRecruit('knight', 100);
+                } else if (targetParam === 'samurai') {
+                    tryRecruit('samurai', 150);
+                } else {
+                    rewardText = "Choose Knight or Samurai to recruit.";
+                }
+                break;
+            case 'recruit_mage':
+                if (targetParam === 'wizard') {
+                    tryRecruit('wizard', 150);
+                } else if (targetParam === 'pyromancer') {
+                    tryRecruit('pyromancer', 200);
+                } else {
+                    rewardText = "Choose Wizard or Pyromancer to recruit.";
+                }
+                break;
+            case 'recruit_priest':
+                tryRecruit('priest', 150, 30);
+                break;
+            case 'recruit_ranger':
+                tryRecruit('ranger', 120, 20);
+                break;
+            case 'recruit_spellblade':
+                tryRecruit('elven_spellblade', 180, 40);
+                break;
+            case 'recruit_witch':
+                tryRecruit('witch', 200, -30);
                 break;
         }
 

@@ -21,6 +21,7 @@ const shopManagerHelperCode = fs.readFileSync(path.join(srcDir, 'player', 'ShopM
 const spellControllerHelperCode = fs.readFileSync(path.join(srcDir, 'player', 'SpellController_Helper.js'), 'utf8');
 const playerControllerCode = fs.readFileSync(path.join(srcDir, 'PlayerController.js'), 'utf8');
 const enemyControllerCode = fs.readFileSync(path.join(srcDir, 'EnemyController.js'), 'utf8');
+const cutsceneControllerCode = fs.readFileSync(path.join(srcDir, 'scene_modules', 'CutsceneController.js'), 'utf8');
 
 // 1. Set up Sandbox Context
 const PhaserMock = {
@@ -82,6 +83,7 @@ function createMockElement(id) {
         focus: () => {},
         blur: () => {},
         click: function() { if (listeners['click']) { listeners['click'].forEach(cb => cb()); } else if (typeof this.onclick === 'function') { this.onclick(); } },
+        querySelectorAll: () => [],
         listeners,
         _removedCount: 0
     };
@@ -184,6 +186,8 @@ const windowMock = {
         idleRow: 0,
         idleFrames: 5
     },
+    addEventListener: () => {},
+    removeEventListener: () => {},
     localStorage: {
         getItem: () => '[]',
         setItem: () => {}
@@ -232,6 +236,8 @@ const sandbox = {
         warn: console.warn
     },
     setTimeout: setTimeout,
+    setInterval: setInterval,
+    clearInterval: clearInterval,
     Date: Date,
     Math: Math,
     NPCController: null,
@@ -280,6 +286,8 @@ try {
     sandbox.PlayerController = vm.runInContext('PlayerController', sandbox);
     vm.runInContext(enemyControllerCode, sandbox, { filename: 'EnemyController.js' });
     sandbox.EnemyController = vm.runInContext('EnemyController', sandbox);
+    vm.runInContext(cutsceneControllerCode, sandbox, { filename: 'CutsceneController.js' });
+    sandbox.CutsceneController = vm.runInContext('CutsceneController', sandbox);
 } catch (e) {
     console.error("Evaluation error:", e);
     process.exit(1);
@@ -847,6 +855,88 @@ console.log("\nRunning Test 6: Autoplay AI refinements...");
     assert(dirCloseCount === 3, "Should close directory if locations container is empty");
 
     console.log("Test 6 Passed!");
+})();
+
+// ----------------------------------------------------
+// TEST 7: CutsceneController dialogue patterns & placeholders
+// ----------------------------------------------------
+console.log("\nRunning Test 7: CutsceneController logic...");
+(function testCutsceneController() {
+    // Mock scene
+    const mockScene = {
+        physics: {
+            pause: () => { mockScene.paused = true; },
+            resume: () => { mockScene.paused = false; },
+            world: { isPaused: false }
+        },
+        isCutscene: false
+    };
+
+    const cc = new sandbox.CutsceneController(mockScene);
+
+    // 1. Manually set dialoguePatterns (since fetch is mocked/not present in Node)
+    cc.dialoguePatterns = {
+        "town_entrance": [
+            [
+                { "speaker": "Guard", "text": "Halt! You have entered {kingdomName}.", "portrait": "npc_guard" },
+                { "speaker": "{playerName}", "text": "I am {playerName}.", "portrait": "player_portrait" }
+            ],
+            [
+                { "speaker": "Town Crier", "text": "Welcome to {kingdomName}, {playerName}!", "portrait": "npc_crier" }
+            ]
+        ],
+        "rival_ambush": [
+            [
+                { "speaker": "{rivalName}", "text": "Prepare to face the ultimate {rivalClass}!" }
+            ]
+        ]
+    };
+
+    // 2. Test placeholder substitution helper
+    const context = {
+        kingdomName: "Elden Soul",
+        playerName: "HeroGuy",
+        rivalName: "Vance",
+        rivalClass: "Samurai"
+    };
+
+    const replacedSpeaker = cc.substitutePlaceholders("Guard of {kingdomName}", context);
+    assert(replacedSpeaker === "Guard of Elden Soul", "Placeholder replacement failed for speaker");
+
+    const replacedText = cc.substitutePlaceholders("Greetings {playerName}, {rivalName} awaits.", context);
+    assert(replacedText === "Greetings HeroGuy, Vance awaits.", "Placeholder replacement failed for text");
+
+    // 3. Test non-repetition category selection logic
+    // With town_entrance, there are 2 patterns. Let's play twice and check indices
+    cc.playCutscene('town_entrance', context, () => {});
+    const index1 = cc.lastPlayedIndices['town_entrance'];
+    
+    cc.playCutscene('town_entrance', context, () => {});
+    const index2 = cc.lastPlayedIndices['town_entrance'];
+
+    assert(index1 !== index2, "Non-repetition logic failed to select a different pattern index");
+    
+    // Verify dialogueQueue text is replaced with context values
+    const queue = cc.dialogueQueue;
+    assert(queue.length > 0, "dialogueQueue should not be empty");
+    if (index2 === 0) {
+        assert(queue[0].text === "Halt! You have entered Elden Soul.", "Context replacement in queue text failed");
+        assert(queue[1].speaker === "HeroGuy", "Context replacement in queue speaker failed");
+    } else {
+        assert(queue[0].text === "Welcome to Elden Soul, HeroGuy!", "Context replacement in queue text failed");
+    }
+
+    // 4. Test backwards compatibility (passing raw lines)
+    const rawLines = [
+        { speaker: "Old Man", text: "Take this!" },
+        "It's dangerous to go alone."
+    ];
+    cc.playCutscene(rawLines, () => {});
+    assert(cc.dialogueQueue.length === 2, "dialogueQueue should have 2 elements");
+    assert(cc.dialogueQueue[0].speaker === "Old Man", "Raw line speaker mapping failed");
+    assert(cc.dialogueQueue[1].speaker === "Narrator", "Raw line string speaker mapping failed");
+
+    console.log("Test 7 Passed!");
 })();
 
 console.log("\nAll logic & constraint checks completed successfully without error.");

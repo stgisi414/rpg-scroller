@@ -1333,6 +1333,10 @@ input:where([type='file']):focus {
   max-height: 120px;
 }
 
+.max-h-\[160px\] {
+  max-height: 160px;
+}
+
 .max-h-\[40vh\] {
   max-height: 40vh;
 }
@@ -1367,6 +1371,10 @@ input:where([type='file']):focus {
 
 .min-h-screen {
   min-height: 100vh;
+}
+
+.min-h-\[60px\] {
+  min-height: 60px;
 }
 
 .w-1 {
@@ -1926,6 +1934,10 @@ input:where([type='file']):focus {
   border-color: rgb(255 180 171 / var(--tw-border-opacity, 1));
 }
 
+.border-error\/40 {
+  border-color: rgb(255 180 171 / 0.4);
+}
+
 .border-error\/50 {
   border-color: rgb(255 180 171 / 0.5);
 }
@@ -1971,6 +1983,14 @@ input:where([type='file']):focus {
 .border-primary {
   --tw-border-opacity: 1;
   border-color: rgb(255 180 168 / var(--tw-border-opacity, 1));
+}
+
+.border-primary\/20 {
+  border-color: rgb(255 180 168 / 0.2);
+}
+
+.border-primary\/30 {
+  border-color: rgb(255 180 168 / 0.3);
 }
 
 .border-primary\/40 {
@@ -2094,6 +2114,10 @@ input:where([type='file']):focus {
   background-color: rgb(255 180 171 / var(--tw-bg-opacity, 1));
 }
 
+.bg-error\/20 {
+  background-color: rgb(255 180 171 / 0.2);
+}
+
 .bg-on-surface-variant {
   --tw-bg-opacity: 1;
   background-color: rgb(227 190 184 / var(--tw-bg-opacity, 1));
@@ -2195,6 +2219,10 @@ input:where([type='file']):focus {
 .bg-surface-container-highest {
   --tw-bg-opacity: 1;
   background-color: rgb(53 53 53 / var(--tw-bg-opacity, 1));
+}
+
+.bg-surface-container-highest\/30 {
+  background-color: rgb(53 53 53 / 0.3);
 }
 
 .bg-surface-container-highest\/40 {
@@ -2878,6 +2906,10 @@ input:where([type='file']):focus {
   font-weight: 700;
 }
 
+.font-semibold {
+  font-weight: 600;
+}
+
 .uppercase {
   text-transform: uppercase;
 }
@@ -2935,9 +2967,19 @@ input:where([type='file']):focus {
   color: rgb(45 219 222 / var(--tw-text-opacity, 1));
 }
 
+.text-\[\#4ade80\] {
+  --tw-text-opacity: 1;
+  color: rgb(74 222 128 / var(--tw-text-opacity, 1));
+}
+
 .text-\[\#4fc3f7\] {
   --tw-text-opacity: 1;
   color: rgb(79 195 247 / var(--tw-text-opacity, 1));
+}
+
+.text-\[\#ff6b6b\] {
+  --tw-text-opacity: 1;
+  color: rgb(255 107 107 / var(--tw-text-opacity, 1));
 }
 
 .text-\[\#ff9800\] {
@@ -3391,6 +3433,12 @@ input:where([type='file']):focus {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
+.shadow-\[0_0_12px_rgba\(45\2c 219\2c 222\2c 0\.3\)\] {
+  --tw-shadow: 0 0 12px rgba(45,219,222,0.3);
+  --tw-shadow-colored: 0 0 12px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
 .shadow-black {
   --tw-shadow-color: #000;
   --tw-shadow: var(--tw-shadow-colored);
@@ -3676,11 +3724,6 @@ input:where([type='file']):focus {
   border-color: rgb(249 115 22 / var(--tw-border-opacity, 1));
 }
 
-.hover\:border-outline-variant:hover {
-  --tw-border-opacity: 1;
-  border-color: rgb(90 64 60 / var(--tw-border-opacity, 1));
-}
-
 .hover\:border-primary:hover {
   --tw-border-opacity: 1;
   border-color: rgb(255 180 168 / var(--tw-border-opacity, 1));
@@ -3725,6 +3768,10 @@ input:where([type='file']):focus {
 
 .hover\:bg-error\/20:hover {
   background-color: rgb(255 180 171 / 0.2);
+}
+
+.hover\:bg-error\/30:hover {
+  background-color: rgb(255 180 171 / 0.3);
 }
 
 .hover\:bg-primary\/40:hover {
@@ -3859,6 +3906,12 @@ input:where([type='file']):focus {
 .hover\:shadow-\[2px_2px_0px_\#ffb4ab\]:hover {
   --tw-shadow: 2px 2px 0px #ffb4ab;
   --tw-shadow-colored: 2px 2px 0px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+.hover\:shadow-\[0_0_24px_rgba\(45\2c 219\2c 222\2c 0\.6\)\]:hover {
+  --tw-shadow: 0 0 24px rgba(45,219,222,0.6);
+  --tw-shadow-colored: 0 0 24px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 

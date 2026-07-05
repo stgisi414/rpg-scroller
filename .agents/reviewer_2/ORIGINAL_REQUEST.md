@@ -26,3 +26,9 @@ Your working directory is C:\Code2\rpg-scroller\.agents\reviewer_2.
 Your task is to perform an independent audit of the refactored code (especially physics, state transitions, and save serialization). Check for any potential regressions or bugs introduced by the refactoring or gameplay hotfixes.
 Run 'node test_architecture.js' to verify event listener stability and error-free console logs. Write your review to C:\Code2\rpg-scroller\.agents\reviewer_2\handoff.md and message your parent conversation (main agent, id: de78dca1-6b88-4842-bc20-59c7ca25e2c8) when complete.
 
+## 2026-06-30T22:52:57Z
+You are Reviewer 2. Review the dynamic cutscene and video playback implementation:
+- In `CutsceneController.js`, verify the JSON fetching, placeholder replacement logic (`substitutePlaceholders`), category non-repetition selection, and video element playback/fallback logic.
+- Verify modifications to calling sites in `WorldManager.js`, `IndoorManager.js`, `GameScene_Helper.js`, and `TownBuilder.js`.
+- Run unit tests with `node test_logic_constraints.js` and `node test_mechanics.js` to verify everything compiles and passes.
+Write a detailed handoff report.

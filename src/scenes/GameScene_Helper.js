@@ -152,15 +152,15 @@ const GameScene_Helper = {
                         this.time.delayedCall(400, () => {
                             if (this.isSceneDestroyed) return;
                             
-                            const promptLines = wrathDimension === 'Heaven' ? [
-                                "[Celestial Voice] Mortals who bend the scales of fate must face judgment.",
-                                "[Celestial Voice] Prepare yourself, traveler. The Seraphim will evaluate your soul."
-                            ] : [
-                                "[Infernal Screams] A mortal approaches the pit!",
-                                "[The Devil] Welcome to the Abyss. Your dark deeds have made you ripe for harvest."
-                            ];
+                            const category = wrathDimension === 'Heaven' ? 'heaven_encounter' : 'hell_encounter';
+                            const context = {
+                                factionName: wrathDimension === 'Heaven' ? 'Heavenly Host' : 'Legions of Hell',
+                                playerName: (this.player && this.player.name) ? this.player.name : "traveler",
+                                reason: wrathDimension === 'Heaven' ? 'bending the scales of fate' : 'dark deeds',
+                                zoneName: (this.worldManager && this.worldManager.getCurrentZoneData && this.worldManager.getCurrentZoneData()) ? this.worldManager.getCurrentZoneData().name : "the rift"
+                            };
                             
-                            this.playCutscene(promptLines, () => {
+                            this.playCutscene(category, context, () => {
                                 if (this.isSceneDestroyed) return;
                                 
                                 if (wrathDimension === 'Heaven') {

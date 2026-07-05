@@ -182,7 +182,7 @@ class ShopManager {
             items = items.concat(window.getNewItemsForShop(shopType));
         }
 
-        // Filter items: only show generic items and items meant for the current class
+        // Filter items: only show generic items, items meant for the current class, or companion classes in the party
         items = items.filter(item => {
             if (!item.classRestrict) return true;
             if (item.classRestrict === player.classData.id || (player.classData.id && player.classData.id.startsWith(item.classRestrict))) return true;
@@ -190,6 +190,11 @@ class ShopManager {
                 (item.classRestrict === 'knight' || item.classRestrict === 'samurai')) {
                 return true;
             }
+            const party = player.scene.partyMembers || [];
+            const companionCanUse = party.some(member => 
+                item.classRestrict === member.classData.id || (member.classData.id && member.classData.id.startsWith(item.classRestrict))
+            );
+            if (companionCanUse) return true;
             return false;
         });
 
@@ -324,9 +329,14 @@ class ShopManager {
             
             let classBadge = '';
             if (item.classRestrict) {
+                const party = player.scene.partyMembers || [];
+                const companionCanUse = party.some(member => 
+                    item.classRestrict === member.classData.id || (member.classData.id && member.classData.id.startsWith(item.classRestrict))
+                );
                 const canUseThis = item.classRestrict === player.classData.id || (player.classData.id && player.classData.id.startsWith(item.classRestrict)) || 
                                   ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
-                                   (item.classRestrict === 'knight' || item.classRestrict === 'samurai'));
+                                   (item.classRestrict === 'knight' || item.classRestrict === 'samurai')) ||
+                                  companionCanUse;
                 const color = canUseThis ? 'text-primary' : 'text-error';
                 classBadge = `<br><span class="${color} font-bold">[${item.classRestrict.toUpperCase()}]</span>`;
             }
@@ -443,10 +453,15 @@ openMarketplaceUI(npcName) {
             }
         }
 
+        const party = player.scene.partyMembers || [];
+        const companionCanUse = party.some(member => 
+            itemObj.classRestrict === member.classData.id || (member.classData.id && member.classData.id.startsWith(itemObj.classRestrict))
+        );
         const canUse = !itemObj.classRestrict || 
                       itemObj.classRestrict === player.classData.id || 
                       ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
-                       (itemObj.classRestrict === 'knight' || itemObj.classRestrict === 'samurai'));
+                       (itemObj.classRestrict === 'knight' || itemObj.classRestrict === 'samurai')) ||
+                      companionCanUse;
         if (!canUse) {
             // Flash red for class restricted
             const ui = document.getElementById('shop-title');
@@ -524,11 +539,28 @@ openMarketplaceUI(npcName) {
         // Apply item effect
         if (itemObj.type === 'weapon') {
             player.inventory.weapons = player.inventory.weapons || [];
-            const weaponData = { key: itemObj.key, iconSrc: itemObj.imageSrc, name: itemObj.name, damageBonus: itemObj.damageBonus, desc: itemObj.desc };
+            const weaponData = { 
+                key: itemObj.key, 
+                iconSrc: itemObj.imageSrc, 
+                name: itemObj.name, 
+                damageBonus: itemObj.damageBonus, 
+                desc: itemObj.desc 
+            };
+            if (itemObj.classRestrict) {
+                weaponData.classRestrict = itemObj.classRestrict;
+            }
             if (!player.inventory.weapons.some(w => w.key === itemObj.key)) {
                 player.inventory.weapons.push(weaponData);
             }
-            player.inventory.weapon = weaponData;
+            // Only auto-equip on the player if the player's class can use it!
+            const playerCanUse = !itemObj.classRestrict || 
+                                 itemObj.classRestrict === player.classData.id || 
+                                 (player.classData.id && player.classData.id.startsWith(itemObj.classRestrict)) ||
+                                 ((player.classData.id === 'elven_spellblade' || player.classData.id === 'elven_spellblade_rival') && 
+                                  (itemObj.classRestrict === 'knight' || itemObj.classRestrict === 'samurai'));
+            if (playerCanUse) {
+                player.inventory.weapon = weaponData;
+            }
         } else if (itemObj.type === 'potion' || itemObj.type === 'mp_potion' || itemObj.type === 'sp_potion') {
             if (itemObj.buff) {
                 player.inventory.miscPotions = (player.inventory.miscPotions || 0) + 1;

@@ -73,15 +73,18 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
             dashRow: 1,
             spriteScale: spriteScale,
             animFrames: {
-                hit: { start: 30, end: 34 },
-                die: { start: 50, end: 54 },
-                duck: { start: 25, end: 29 }
-            }
+                hit: { start: 27, end: 30 },
+                die: { start: 45, end: 54 },
+                duck: { start: 27, end: 36 }
+            },
+            comboStartFrame: 37,
+            comboEndFrame: 44
         };
     }
 
     const pixelLabMonsters = [
         'heavenly_valkyrie', 'heavenly_seraph', 'heavenly_archangel', 'heavenly_cherub',
+        'flame_elemental',
         'male_damned', 'female_damned', 'twisted_damned', 'burning_damned', 'imp', 'old_demon'
     ];
     if (pixelLabMonsters.includes(classId)) {
@@ -90,17 +93,19 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
         else if (classId === 'heavenly_seraph') scale = 1.0;
         else if (classId === 'heavenly_valkyrie') scale = 1.0;
         else if (classId === 'heavenly_archangel') scale = 1.2;
+        else if (classId === 'flame_elemental') scale = 0.6;
         else if (classId === 'old_demon') scale = 1.8 * 1.5;
         else scale = 1.8 * 1.5;
         
-        const fw = (classId === 'old_demon') ? 80 : (classId.startsWith('heavenly_') ? 128 : 64);
-        const fh = (classId.startsWith('heavenly_') ? 128 : 64);
+        const fw = (classId === 'old_demon') ? 80 : (classId === 'flame_elemental' ? 124 : (classId.startsWith('heavenly_') ? 128 : 64));
+        const fh = (classId === 'flame_elemental' ? 124 : (classId.startsWith('heavenly_') ? 128 : 64));
         
         const monsterStats = {
             heavenly_archangel: { vit: 30, str: 20, dex: 15, int: 15 },
             heavenly_valkyrie: { vit: 25, str: 18, dex: 16, int: 10 },
             heavenly_seraph: { vit: 20, str: 15, dex: 18, int: 18 },
             heavenly_cherub: { vit: 12, str: 8, dex: 12, int: 12 },
+            flame_elemental: { vit: 200, str: 20, dex: 15, int: 25 },
             male_damned: { vit: 15, str: 14, dex: 10, int: 5 },
             female_damned: { vit: 14, str: 12, dex: 12, int: 8 },
             twisted_damned: { vit: 18, str: 16, dex: 8, int: 6 },
@@ -109,6 +114,44 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
             old_demon: { vit: 22, str: 18, dex: 12, int: 10 }
         };
         const mStats = monsterStats[classId] || { vit: 15, str: 12, dex: 12, int: 10 };
+        if (classId === 'flame_elemental') {
+            const playerLvl = window.saveData ? (window.saveData.level || 1) : 1;
+            mStats.vit += (playerLvl - 1) * 5;
+            mStats.str += (playerLvl - 1) * 2;
+            mStats.dex += (playerLvl - 1) * 1;
+            mStats.int += (playerLvl - 1) * 3;
+        }
+        
+        const anims = (classId === 'flame_elemental') ? {
+            idle: { start: 0, end: 8 },
+            walk: { start: 9, end: 17 },
+            attack: { start: 18, end: 26 },
+            combo: { start: 27, end: 35 },
+            hit: { start: 36, end: 40 },
+            die: { start: 41, end: 49 },
+            jump: { start: 9, end: 17 },
+            fall: { start: 9, end: 17 },
+            duck: { start: 0, end: 8 },
+            dash: { start: 9, end: 17 }
+        } : {
+            idle: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
+            walk: { start: 9, end: 17 },
+            attack: { start: 18, end: 26 },
+            combo: { start: 27, end: 35 },
+            hit: { start: 36, end: 40 },
+            die: { start: 41, end: 49 },
+            jump: { start: 9, end: 17 },
+            fall: { start: 9, end: 17 },
+            duck: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
+            dash: { start: 9, end: 17 }
+        };
+        
+        const extraProps = (classId === 'flame_elemental') ? {
+            bodyWidth: 40,
+            bodyHeight: 90,
+            bodyOffsetX: 42,
+            bodyOffsetY: 1
+        } : {};
         
         return {
             id: classId,
@@ -117,18 +160,8 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
             frameWidth: fw,
             frameHeight: fh,
             spriteScale: scale,
-            animFrames: {
-                idle: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
-                walk: { start: 9, end: 17 },
-                attack: { start: 18, end: 26 },
-                combo: { start: 27, end: 35 },
-                hit: { start: 36, end: 40 },
-                die: { start: 41, end: 49 },
-                jump: { start: 9, end: 17 },
-                fall: { start: 9, end: 17 },
-                duck: { start: 0, end: classId.startsWith('heavenly_') ? 8 : 3 },
-                dash: { start: 9, end: 17 }
-            }
+            animFrames: anims,
+            ...extraProps
         };
     }
 

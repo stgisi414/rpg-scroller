@@ -112,16 +112,6 @@ class FighterScene extends Phaser.Scene {
             this.textures.addCanvas('particle_dot', canvas);
         }
 
-        // 1. Central Fire Pit Sparks (makes the background fire pit animated)
-        this.add.particles(640, 575, 'particle_dot', {
-            angle: { min: 240, max: 300 },
-            speed: { min: 20, max: 60 },
-            lifespan: { min: 600, max: 1200 },
-            scale: { start: 1.5, end: 0 },
-            alpha: { start: 0.8, end: 0 },
-            tint: [0xff9900, 0xff3300, 0xffcc00],
-            frequency: 120
-        });
 
         // 2. Ambient Dust Motes (drifting atmospheric effect)
         this.add.particles(0, 0, 'particle_dot', {
@@ -204,7 +194,8 @@ class FighterScene extends Phaser.Scene {
         wizard:  { vit: 1, str: 0, dex: 1, int: 3 },
         samurai: { vit: 1, str: 1, dex: 3, int: 0 },
         ranger:  { vit: 1, str: 1, dex: 2, int: 1 },
-        elven_spellblade: { vit: 1, str: 1, dex: 2, int: 2 }
+        elven_spellblade: { vit: 1, str: 1, dex: 2, int: 2 },
+        flame_elemental:  { vit: 5, str: 2, dex: 1, int: 3 }
     };
 
     /**

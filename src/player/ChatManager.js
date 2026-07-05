@@ -5,6 +5,10 @@ class ChatManager {
 
     openChat(isIntro = false) {
         const player = this.player;
+        if (player.scene && player.scene.isCutscene) {
+            console.warn("ChatManager: Cannot open chat during a cutscene.");
+            return;
+        }
         if (!player.uiContainer) {
             player.uiContainer = document.getElementById('chat-ui');
             player.chatHistoryDiv = document.getElementById('chat-history');
@@ -176,6 +180,33 @@ class ChatManager {
             player.chatHistory.push({ sender: "Player", text: text });
             player.chatHistory.push({ sender: displayName, text: response.response });
 
+            // Process Quest if offered
+            if (response && response.quest) {
+                if (!response.quest.id) response.quest.id = "quest_" + Date.now();
+                p.addQuest(response.quest);
+                this.addMessageToUI("System", `<span style="color:#f6be3b; font-weight:bold;">New Quest: ${response.quest.title}</span>`);
+            }
+
+            // Process joining party
+            if (response && response.joinsParty && player.aiState !== 'party') {
+                player.aiState = 'party';
+                if (player.scene.enemies && player.scene.enemies.contains(player.sprite)) {
+                    player.scene.enemies.remove(player.sprite);
+                }
+                if (!player.scene.partyMembers.includes(player)) {
+                    player.scene.partyMembers.push(player);
+                }
+                if (player.scene.heroGroup && !player.scene.heroGroup.contains(player.sprite)) {
+                    player.scene.heroGroup.add(player.sprite);
+                }
+                if (player.scene.showFloatingText) {
+                    player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "Joined Party!", 0x00ff00);
+                }
+                if (p && typeof p.saveGame === 'function') {
+                    p.saveGame();
+                }
+            }
+
             // Calculate camaraderie shift (fallback to +1 if not provided)
             const shift = (response && typeof response.socialShift === 'number') ? response.socialShift : 1;
             player.camaraderie = (player.camaraderie || 0) + shift;
@@ -195,6 +226,9 @@ class ChatManager {
                 if (player.chatInput) player.chatInput.disabled = true;
                 setTimeout(() => {
                     this.closeChat();
+                    if (window.reclaimCompanionEquipment) {
+                        window.reclaimCompanionEquipment(player.scene, player);
+                    }
                     const idx = player.scene.partyMembers.indexOf(player);
                     if (idx > -1) player.scene.partyMembers.splice(idx, 1);
                     if (player.scene.spawnHeroAI) {
@@ -209,6 +243,9 @@ class ChatManager {
                 if (player.chatInput) player.chatInput.disabled = true;
                 setTimeout(() => {
                     this.closeChat();
+                    if (window.reclaimCompanionEquipment) {
+                        window.reclaimCompanionEquipment(player.scene, player);
+                    }
                     const idx = player.scene.partyMembers.indexOf(player);
                     if (idx > -1) player.scene.partyMembers.splice(idx, 1);
                     player.destroy();
@@ -268,6 +305,33 @@ class ChatManager {
             this.addMessageToUI(displayName, response.response, true);
             
             player.chatHistory.push({ sender: displayName, text: response.response });
+            
+            // Process Quest if offered
+            if (response && response.quest) {
+                if (!response.quest.id) response.quest.id = "quest_" + Date.now();
+                p.addQuest(response.quest);
+                this.addMessageToUI("System", `<span style="color:#f6be3b; font-weight:bold;">New Quest: ${response.quest.title}</span>`);
+            }
+
+            // Process joining party
+            if (response && response.joinsParty && player.aiState !== 'party') {
+                player.aiState = 'party';
+                if (player.scene.enemies && player.scene.enemies.contains(player.sprite)) {
+                    player.scene.enemies.remove(player.sprite);
+                }
+                if (!player.scene.partyMembers.includes(player)) {
+                    player.scene.partyMembers.push(player);
+                }
+                if (player.scene.heroGroup && !player.scene.heroGroup.contains(player.sprite)) {
+                    player.scene.heroGroup.add(player.sprite);
+                }
+                if (player.scene.showFloatingText) {
+                    player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "Joined Party!", 0x00ff00);
+                }
+                if (p && typeof p.saveGame === 'function') {
+                    p.saveGame();
+                }
+            }
             
         } catch (err) {
             if (!player.scene || player.scene.isSceneDestroyed) return;

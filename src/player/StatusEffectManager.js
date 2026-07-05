@@ -479,6 +479,10 @@ die() {
                     player.scene.grantRewards(50, 20); // 50 XP, 20 Gold
                 }
             } else if (player.aiState === 'party') {
+                // Reclaim equipment back to player inventory
+                if (window.reclaimCompanionEquipment) {
+                    window.reclaimCompanionEquipment(player.scene, player);
+                }
                 // Remove from party
                 const idx = player.scene.partyMembers.indexOf(player);
                 if (idx > -1) player.scene.partyMembers.splice(idx, 1);

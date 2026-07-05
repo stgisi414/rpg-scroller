@@ -53,11 +53,13 @@ const CompanionAI_Helper = {
         const killQuest = player.quests.find(q => q.type === 'kill');
         if (killQuest) {
             let compassTarget = autoplayConfig ? autoplayConfig.targetZone : 0;
-            if (compassTarget === 0 && player.quests && player.quests.length > 0) {
-                const questZone = this._getQuestTargetZone(player);
-                if (questZone !== null) {
-                    compassTarget = questZone;
-                }
+            // NOTE: never recurse into _getQuestTargetZone here to resolve an unset compass —
+            // every higher-priority quest type already RETURNED above, so a recursive call
+            // re-enters this same kill branch with identical state and overflows the stack
+            // (which froze autoplay whenever the hero held only a kill quest with compass 0).
+            // Default instead to hunting in the next wild zone toward world progression.
+            if (compassTarget === 0 && currentZone === 0) {
+                compassTarget = currentZone + 1;
             }
             const isInTown = Math.abs(currentZone) > 0 ? (Math.abs(currentZone) % 4 === 0) : currentZone === 0;
 
@@ -95,6 +97,58 @@ const CompanionAI_Helper = {
         }
         
         return null;
+    },
+
+    _getIdealAutoplayZone(player) {
+        const level = saveData ? (saveData.level || 1) : 1;
+        
+        // 1. Quests are the highest priority. If we have a quest target, go there!
+        const questZone = this._getQuestTargetZone(player);
+        if (questZone !== null) {
+            return questZone;
+        }
+
+        // 2. Otherwise, calculate ideal zone index based on power levels:
+        // Base zone based on level: level 1-3 -> Tier 0, level 4-7 -> Tier 1, etc.
+        let idealZone = Math.floor((level - 1) / 4) * 4; // Start at the town of that level tier
+
+        // Progress into the wild zones based on level progression within the tier
+        const tierProgress = (level - 1) % 4;
+        idealZone += Math.min(3, tierProgress);
+
+        // Adjust based on party size
+        const partySize = (player.scene.partyMembers ? player.scene.partyMembers.length : 0) + 1; // including player
+        if (partySize === 1) {
+            idealZone = Math.max(0, idealZone - 1); // Solo is safer playing slightly lower
+        } else if (partySize >= 3) {
+            idealZone += 1; // Large party can push +1 zone
+        }
+
+        // Adjust based on equipment strength
+        const weaponBonus = (player.inventory && player.inventory.weapon) ? (player.inventory.weapon.damageBonus || 0) : 0;
+        if (weaponBonus >= 20) {
+            idealZone += 1;
+        }
+        if (weaponBonus >= 40) {
+            idealZone += 1;
+        }
+
+        const hasArtifact = player.inventory && player.inventory.equippedArtifact !== undefined && player.inventory.equippedArtifact >= 0;
+        if (hasArtifact) {
+            idealZone += 1;
+        }
+
+        // Clamp to maximum available zone in the world map (currently zone 19/20)
+        const maxWorldZone = 19;
+        idealZone = Phaser.Math.Clamp(idealZone, 0, maxWorldZone);
+
+        // If it's a town zone, and we want to adventure, target the wild zones after it
+        const coliseumGrind = autoplayConfig && autoplayConfig.coliseumGrind;
+        if (coliseumGrind && idealZone === 0) {
+            idealZone = 1;
+        }
+
+        return idealZone;
     },
 
     _handleMainHeroAutoPlay(time, delta) {
@@ -232,14 +286,19 @@ const CompanionAI_Helper = {
             const townFocus = autoplayConfig ? autoplayConfig.townFocus : 50;
             const partyBuildFocus = autoplayConfig ? autoplayConfig.partyBuildFocus : 50;
 
-            // Coliseum King AutoPlay Wave Interaction Override
+            // Coliseum AutoPlay wave grinding: between waves (isActuallySafe is false while a
+            // wave is active, so this never runs mid-fight), walk to the arena master (the NPC
+            // with indoorAction 'arena') and start the next wave via the chat activity button.
+            // NOTE: NPCs expose npcName, not .name — and chat visibility must be computed here,
+            // because the shared isChatOpen const is declared further down this function (TDZ).
             if (scene.currentIndoorLocation === 'coliseum') {
-                const king = scene.npcs ? scene.npcs.find(n => n.name === 'The King') : null;
-                if (king && king.sprite && king.sprite.active) {
-                    if (!isChatOpen) {
-                        const dist = Math.abs(king.sprite.x - player.sprite.x);
+                const arenaNpc = scene.npcs ? scene.npcs.find(n => n && n.indoorAction === 'arena' && n.sprite && n.sprite.active) : null;
+                if (arenaNpc) {
+                    const isArenaChatOpen = this._isElementVisible('chat-ui');
+                    if (!isArenaChatOpen) {
+                        const dist = Math.abs(arenaNpc.sprite.x - player.sprite.x);
                         if (dist > 60) {
-                            if (king.sprite.x > player.sprite.x) player.aiInput.right = true;
+                            if (arenaNpc.sprite.x > player.sprite.x) player.aiInput.right = true;
                             else player.aiInput.left = true;
                         } else {
                             player.aiInput.interact = true;
@@ -266,6 +325,8 @@ const CompanionAI_Helper = {
                     // Stay in the Guild Hall while we need quests
                     if (this._wantsGuildHall && isGuildHall) {
                         // Don't leave — we need to pick up a contract
+                    } else if (this._wantsThroneRoom && scene.currentIndoorLocation === 'throne_room') {
+                        // Don't leave — we need an audience with the ruler first
                     } else if (this._wantsToAdventure || Math.random() < leaveChance) {
                         leaveBtn.click();
                         return;
@@ -304,6 +365,27 @@ const CompanionAI_Helper = {
             const questFocus = autoplayConfig ? autoplayConfig.questFocus : 70;
             let targetZone = autoplayConfig ? autoplayConfig.targetZone : 0;
             const isMerchantMode = autoplayConfig && autoplayConfig.preset === 'merchant_trader';
+
+            // Periodically (every 5 seconds) update targetZone intelligently if preset is not custom/merchant/pacifist
+            if (isActuallySafe && (!this._lastTargetZoneUpdateTime || time - this._lastTargetZoneUpdateTime > 5000)) {
+                this._lastTargetZoneUpdateTime = time;
+                const preset = autoplayConfig ? autoplayConfig.preset : 'custom';
+                if (preset !== 'custom' && preset !== 'merchant_trader' && preset !== 'pacifist' && preset !== 'faction_politician') {
+                    // (politician has its own court-driven targeting below — nearest capital)
+                    const ideal = this._getIdealAutoplayZone(player);
+                    if (ideal !== targetZone) {
+                        autoplayConfig.targetZone = ideal;
+                        targetZone = ideal;
+                        if (scene.hudManager && typeof scene.hudManager._saveAutoplayConfig === 'function') {
+                            scene.hudManager._saveAutoplayConfig();
+                        }
+                        if (scene.showFloatingText) {
+                            scene.showFloatingText(player.sprite.x, player.sprite.y - 60, `Target updated to Zone ${ideal}!`, 0x00ff88);
+                        }
+                    }
+                }
+            }
+
             if (!isMerchantMode && player.quests && player.quests.length > 0) {
                 if (targetZone === 0 || questFocus >= 40) {
                     const questZone = this._getQuestTargetZone(player);
@@ -313,16 +395,85 @@ const CompanionAI_Helper = {
                 }
             }
 
-            if (currentZoneIndex !== targetZone) {
+            // --- FACTION POLITICIAN PRESET: court-driven play ---
+            // Political quests (espionage/diplomacy/assassination/intel_report) are granted by
+            // throne-room rulers in LLM chat, so the politician's loop is: travel to a capital,
+            // seek an audience (_wantsThroneRoom -> statue -> directory -> Throne Room), ask the
+            // ruler for a court contract, execute it, then return to a court to turn it in
+            // (diplomacy/intel_report complete via the pre-chat delivery check on the ruler).
+            const isPoliticianPreset = autoplayConfig && autoplayConfig.preset === 'faction_politician';
+            if (isPoliticianPreset && !scene.isIndoors) {
+                const POLITICAL_TYPES = ['espionage', 'diplomacy', 'assassination', 'intel_report'];
+                const politicalQuests = player.quests ? player.quests.filter(q => POLITICAL_TYPES.includes(q.type)) : [];
+                const isCapitalHere = window.isCapitalCity ? window.isCapitalCity(currentZoneIndex) : false;
+                const throneCooldown = this._lastThroneRoomVisitTime && (time - this._lastThroneRoomVisitTime < 60000);
+
+                // Turn-in: diplomacy completes by chatting with the target ruler (their capital),
+                // intel_report by chatting with any faction leader — the throne room covers both.
+                const hasTurnInHere = politicalQuests.some(q => {
+                    if (q.type === 'intel_report') return isCapitalHere;
+                    if (q.type === 'diplomacy' && q.targetKingdom) {
+                        const kObj = (typeof WORLD_KINGDOMS !== 'undefined' && WORLD_KINGDOMS[q.targetKingdom]) ||
+                            (saveData && saveData.discoveredKingdoms && saveData.discoveredKingdoms[q.targetKingdom]);
+                        return !!(kObj && kObj.capital === currentZoneIndex);
+                    }
+                    return false;
+                });
+
+                if (isCapitalHere && !this._wantsThroneRoom && !throneCooldown && (hasTurnInHere || politicalQuests.length < 1)) {
+                    this._wantsThroneRoom = true;
+                    this._wantsToAdventure = false;
+                } else if (!isCapitalHere && politicalQuests.length < 1 &&
+                           (!this._lastPoliticianRetarget || time - this._lastPoliticianRetarget > 5000)) {
+                    // No court work and no court here — set course for the nearest capital
+                    this._lastPoliticianRetarget = time;
+                    let bestCapital = null, bestCapDist = Infinity;
+                    const evalCap = (cap) => {
+                        if (typeof cap !== 'number') return;
+                        const d = Math.abs(cap - currentZoneIndex);
+                        if (d < bestCapDist) { bestCapDist = d; bestCapital = cap; }
+                    };
+                    if (typeof WORLD_KINGDOMS !== 'undefined') {
+                        for (const kId in WORLD_KINGDOMS) evalCap(WORLD_KINGDOMS[kId].capital);
+                    }
+                    if (saveData && saveData.discoveredKingdoms) {
+                        for (const kId in saveData.discoveredKingdoms) evalCap(saveData.discoveredKingdoms[kId].capital);
+                    }
+                    if (bestCapital !== null && bestCapital !== targetZone) {
+                        const config = autoplayConfig || {};
+                        config.targetZone = bestCapital;
+                        targetZone = bestCapital;
+                        if (scene.hudManager && typeof scene.hudManager._saveAutoplayConfig === 'function') {
+                            scene.hudManager._saveAutoplayConfig();
+                        }
+                        if (scene.showFloatingText) {
+                            scene.showFloatingText(player.sprite.x, player.sprite.y - 60, 'Seeking an audience at court...', 0xbb88ff);
+                        }
+                    }
+                }
+                // Throne rooms only exist in capitals — never chase one elsewhere
+                if (this._wantsThroneRoom && !isCapitalHere) this._wantsThroneRoom = false;
+            }
+
+            if (!scene.isIndoors && currentZoneIndex !== targetZone) {
                 // When coliseum grind is on, only want to adventure if not in zone 0 (town)
                 const coliseumGrind = autoplayConfig && autoplayConfig.coliseumGrind;
-                const needsPotions = player.inventory && (player.inventory.potions || 0) < 5 && saveData && saveData.gold >= 50;
+                // Merchants restock potions inside their shop flow; once that's done (or
+                // impossible in this town) the resupply hold must release, or the merchant
+                // never leaves town and loops trades forever.
+                const potionHoldDone = isMerchantMode && this._merchantPotionRestockDone;
+                const needsPotions = player.inventory && (player.inventory.potions || 0) < 5 && saveData && saveData.gold >= 50 && !potionHoldDone;
                 if (coliseumGrind || needsPotions) {
                     this._wantsToAdventure = false; // Stay in town for coliseum or potion resupply
+                } else if (this._wantsToTravel && scene.angelStatue) {
+                    // Keep _wantsToAdventure false so the angel-statue fast-travel path can run
+                    // (it requires !_wantsToAdventure). The statue interact clears _wantsToTravel,
+                    // after which this branch stops matching and normal walking resumes.
+                    this._wantsToAdventure = false;
                 } else {
                     this._wantsToAdventure = true;
                 }
-            } else if (!isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && !this._wantsToAdventure && !this._wantsGuildHall && !this._wantsToTravel) {
+            } else if (!isChatOpen && !isShopOpen && !isDirOpen && !scene.isIndoors && !this._wantsToAdventure && !this._wantsGuildHall && !this._wantsToTravel && !this._wantsThroneRoom) {
                 const coliseumGrind = autoplayConfig && autoplayConfig.coliseumGrind;
                 const isMerchantTrader = autoplayConfig && autoplayConfig.preset === 'merchant_trader';
                 if (coliseumGrind || isMerchantTrader) {
@@ -342,10 +493,11 @@ const CompanionAI_Helper = {
             // suppress _wantsToAdventure so the AI visits the Guild Hall first
             const activeQuestCountNav = player.quests ? player.quests.length : 0;
             const isGuildCooldown = this._lastGuildHallVisitTime && (time - this._lastGuildHallVisitTime < 60000);
-            if (this._wantsToAdventure && activeQuestCountNav < 1 && questFocus > 50 && !scene.isIndoors && !isGuildCooldown) {
+            // Politicians take contracts from throne rooms, not the adventurers' guild
+            if (this._wantsToAdventure && activeQuestCountNav < 1 && questFocus > 50 && !scene.isIndoors && !isGuildCooldown && !isPoliticianPreset && !this._wantsThroneRoom) {
                 this._wantsToAdventure = false;
                 this._wantsGuildHall = true;
-            } else if (questFocus <= 50 || activeQuestCountNav >= 1 || isGuildCooldown) {
+            } else if (questFocus <= 50 || activeQuestCountNav >= 1 || isGuildCooldown || isPoliticianPreset) {
                 this._wantsGuildHall = false;
             }
 
@@ -371,6 +523,40 @@ const CompanionAI_Helper = {
                 
                 const isMerchantTrader = autoplayConfig && autoplayConfig.preset === 'merchant_trader';
                 if (isMerchantTrader) {
+                    // Restock potions from the goods tab BEFORE cargo trading. The cargo logic
+                    // below always returns before the standard buy fallback, so without this
+                    // step merchants never resupply, and the needsPotions hold (town logic
+                    // above) keeps _wantsToAdventure false — deadlocking the merchant into an
+                    // endless trade loop in a single town.
+                    const potionsNow = player.inventory ? (player.inventory.potions || 0) : 0;
+                    const cargoUIOpen = !!document.getElementById('buy-cargo-list');
+                    if (potionsNow < 5 && !this._merchantPotionRestockDone && !cargoUIOpen) {
+                        if (time - (this._lastTradeTime || 0) > 800) {
+                            this._lastTradeTime = time;
+                            const goodsContainer = document.getElementById('shop-items-container');
+                            let potionCard = null;
+                            if (goodsContainer && saveData) {
+                                potionCard = Array.from(goodsContainer.children).find(card => {
+                                    const nameEl = card.querySelector('.font-label-caps');
+                                    const priceEl = card.querySelector('.font-headline-sm');
+                                    if (!nameEl || !priceEl) return false;
+                                    if (!nameEl.innerText.toLowerCase().includes('health potion')) return false;
+                                    const costMatch = priceEl.innerText.match(/(\d+)g/);
+                                    return costMatch && parseInt(costMatch[1]) <= saveData.gold;
+                                });
+                            }
+                            if (potionCard) {
+                                potionCard.click();
+                                if (scene.showFloatingText) scene.showFloatingText(player.sprite.x, player.sprite.y - 40, "Restocking potions!", 0x00ff00);
+                            } else {
+                                // No affordable potion in this shop — stop holding the caravan
+                                // for restock so the merchant can move on. Reset on zone change.
+                                this._merchantPotionRestockDone = true;
+                            }
+                        }
+                        return;
+                    }
+
                     const btnCargo = document.getElementById('btn-shop-cargo');
                     const buyCargoList = document.getElementById('buy-cargo-list');
                     if (btnCargo && !buyCargoList) {
@@ -401,6 +587,8 @@ const CompanionAI_Helper = {
                             if (scene.hudManager && typeof scene.hudManager._saveAutoplayConfig === 'function') {
                                 scene.hudManager._saveAutoplayConfig();
                             }
+                            // Prefer fast travel out of the hostile kingdom (walking fallback intact)
+                            this._wantsToTravel = true;
                             if (scene.showFloatingText) {
                                 scene.showFloatingText(player.sprite.x, player.sprite.y - 60, 'Trade refused! Leaving kingdom...', 0xff4444);
                             }
@@ -545,6 +733,11 @@ const CompanionAI_Helper = {
                                     scene.hudManager._saveAutoplayConfig();
                                 }
 
+                                // Capitals can be many zones away — head straight for the angel
+                                // statue and fast travel instead of waiting on the rare random
+                                // travel impulse. Walking remains the fallback if travel fails.
+                                this._wantsToTravel = true;
+
                                 const targetKingdom = window.getKingdomForZone ? window.getKingdomForZone(bestTarget) : null;
                                 const destName = targetKingdom ? targetKingdom.name : `Zone ${bestTarget}`;
                                 if (scene.showFloatingText) {
@@ -607,7 +800,7 @@ const CompanionAI_Helper = {
 
             if (isDirOpen) {
                 // 1. Travel Navigation
-                if (currentZoneIdx !== targetZone && !this._wantsGuildHall) {
+                if (currentZoneIdx !== targetZone && !this._wantsGuildHall && !this._wantsThroneRoom) {
                     const travelContainer = document.getElementById('travel-destinations-container');
                     const tabTravel = document.getElementById('tab-travel');
                     if (travelContainer && travelContainer.style.display === 'none' && tabTravel) {
@@ -654,8 +847,8 @@ const CompanionAI_Helper = {
                 }
                 
                 // 2. Local Directory Navigation
-                if (currentZoneIdx === targetZone || this._wantsGuildHall) {
-                    if (this._wantsToAdventure && !this._wantsGuildHall) {
+                if (currentZoneIdx === targetZone || this._wantsGuildHall || this._wantsThroneRoom) {
+                    if (this._wantsToAdventure && !this._wantsGuildHall && !this._wantsThroneRoom) {
                         const closeBtn = document.getElementById('btn-close-directory');
                         if (closeBtn) closeBtn.click();
                         return;
@@ -673,7 +866,21 @@ const CompanionAI_Helper = {
                                 const activeQuestsDir = player.quests ? player.quests.length : 0;
                                 const needsQuestsDir = activeQuestsDir < 3 && questFocusDir > 40;
 
-                                if (needsQuestsDir && !coliseumGrind && Math.random() * 100 < questFocusDir) {
+                                // Politician: an audience with the ruler takes priority over everything
+                                if (this._wantsThroneRoom) {
+                                    const throneCard = cards.find(card => {
+                                        const headline = card.querySelector('.font-headline-sm');
+                                        return headline && headline.innerText.toLowerCase().includes('throne');
+                                    });
+                                    if (throneCard) {
+                                        cardToClick = throneCard;
+                                    } else {
+                                        // No throne room listed here (not a capital) — stop seeking one
+                                        this._wantsThroneRoom = false;
+                                    }
+                                }
+
+                                if (!cardToClick && needsQuestsDir && !coliseumGrind && !this._wantsThroneRoom && Math.random() * 100 < questFocusDir) {
                                     const guildCard = cards.find(card => {
                                         const headline = card.querySelector('.font-headline-sm');
                                         return headline && headline.innerText.toLowerCase().includes('guild');
@@ -727,7 +934,7 @@ const CompanionAI_Helper = {
                         }
                     }
                 }
-                if (this._wantsToAdventure || ((this._wantsGuildHall || this._wantsToTravel) && !scene.isIndoors)) {
+                if (this._wantsToAdventure || ((this._wantsGuildHall || this._wantsToTravel || this._wantsThroneRoom) && !scene.isIndoors)) {
                     const chatCloseBtn = document.getElementById('chat-close');
                     if (chatCloseBtn && typeof chatCloseBtn.click === 'function') {
                         chatCloseBtn.click();
@@ -749,6 +956,7 @@ const CompanionAI_Helper = {
                 if (!this._wasChatOpen) {
                     this._wasChatOpen = true;
                     this._chatOpenedTime = time;
+                    this._askedCourtContract = false;
                 }
 
                 // Safety timeout: if chat is open for more than 10 seconds, close it
@@ -869,18 +1077,39 @@ const CompanionAI_Helper = {
                         const chatLines = Array.from(historyDiv.querySelectorAll('div')).map(d => d.innerText);
                         const chatContext = chatLines.slice(-3).join('\n');
 
-                        if (inputField && submitBtn && !inputField.value && !this._isFetchingHeroChat) {
-                            this._isFetchingHeroChat = true;
-                            this._chatMessageCount = (this._chatMessageCount || 0) + 1;
-                            scene.geminiService.getHeroAutoPlayResponse(player.classData.id, npcName, chatContext).then(reply => {
-                                inputField.value = reply;
-                                submitBtn.click();
-                            }).catch(err => {
-                                inputField.value = "Interesting.";
-                                submitBtn.click();
-                            }).finally(() => {
-                                this._isFetchingHeroChat = false;
-                            });
+                        if (inputField && submitBtn && !this._isFetchingHeroChat) {
+                            if (submitBtn.disabled) {
+                                return; // Wait for button to be enabled
+                            }
+
+                            // Politician in the throne room with no court contract yet: ask the
+                            // ruler for political work directly (the NPC prompt offers quests
+                            // "if they ask for work"). Scripted — deterministic and immediate.
+                            const isPoliticianChat = autoplayConfig && autoplayConfig.preset === 'faction_politician';
+                            if (isPoliticianChat && scene.currentIndoorLocation === 'throne_room' && !this._askedCourtContract && !inputField.value) {
+                                const politicalCount = player.quests ? player.quests.filter(q => ['espionage', 'diplomacy', 'assassination', 'intel_report'].includes(q.type)).length : 0;
+                                if (politicalCount < 1) {
+                                    this._askedCourtContract = true;
+                                    this._chatMessageCount = (this._chatMessageCount || 0) + 1;
+                                    inputField.value = "*bows deeply* Your Majesty, I place my blade and my discretion at the crown's service. Have you any court contracts — espionage, diplomacy, or intelligence work — that require a subtle hand?";
+                                    submitBtn.click();
+                                    return;
+                                }
+                            }
+
+                            if (!inputField.value) {
+                                this._isFetchingHeroChat = true;
+                                this._chatMessageCount = (this._chatMessageCount || 0) + 1;
+                                scene.geminiService.getHeroAutoPlayResponse(player.classData.id, npcName, chatContext).then(reply => {
+                                    inputField.value = reply;
+                                    submitBtn.click();
+                                }).catch(err => {
+                                    inputField.value = "Interesting.";
+                                    submitBtn.click();
+                                }).finally(() => {
+                                    this._isFetchingHeroChat = false;
+                                });
+                            }
                         }
                     }
                 }
@@ -893,10 +1122,16 @@ const CompanionAI_Helper = {
                     this._wantsToAdventure = true;
                     this._lastGuildHallVisitTime = time;
                 }
+                // Audience held (chat with the ruler closed) — cool down so the politician
+                // doesn't immediately re-enter the throne room if no contract was granted.
+                if (this._wantsThroneRoom && scene.isIndoors && scene.currentIndoorLocation === 'throne_room') {
+                    this._wantsThroneRoom = false;
+                    this._lastThroneRoomVisitTime = time;
+                }
             }
 
             // Find NPCs to talk to
-            const blockNpc = !scene.isIndoors && (this._wantsGuildHall || this._wantsToTravel);
+            const blockNpc = !scene.isIndoors && (this._wantsGuildHall || this._wantsToTravel || this._wantsThroneRoom);
             const canInteractNpc = scene.isIndoors || (!this._wantsToAdventure && !blockNpc);
             if (scene.npcs && !isChatOpen && !isShopOpen && canInteractNpc && time - (this._lastChatClosedTime || 0) > 8000) {
                 let closestNpc = this._targetNpc;
@@ -905,12 +1140,16 @@ const CompanionAI_Helper = {
                     closestNpc = null;
                     let minDist = Infinity;
 
-                    // Prioritize delivery target NPC if active delivery quest is here
+                    // Prioritize delivery target NPC if active delivery quest is here.
+                    // NPCs expose npcName (NOT .name) — and LLM-generated quests can omit
+                    // deliveryTargetNPC, so guard both or this find() throws every AI tick
+                    // and freezes autoplay in the delivery town.
                     const deliveryQuest = player.quests && player.quests.find(q => q.type === 'delivery' && q.deliveryTargetZone === currentZoneIndex);
-                    if (deliveryQuest) {
+                    if (deliveryQuest && deliveryQuest.deliveryTargetNPC) {
+                        const targetLower = String(deliveryQuest.deliveryTargetNPC).toLowerCase();
                         const targetNpc = scene.npcs.find(n => {
-                            const nameLower = n.name.toLowerCase();
-                            const targetLower = deliveryQuest.deliveryTargetNPC.toLowerCase();
+                            if (!n || !n.npcName) return false;
+                            const nameLower = String(n.npcName).toLowerCase();
                             return nameLower.includes(targetLower) || targetLower.includes(nameLower);
                         });
                         if (targetNpc && targetNpc.sprite && targetNpc.sprite.active) {
@@ -955,11 +1194,11 @@ const CompanionAI_Helper = {
             // End of Directory Navigation
 
             if (!scene.isIndoors && scene.angelStatue && !isDirOpen && !isChatOpen && isActuallySafe) {
-                if (!this._wantsToTravel && !this._wantsToAdventure && !this._wantsGuildHall && Math.random() < 0.001) {
+                if (!this._wantsToTravel && !this._wantsToAdventure && !this._wantsGuildHall && !this._wantsThroneRoom && Math.random() < 0.001) {
                     this._wantsToTravel = true;
                 }
-                // Walk to angel statue when wanting to travel OR wanting to visit the Guild Hall for quests
-                if ((this._wantsToTravel && !this._wantsToAdventure) || this._wantsGuildHall) {
+                // Walk to angel statue when wanting to travel OR wanting to visit the Guild Hall / Throne Room
+                if ((this._wantsToTravel && !this._wantsToAdventure) || this._wantsGuildHall || this._wantsThroneRoom) {
                     const ax = scene.angelStatue.x;
                     const dist = Math.abs(ax - player.sprite.x);
                     if (dist > 10) {

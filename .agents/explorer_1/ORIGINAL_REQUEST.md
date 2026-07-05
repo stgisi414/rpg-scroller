@@ -11,3 +11,11 @@ Your task is to analyze the Elden Soul codebase to locate and document the 5 spe
 Also, perform a wider audit to identify similar patterns.
 Write your analysis and findings to C:\Code2\rpg-scroller\.agents\explorer_1\handoff.md with exact filenames, line numbers, and snippets, along with clear recommended fix strategies for each.
 Send a message to your parent conversation (main agent, id: de78dca1-6b88-4842-bc20-59c7ca25e2c8) when your handoff.md is ready with the path to it.
+
+
+## 2026-06-30T22:40:56Z
+You are Explorer 1. Explore settings menu structure in `index.html` and logic in `src/main.js` (and any other files) to find:
+- How settings menu is displayed, closed, saved, and cleared.
+- How to add a new cutscene settings toggle (Traditional vs Omni Cutscenes) that persists between sessions.
+- Where settings are stored in localStorage or variables.
+Write a detailed report to your own handoff folder.

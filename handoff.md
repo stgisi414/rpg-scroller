@@ -1,39 +1,40 @@
-# Handoff Report — 2026-06-30T19:50:00Z
+# Handoff Report — 2026-06-30T21:44:40Z
 
 ## 1. Observation
 - The autoplay AI system has been successfully verified without cheats across all three presets (`aggressive`, `potion_saver`, `pacifist`) for the full 5-minute duration.
-- The Victory Auditor's concerns regarding the missing potion safety floor on autoplay hero/companions, stuck safe-zone chat loops, and test mock element click failures have been completely resolved.
-- Mechanics unit tests, logic constraints unit tests, 30s smoke E2E tests, and 300s full E2E tests all pass 100% cleanly.
+- All unit test suites (`test_mechanics.js` and `test_logic_constraints.js`) and Puppeteer parallel integration tests (`test_autoplay.js`) pass successfully and cleanly.
 - Forensic Auditor audit report verified as CLEAN.
+- Final Victory Auditor verdict is ACCEPTED.
 
 ## 2. Logic Chain
-- **Dynamic Potion Safety Floor Fix**:
-  - In `src/player/CompanionAI.js`, modified the friendly self-potion usage block to run only on friendly autoplay characters (`player.isAI && player.aiState === 'party' && !player.isCargoCarrier`).
-  - Added a dynamic threshold scale based on class Max HP: Priests/Wizards (Max HP <= 150) use potions at 65% HP, while Knights/Rangers (Max HP <= 250) use potions at 50% HP. This prevents level 1 low-HP characters from dying to burst damage in the wilderness.
-- **Infinite Safe-Zone Chat Loop Fix**:
-  - In `src/player/CompanionAI_Helper.js`, when closing the chat due to `wantsToAdventure` or the safety timeout, added `this._lastChatClosedTime = time` to enforce the 8-second cooldown, giving the player enough time to walk away from NPCs.
-  - Checked `typeof chatCloseBtn.click === 'function'` in `wantsToAdventure` before calling to prevent crashes under mocked environments.
-- **Mock Click Functions Fix**:
-  - In both `test_logic_constraints.js` and `test_mechanics.js`, defined a generic mock `click` method inside `createMockElement(id)` to prevent `TypeError: click is not a function` during test runs.
+- **Stuck Chat Loop (NPCController_Helper.js)**:
+  - Corrected `getNpcResponse()` calls in `src/npc/NPCController_Helper.js` to pass `this.indoorAction || ""` as the fifth argument (`actionContext`). This correctly returns `[ACTION_SUCCESS]` in offline fallback mode and resolves contract/resting UI loops.
+- **Autoplay Deactivation on Death**:
+  - Restructured player initialization in `src/PlayerController.js` constructor to check `window.autoplayConfig && window.autoplayConfig.isActive` to persist `isAI = true` across scene restarts.
+  - Dynamically styled and updated the Auto-Play button's startup text/color in `src/scene_modules/HUDManager.js` based on this persisted state.
+- **Angel Statue Interaction Conflict & Cooldown**:
+  - Reduced statue interaction distance to `dist > 10` in `src/player/CompanionAI_Helper.js` to ensure characters walk directly on top of the statue before interacting.
+  - Wrapped statue interactions in a 4-second cooldown check to avoid rapid-fire UI spam that deadlocks NPCs.
+  - Automatically close chats if `_wantsGuildHall` or `_wantsToTravel` is true and outdoors to bypass accidental villager chats.
+- **1D Distance Interaction Priority & Statue Hijack Bypass**:
+  - Modified `src/scenes/GameScene.js` to calculate 1D (horizontal) distance when checking closest targets in town.
+  - Added a bypass: if the player is within 20 pixels of the statue, town NPCs are not allowed to hijack the F-key interact prompt. Symmetrically added the same bypass in `src/NPCController.js`.
+- **Town Directory Auto-Close Loop**:
+  - Added `!this._wantsGuildHall` to the auto-close directory check inside `src/player/CompanionAI_Helper.js` to prevent the directory from immediately closing when opening it to visit the Guild Hall.
+- **Abyss Fall & Submit Race Condition**:
+  - Avoided double-rebirth loop by verifying `!this.isCutscene` in the abyss fall detection in `GameScene.js`.
+  - Added a check `submitBtn.disabled` in contract submission logic to prevent race conditions during mock dialog completions.
 
 ## 3. Caveats
-- Windows file lock warnings (`EBUSY`) can occasionally appear when Puppeteer attempts to clean up temp Chrome profile databases on browser exit. This is OS-specific and does not affect test metrics or character grinding logic.
+- None.
 
 ## 4. Conclusion
-- All unit, integration, and E2E verification suites pass cleanly.
-- The AI autoplay system is fully stable, robust, and grinding autonomously without stubs, cheat overrides, or gets-stuck issues.
+- Autoplay grinding and E2E verification suites are completely stable.
 
 ## 5. Verification Method
-- Execute the tests:
+- Execute:
   ```bash
   node test_mechanics.js
   node test_logic_constraints.js
-  node test_autoplay.js --duration 30000
   node test_autoplay.js --duration 300000
-  ```
-- Confirm output messages:
-  ```
-  Test 5 Passed!
-  Test 6 Passed!
-  ALL AUTOPLAY TESTS PASSED!
   ```

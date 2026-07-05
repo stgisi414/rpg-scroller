@@ -6,7 +6,7 @@ megaComboSpell() {
         
         if (cd.id !== 'wizard' && cd.id !== 'wizard_rival' 
             && cd.id !== 'elven_spellblade' && cd.id !== 'elven_spellblade_rival'
-            && cd.id !== 'pyromancer_1_rival'
+            && !cd.id.startsWith('pyromancer')
             && !cd.id.startsWith('priest')) return;
             
         const isFighterScene = player.scene && player.scene.sys && player.scene.sys.settings && player.scene.sys.settings.key === 'FighterScene';
@@ -33,12 +33,14 @@ megaComboSpell() {
         
         this._breakInvisibility();
 
-        // Mana check - Spellblade burst costs 8 MP, wizard AoE costs 10 MP, pyromancer flamethrower costs 15 MP
+        // Mana check - Spellblade burst costs 8 MP, wizard AoE costs 10 MP, pyromancer flamethrower/AoE costs 12/15 MP
         let cost = 10;
         if (cd.id === 'elven_spellblade' || cd.id === 'elven_spellblade_rival') {
             cost = 8;
         } else if (cd.id === 'pyromancer_1_rival') {
             cost = 15;
+        } else if (cd.id.startsWith('pyromancer')) {
+            cost = 12;
         }
         
         if (player.mp < cost) {
@@ -49,7 +51,7 @@ megaComboSpell() {
         
         player.isAttacking = true;
         
-        const comboKey = cd.id === 'pyromancer_1_rival' ? cd.id + '_attack2' : cd.id + '_combo';
+        const comboKey = cd.id.startsWith('pyromancer') && cd.id !== 'pyromancer_1_rival' ? (player.scene.anims.exists(cd.id + '_combo') ? cd.id + '_combo' : (player.scene.anims.exists(cd.id + '_attack2') ? cd.id + '_attack2' : cd.id + '_attack')) : (cd.id === 'pyromancer_1_rival' ? cd.id + '_attack2' : cd.id + '_combo');
         if (cd.isSheet && player.scene.anims.exists(comboKey)) {
             player._playAnim(comboKey);
         }
@@ -132,6 +134,59 @@ megaComboSpell() {
             }
             
             player.scene.time.delayedCall(900, () => {
+                player.isAttacking = false;
+                if (cd.isSheet) player._playAnim();
+            });
+            return;
+        } else if (cd.id.startsWith('pyromancer')) {
+            const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
+            const damage = Math.floor(cd.stats.int * 2.8) + weaponBonus + 10;
+            
+            // Screen shake for visual impact
+            if (player.scene && player.scene.cameras && player.scene.cameras.main) {
+                player.scene.cameras.main.shake(200, 0.01);
+            }
+            
+            if (!player.isAI && player.scene.showFloatingText) {
+                player.scene.showFloatingText(player.sprite.x, player.sprite.y - 60, "FIRE BURST!", 0xff3300);
+            }
+
+            // Play fire burst visual effect (particles or rings)
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const dirX = Math.cos(angle);
+                const dirY = Math.sin(angle);
+                
+                const p = player.scene.physics.add.sprite(player.sprite.x, player.sprite.y - 10, 'projectile_blue');
+                p.body.setAllowGravity(false);
+                p.setScale(0.8);
+                p.setTint(0xff3300); // deep fire red-orange
+                
+                if (player.scene.anims.exists('projectile_blue_anim')) {
+                    p.play('projectile_blue_anim');
+                }
+                
+                const orbSpeed = 450;
+                p.setVelocity(dirX * orbSpeed, dirY * orbSpeed);
+                if (dirX < 0) p.setFlipX(true);
+                
+                const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, targetSprite) => {
+                    const targetCtrl = getTargetController(targetSprite);
+                    if (targetCtrl && !targetCtrl.isDead) {
+                        targetCtrl.takeDamage(damage, dirX > 0 ? 1 : -1);
+                        this.applyLifesteal(damage);
+                        if (targetCtrl.applyStatusEffect) {
+                            targetCtrl.applyStatusEffect('burn', 5000, 10);
+                        }
+                        proj.destroy();
+                        player.scene.physics.world.removeCollider(overlap);
+                    }
+                });
+                
+                player.scene.time.delayedCall(1200, () => { if (p.active) p.destroy(); });
+            }
+            
+            player.scene.time.delayedCall(800, () => {
                 player.isAttacking = false;
                 if (cd.isSheet) player._playAnim();
             });
@@ -379,6 +434,82 @@ summonComboSpell() {
             return;
         }
 
+        if (cd.id.startsWith('pyromancer')) {
+            // Summon Flame Elemental
+            const cost = 20;
+            if (player.mp < cost) {
+                if (!player.isAI && player.scene.showFloatingText) player.scene.showFloatingText(player.sprite.x, player.sprite.y - 30, 'No Mana!', 0x4488ff);
+                return;
+            }
+            player.mp -= cost;
+            player.isAttacking = true;
+            
+            const comboKey = cd.id + '_combo';
+            const animToPlay = player.scene.anims.exists(comboKey) ? comboKey : (player.scene.anims.exists(cd.id + '_attack2') ? cd.id + '_attack2' : cd.id + '_attack');
+            if (cd.isSheet && player.scene.anims.exists(animToPlay)) {
+                player._playAnim(animToPlay);
+            }
+            
+            player.scene.time.delayedCall(300, () => {
+                if (!player.sprite || !player.sprite.active) return;
+                
+                const spawnX = player.sprite.x - (player.facingDirection * 60);
+                const spawnY = player.sprite.y;
+                
+                const ally = new PlayerController(player.scene, spawnX, spawnY, player.inputManager, {
+                    isAI: true,
+                    aiState: 'party',
+                    classId: 'flame_elemental'
+                });
+                
+                if (player.scene.partyMembers) {
+                    player.scene.partyMembers.push(ally);
+                }
+                if (player.scene.heroGroup) {
+                    player.scene.heroGroup.add(ally.sprite);
+                }
+                const groundCollider = player.scene.floor || player.scene.platforms;
+                if (groundCollider) {
+                    player.scene.physics.add.collider(ally.sprite, groundCollider);
+                }
+                
+                if (player.scene.showFloatingText) {
+                    player.scene.showFloatingText(spawnX, spawnY - 30, "Summoned Flame Elemental!", 0xff3300);
+                }
+                
+                // Vanish after 30 seconds
+                player.scene.time.delayedCall(30000, () => {
+                    if (ally && ally.sprite && ally.sprite.active) {
+                        const vanish = player.scene.add.sprite(ally.sprite.x, ally.sprite.y, 'magic_particle');
+                        vanish.setScale(ally.sprite.scaleX * 1.5);
+                        vanish.setTint(0xff3300);
+                        player.scene.tweens.add({
+                            targets: vanish,
+                            scaleX: ally.sprite.scaleX * 3,
+                            scaleY: ally.sprite.scaleY * 3,
+                            alpha: 0,
+                            duration: 500,
+                            onComplete: () => vanish.destroy()
+                        });
+                        
+                        player.scene.tweens.add({
+                            targets: ally.sprite,
+                            alpha: 0,
+                            duration: 500,
+                            onComplete: () => {
+                                ally.destroy();
+                            }
+                        });
+                    }
+                });
+            });
+            
+            player.scene.time.delayedCall(800, () => {
+                player.isAttacking = false;
+            });
+            return;
+        }
+
         if (cd.id !== 'wizard' && cd.id !== 'wizard_rival') return;
         
         // Mana check - summon costs 30 MP (massive heal)
@@ -463,7 +594,10 @@ summonComboSpell() {
             });
         });
     },
-superComboSpell() {
-    return SpellController_Helper.superComboSpell.call(this);
-}
+
+superComboSpell() {
+
+    return SpellController_Helper.superComboSpell.call(this);
+
+}
 };

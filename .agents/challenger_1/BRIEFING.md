@@ -1,7 +1,7 @@
-# BRIEFING — 2026-06-16T22:36:00Z
+# BRIEFING — 2026-06-30T22:52:57Z
 
 ## Mission
-Empirically verify double jump, air combat, and platforming AI mechanics in rpg-scroller, and run test_architecture.js for stability.
+Empirically verify setting toggle for cutscene mode, video playback behavior/fallback in browser context, and autoplay test runner.
 
 ## 🔒 My Identity
 - Archetype: empirical challenger
@@ -10,43 +10,41 @@ Empirically verify double jump, air combat, and platforming AI mechanics in rpg-
 - Original parent: de78dca1-6b88-4842-bc20-59c7ca25e2c8
 - Milestone: Verification
 - Instance: 1 of 1
+- Updated parent: d8ab3a5f-d2e6-41b0-b6d4-1c3ee393b277
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code.
 - Verification must be empirical: write/run test code or check existing tests.
 
 ## Current Parent
-- Conversation ID: de78dca1-6b88-4842-bc20-59c7ca25e2c8
-- Updated: 2026-06-16T22:36:00Z
+- Conversation ID: d8ab3a5f-d2e6-41b0-b6d4-1c3ee393b277
+- Updated: 2026-06-30T22:52:57Z
 
 ## Review Scope
-- **Files to review**:
-  - `src/PlayerController.js` (double jump and attack momentum mechanics)
-  - `src/EnemyController.js` (melee attack height check and platforming AI)
-  - `src/scenes/GameScene.js` (transitions and zone boundaries)
-  - `src/WorldManager.js` (negative zone indices and enemy spawning)
-  - `src/GeminiService.js` (AI-based/offline zone generation)
+- **Files to review**: cutscene settings toggle implementation, video playback behavior, and `test_autoplay.js`.
 - **Interface contracts**: PROJECT.md layout.
-- **Review criteria**: Correctness and stability checks for double jump, air combat momentum, melee collision bounds, and negative zones.
+- **Review criteria**: Check that "omni" saves to localStorage, persists on reload, and defaults to "traditional" on reset; check video playback element starting playing when "omni" is enabled and falls back to standard portraits on load failure; verify `node test_autoplay.js 10000` runs cleanly.
 
 ## Key Decisions Made
-- Wrote `test_mechanics.js` in the workspace root to programmatically mock the Phaser lifecycle and run unit tests on all 4 target behaviors.
-- Confirmed correct operation of double jump, momentum preservation, yDiff melee checks, and negative zone generation via static trace auditing and unit test design.
-- Proved that double jump allows up to two mid-air jumps after walking off edges.
+- Wrote `verify_settings_toggle.js` integration test using Puppeteer to load the page, toggle settings modal options, reload/reset, and mock video playback methods (`play` and `load`) to assert correct cutscene rendering behavior.
+- Configured verification to run against port 3000, spawning the server dynamically if it is not already running.
+- Leveraged Phaser state check by waiting for `window._gameScene.cutsceneController` to fully initialize before firing game cutscene actions in test.
+
+## Artifact Index
+- `c:\Code2\rpg-scroller\verify_settings_toggle.js` — Integration test for settings panel saving/reset and video playback fallback.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Double jump triggers correctly in mid-air when ground touching is lost (proven: jumps count starts at 0, increments to 2, caps there).
-  - Vertical distance constraint in melee attacks prevents vertical cheats (proven: yDiff > 45 check cancels damage).
-  - Horizontal movement is preserved in the air during attack (proven: `setVelocityX(0)` only called `if (onGround)`).
-  - Negative zoneIndex values bypass town rules unless a multiple of 4, generating valid wilderness zones with enemies (proven: `absIdx` calculations and biome chunking handle negative indices).
+  - Setting cutscene mode to "omni" writes to localStorage under key "cutscene_mode" (proven: value updates from null to "omni").
+  - Cutscene mode selection persists on page reloads (proven: page reload preserves "omni" value in localStorage and dropdown).
+  - Reset settings (Clear Keys button) resets cutscene mode to "traditional" (proven: updates localStorage to "traditional" and select element value to "traditional").
+  - Video play and load methods are called when cutscene is triggered under "omni" mode (proven: playCalled and loadCalled are true).
+  - Graceful fallback hides the video container and renders standard portraits if video loading fails (proven: container display set to 'none', left/right portraits style.display set to 'flex').
+  - Autoplay test runner runs cleanly without console/runtime errors (proven: completed cleanly with all presets active).
 - **Vulnerabilities found**:
-  - If a player falls off a ledge, they can still jump twice, not just once. This could be considered a minor exploit or standard choice depending on design.
+  - None. The fallback system is robust and handles video error events gracefully, ensuring the game flow is uninterrupted even if video assets are missing.
 - **Untested angles**:
-  - Real-time physics engine edge cases (e.g. ceiling collisions while double-jumping).
+  - Network latencies during video buffering (mocked locally, but browser behavior under packet loss was not evaluated).
 
 ## Loaded Skills
-- None.
-
-## Artifact Index
-- `C:\Code2\rpg-scroller\test_mechanics.js` — Offline VM unit test suite for verifying mechanics.
+- None

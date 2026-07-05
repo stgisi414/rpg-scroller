@@ -76,7 +76,7 @@ INDOOR_LOCATIONS = {
         icon: 'church',
         bg: 'bg_temple',
         desc: 'Pray for blessings & healing',
-        npcSprite: 'priest',
+        npcSprite: 'priest_3',
         npcName: 'High Priestess',
         npcPersona: 'A serene priestess who channels divine power to heal the wounded and bestow holy blessings upon worthy souls. She charges 25 gold for a full divine healing.',
         floorTint: 0x8888AA,
@@ -115,6 +115,72 @@ INDOOR_LOCATIONS = {
         floorTint: 0x8B0000,
         action: 'audience',
         capitalOnly: true  // Only shown in capital cities
+    },
+    warrior_guild: {
+        name: 'Warrior Guild',
+        icon: 'shield',
+        bg: 'bg_warrior_guild',
+        desc: 'Recruit Knights and Samurai',
+        npcSprite: 'heavy_knight',
+        npcName: 'Grandmaster Ironclad',
+        npcPersona: 'A stern, heavily armored commander who trains elite fighters. He values discipline and coin. He charges 100 gold to recruit a Knight and 150 gold for a Samurai.',
+        floorTint: 0x555555,
+        action: 'recruit_warrior'
+    },
+    magic_guild: {
+        name: 'Magic Guild',
+        icon: 'auto_awesome',
+        bg: 'bg_magic_guild',
+        desc: 'Recruit Wizards and Pyromancers',
+        npcSprite: 'wizard',
+        npcName: 'Archmage Ignis',
+        npcPersona: 'A wise elder wizard surrounded by fire and magic runes. He recruits magical adepts for those who can pay. He charges 150 gold for a Wizard and 200 gold for a Pyromancer.',
+        floorTint: 0x3d305a,
+        action: 'recruit_mage'
+    },
+    temple_sanctum: {
+        name: 'Temple Sanctum',
+        icon: 'favorite',
+        bg: 'bg_temple_sanctum',
+        desc: 'Recruit Priests to heal your party',
+        npcSprite: 'priest',
+        npcName: 'Abbot Gregory',
+        npcPersona: 'A gentle monk who helps holy adventurers find loyal priests. He requires a donation of 150 gold to the temple, or pure good alignment (+30).',
+        floorTint: 0x777799,
+        action: 'recruit_priest'
+    },
+    ranger_lodge: {
+        name: 'Ranger Lodge',
+        icon: 'forest',
+        bg: 'bg_ranger_lodge',
+        desc: 'Recruit Rangers and archers',
+        npcSprite: 'ranger',
+        npcName: 'Huntmaster Robin',
+        npcPersona: 'An agile woodman who coordinates the rangers of the realm. He charges 120 gold, or requires at least +20 alignment.',
+        floorTint: 0x3d523d,
+        action: 'recruit_ranger'
+    },
+    elven_sanctum: {
+        name: 'Elven Sanctum',
+        icon: 'magic_button',
+        bg: 'bg_elven_sanctum',
+        desc: 'Recruit Elven Spellblades',
+        npcSprite: 'elven_spellblade',
+        npcName: 'Spellblade Lorelei',
+        npcPersona: 'An elegant elf spellblade commander who guards the forest secrets. She sponsors spellblades to join worthy causes for 180 gold, or at least +40 alignment.',
+        floorTint: 0x2d5e60,
+        action: 'recruit_spellblade'
+    },
+    witches_coven: {
+        name: 'Witches Coven',
+        icon: 'dark_mode',
+        bg: 'bg_witches_coven',
+        desc: 'Recruit Witches and shadow mages',
+        npcSprite: 'witch',
+        npcName: 'Coven Mother Morbida',
+        npcPersona: 'A sinister witch chanting over a dark cauldron. She demands a dark sacrifice of 200 gold or chaotic/evil alignment (-30 or lower) to summon a witch ally.',
+        floorTint: 0x3d203d,
+        action: 'recruit_witch'
     }
 };
 
@@ -616,6 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSettings.addEventListener('click', () => {
                 document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
                 document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
+                document.getElementById('select-setting-cutscene-mode').value = localStorage.getItem("cutscene_mode") || "traditional";
                 settingsModal.style.display = 'flex';
             });
             document.getElementById('btn-close-menu-settings').addEventListener('click', () => {
@@ -624,12 +691,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btn-save-settings').addEventListener('click', () => {
                 const geminiKey = document.getElementById('input-setting-gemini').value.trim();
                 const chartopiaKey = document.getElementById('input-setting-chartopia').value.trim();
+                const cutsceneMode = document.getElementById('select-setting-cutscene-mode').value;
                 
                 if (geminiKey) localStorage.setItem("gemini_api_key", geminiKey);
                 else localStorage.removeItem("gemini_api_key");
                 
                 if (chartopiaKey) localStorage.setItem("chartopia_api_key", chartopiaKey);
                 else localStorage.removeItem("chartopia_api_key");
+
+                localStorage.setItem("cutscene_mode", cutsceneMode);
                 
                 alert("Settings saved successfully!");
                 settingsModal.style.display = 'none';
@@ -638,8 +708,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (confirm("Are you sure you want to clear your stored API keys?")) {
                     localStorage.removeItem("gemini_api_key");
                     localStorage.removeItem("chartopia_api_key");
+                    localStorage.setItem("cutscene_mode", "traditional");
                     document.getElementById('input-setting-gemini').value = "";
                     document.getElementById('input-setting-chartopia').value = "";
+                    document.getElementById('select-setting-cutscene-mode').value = "traditional";
                     alert("API keys cleared.");
                 }
             });
@@ -839,6 +911,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Back from Create screen to Title
     document.getElementById('btn-create-back').addEventListener('click', showTitleScreen);
+
+    // Next step button (validate name before proceeding)
+    document.getElementById('btn-create-next').addEventListener('click', () => {
+        const nameInput = document.getElementById('character-name-input');
+        const name = nameInput.value.trim();
+        if (!name) {
+            nameInput.classList.add('border-error');
+            nameInput.focus();
+            return;
+        }
+        nameInput.classList.remove('border-error');
+        window.setCreationStep(2);
+    });
+
+    // Previous step button
+    document.getElementById('btn-create-prev').addEventListener('click', () => {
+        window.setCreationStep(1);
+    });
 
     document.querySelectorAll('.class-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {

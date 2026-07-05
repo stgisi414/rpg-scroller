@@ -9,7 +9,12 @@
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(netstat -ano)",
       "Bash(node verify_slice_variance.js)",
-      "Bash(node verify_town_npcs.js)"
+      "Bash(node verify_town_npcs.js)",
+      "Bash(node --check src/player/CompanionAI_Helper.js)",
+      "Bash(node --check src/player/CompanionAI.js)",
+      "Bash(node --check src/scene_modules/HUDManager.js)",
+      "Bash(node verify_autoplay_presets.js)",
+      "Bash(node debug_autoplay_stack.js)"
     ]
   }
 }

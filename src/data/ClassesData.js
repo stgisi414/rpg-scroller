@@ -46,15 +46,16 @@ const classesData = {
         dashRow: 1,
         flipX: true,
         animFrames: {
-            idle: { start: 0, end: 3 },
-            walk: { start: 5, end: 8 },
+            idle: { start: 0, end: 4 },
+            walk: { start: 5, end: 9 },
             attack: { start: 10, end: 14 },
-            jump: { start: 5, end: 8 },
-            fall: { start: 5, end: 8 },
-            hit: { start: 30, end: 33 },
-            die: { start: 50, end: 54 }
+            jump: { start: 5, end: 9 },
+            fall: { start: 5, end: 9 },
+            duck: { start: 27, end: 36 },
+            hit: { start: 27, end: 30 },
+            die: { start: 45, end: 54 }
         },
-        comboStartFrame: 15, comboEndFrame: 19,
+        comboStartFrame: 37, comboEndFrame: 44,
         slotPortraitX: -17, slotPortraitY: -18,
         stats: { vit: 15, str: 14, dex: 9, int: 8 }
     },
@@ -493,7 +494,7 @@ const classesData = {
         previewOffsetY: 20,
         animFrames: {
             duck: { frames: [0] },
-            idle: { frames: [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23] },
+            idle: { start: 0, end: 6 },
             jump: { start: 112, end: 123 },
             fall: { start: 118, end: 123 },
             attack: { start: 32, end: 37 },

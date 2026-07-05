@@ -284,6 +284,105 @@ class CombatController {
                 player.isAttacking = false;
                 if (cd.isSheet) player._playAnim();
             });
+        } else if (cd.id === 'flame_elemental') {
+            // Flame Elemental: shoots fireballs and punches with fire, causes burning on all attacks
+            let dist = 999;
+            let targetSprite = null;
+            if (player.isAI && player.target) {
+                targetSprite = player.target.sprite;
+                if (targetSprite && targetSprite.active) {
+                    dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);
+                }
+            } else if (!player.isAI) {
+                // If controlled by player (e.g. in 1v1 testing scene!), target is player.scene.p2
+                const isFighterScene = player.scene && player.scene.sys && player.scene.sys.settings && player.scene.sys.settings.key === 'FighterScene';
+                if (isFighterScene) {
+                    const opponent = (player === player.scene.p1) ? player.scene.p2 : player.scene.p1;
+                    if (opponent && opponent.sprite && opponent.sprite.active) {
+                        targetSprite = opponent.sprite;
+                        dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);
+                    }
+                }
+            }
+
+            const weaponBonus = player.inventory && player.inventory.weapon ? player.inventory.weapon.damageBonus : 0;
+            const damage = Math.floor(cd.stats.int * 2.5) + weaponBonus + Math.floor(Math.random() * 5);
+
+            if (dist < 80) {
+                // Melee Punch: play attack anim
+                if (cd.isSheet && player.scene.anims.exists(cd.id + '-attack')) {
+                    player._playAnim(cd.id + '-attack');
+                }
+
+                // Create melee hitbox
+                const attackRange = 80;
+                const attackHeight = 55;
+                const offset = (attackRange / 2) - 10;
+                const hitboxX = player.sprite.x + (offset * player.facingDirection);
+                const hitbox = player.scene.add.zone(hitboxX, player.sprite.y, attackRange, attackHeight);
+                player.scene.physics.add.existing(hitbox);
+                hitbox.body.setAllowGravity(false);
+                hitbox.body.moves = false;
+                player.activeHitbox = hitbox;
+
+                player.scene.physics.overlap(hitbox, targetGroup, (box, ts) => {
+                    const targetCtrl = getTargetController(ts);
+                    if (targetCtrl && !targetCtrl.isDead) {
+                        targetCtrl.takeDamage(damage, player.facingDirection);
+                        if (targetCtrl.applyStatusEffect) {
+                            targetCtrl.applyStatusEffect('burn', 5000, 10);
+                        }
+                    }
+                });
+
+                player.attackTimer = player.scene.time.delayedCall(player.attackDuration, () => {
+                    player.isAttacking = false;
+                    if (player.activeHitbox) {
+                        player.activeHitbox.destroy();
+                        player.activeHitbox = null;
+                    }
+                    if (cd.isSheet) player._playAnim();
+                });
+            } else {
+                // Ranged Fireball: play attack2 anim
+                if (cd.isSheet && player.scene.anims.exists(cd.id + '-attack2')) {
+                    player._playAnim(cd.id + '-attack2');
+                }
+
+                player.scene.time.delayedCall(200, () => {
+                    if (!player.sprite || !player.sprite.active) return;
+                    const dir = player.facingDirection || 1;
+                    const p = player.scene.physics.add.sprite(player.sprite.x + (dir * 30), player.sprite.y - 10, 'projectile_blue');
+                    p.body.setAllowGravity(false);
+                    p.setScale(0.75);
+                    p.setTint(0xff3300); // red-orange fireball tint
+                    p.setVelocity(dir * 500, 0);
+                    if (dir === -1) p.setFlipX(true);
+
+                    if (player.scene.anims.exists('projectile_blue_anim')) {
+                        p.play('projectile_blue_anim');
+                    }
+
+                    const overlap = player.scene.physics.add.overlap(p, targetGroup, (proj, ts) => {
+                        const targetCtrl = getTargetController(ts);
+                        if (targetCtrl && !targetCtrl.isDead) {
+                            targetCtrl.takeDamage(damage, dir);
+                            if (targetCtrl.applyStatusEffect) {
+                                targetCtrl.applyStatusEffect('burn', 5000, 10);
+                            }
+                            proj.destroy();
+                            player.scene.physics.world.removeCollider(overlap);
+                        }
+                    });
+
+                    player.scene.time.delayedCall(1200, () => { if (p.active) p.destroy(); });
+                });
+
+                player.attackTimer = player.scene.time.delayedCall(player.attackDuration, () => {
+                    player.isAttacking = false;
+                    if (cd.isSheet) player._playAnim();
+                });
+            }
         } else {
             // Melee Attack (Warrior, Samurai uses melee for now)
             let attackRange = player.isAI ? 120 : 80;

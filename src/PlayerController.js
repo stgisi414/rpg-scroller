@@ -13,13 +13,9 @@ class PlayerController {
         this.questManager = new QuestAlignmentManager(this);
         this.chatManager = new ChatManager(this);
 
-        const autoplayActive = (window.autoplayConfig && window.autoplayConfig.isActive) || (options.isAI);
-        this.isAI = autoplayActive || false;
-        if (this.isAI) {
-            this.aiState = 'party';
-        } else {
-            this.aiState = options.aiState || 'idle';
-        }
+        const autoplayActive = (window.autoplayConfig && window.autoplayConfig.isActive);
+        this.isAI = autoplayActive || options.isAI || false;
+        this.aiState = options.aiState || (this.isAI ? 'party' : 'idle');
         this.npcName = options.npcName || null;
         this.persona = options.persona || null;
         this.camaraderie = options.camaraderie || 0;
@@ -311,8 +307,11 @@ class PlayerController {
                 91, 91, 93, 93, 94, 94, 94, 94, 94  // die (41..49)
             ];
         }
+        if (!window.npcFootData['flame_elemental']) {
+            window.npcFootData['flame_elemental'] = Array(50).fill(91);
+        }
 
-        if (this.classId && (this.classId.startsWith('custom_npc_') || this.classId === 'troll' || (window.npcFootData && window.npcFootData[this.classId]))) {
+        if (this.classId && (this.classId.startsWith('custom_npc_') || this.classId === 'troll' || this.classId === 'flame_elemental' || (window.npcFootData && window.npcFootData[this.classId]))) {
             const originalSetFrame = this.sprite.setFrame;
             const self = this;
             this.sprite.setFrame = function(frame, updateSize, updateArea) {
@@ -467,7 +466,7 @@ class PlayerController {
         } else {
             // For AI or when inside FighterScene (prevents carrying over items/potions from adventure mode)
             this.inventory = { 
-                weapon: { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 5, desc: 'A basic stick.' }, 
+                weapon: options.equippedWeapon || { key: 'weapon-stick', iconSrc: 'src/assets/wooden_staff.png', name: 'Stick', damageBonus: 5, desc: 'A basic stick.' }, 
                 potions: 2,
                 scrolls: 0,
                 artifacts: [],

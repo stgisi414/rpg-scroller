@@ -345,7 +345,28 @@ class NPCController {
                 alchemist: { start: 0, end: 4 }, // Only 5 frames total, reuse idle
                 sage: { start: 6, end: 11 }, // Sage uses Goddess NPC sheet, so play Goddess walk frames 6 to 11!
                 elven_spellblade: { start: 9, end: 17 },
-                elven_spellblade_rival: { start: 9, end: 17 }
+                elven_spellblade_rival: { start: 9, end: 17 },
+                priest: { start: 16, end: 27 },
+                priest_1: { start: 16, end: 27 },
+                priest_2: { start: 16, end: 27 },
+                priest_3: { start: 16, end: 27 },
+                priest_1_rival: { start: 16, end: 27 },
+                priest_2_rival: { start: 16, end: 27 },
+                priest_3_rival: { start: 16, end: 27 },
+                witch: { start: 14, end: 23 },
+                witch_1: { start: 14, end: 23 },
+                witch_2: { start: 14, end: 23 },
+                witch_3: { start: 14, end: 23 },
+                witch_1_rival: { start: 14, end: 23 },
+                witch_2_rival: { start: 14, end: 23 },
+                witch_3_rival: { start: 14, end: 23 },
+                pyromancer: { start: 16, end: 23 },
+                pyromancer_1: { start: 16, end: 23 },
+                pyromancer_2: { start: 16, end: 23 },
+                pyromancer_3: { start: 16, end: 23 },
+                pyromancer_1_rival: { start: 16, end: 23 },
+                pyromancer_2_rival: { start: 16, end: 23 },
+                pyromancer_3_rival: { start: 16, end: 23 }
             };
             
             if (spriteKey === 'king') {
@@ -662,7 +683,7 @@ class NPCController {
             }
 
             const ai = this.player.companionAI;
-            const wantsStatue = ai && (ai._wantsToTravel || ai._wantsGuildHall);
+            const wantsStatue = ai && !scene.isIndoors && (ai._wantsToTravel || ai._wantsGuildHall);
 
             if (!statueCloser && !isDirOpen && !wantsStatue) {
                 if (!this.isChatOpen) {
@@ -849,8 +870,8 @@ startActivity() {
     return NPCController_Helper.startActivity.call(this);
 }
 
-    executeActivityEffect() {
-        window.NPCCampaignHelper.executeActivityEffect(this);
+    executeActivityEffect(targetParam = null) {
+        window.NPCCampaignHelper.executeActivityEffect(this, targetParam);
     }
 
 async handlePlayerMessage() {
