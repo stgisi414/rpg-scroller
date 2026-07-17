@@ -638,7 +638,12 @@ class PlayerController {
             return false;
         }
         if (this.inputManager.blocked) return false;
-        return Phaser.Input.Keyboard.JustDown(this.inputManager.keys.attack);
+        
+        const periodDown = Phaser.Input.Keyboard.JustDown(this.inputManager.keys.attack);
+        const enterDown = this.inputManager.keys.enter ? Phaser.Input.Keyboard.JustDown(this.inputManager.keys.enter) : false;
+        const clickDown = this.inputManager.consumeClick ? this.inputManager.consumeClick() : false;
+        
+        return periodDown || enterDown || clickDown;
     }
     consumeSuperSpell() {
         if (this.inputManager.blocked && !this.isAI) return false;
