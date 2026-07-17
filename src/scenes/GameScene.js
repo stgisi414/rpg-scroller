@@ -319,6 +319,15 @@ class GameScene extends Phaser.Scene {
             this._openPartyBuilder();
         });
 
+        // AI Autoplay Manager Toggle (Z)
+        this.input.keyboard.on('keydown-Z', (event) => {
+            if (event && (event.ctrlKey || event.metaKey || event.altKey)) return;
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+            if (this.hudManager) {
+                this.hudManager.toggleAutoplayConfig();
+            }
+        });
+
         this._lastDebugUpdate = 0;
     }
     

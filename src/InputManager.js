@@ -135,7 +135,8 @@ class InputManager {
             Phaser.Input.Keyboard.KeyCodes.COMMA,
             Phaser.Input.Keyboard.KeyCodes.FORWARD_SLASH,
             Phaser.Input.Keyboard.KeyCodes.M,
-            Phaser.Input.Keyboard.KeyCodes.P
+            Phaser.Input.Keyboard.KeyCodes.P,
+            Phaser.Input.Keyboard.KeyCodes.Z
         ];
     }
 
