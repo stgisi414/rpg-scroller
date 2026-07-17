@@ -1432,4 +1432,99 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
         }
         throw new Error("Timed out waiting for video generation operation to complete.");
     }
+
+    async playSpeech(text) {
+        if (!this.apiKey) {
+            alert("Please configure your Gemini API Key in Settings to read messages aloud!");
+            return;
+        }
+        
+        // Stop currently playing voice if any
+        if (this._activeSpeechSource) {
+            try {
+                this._activeSpeechSource.stop();
+            } catch (e) {}
+            this._activeSpeechSource = null;
+        }
+        
+        const voiceName = localStorage.getItem("tts_voice") || "Kore";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${this.apiKey}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: text
+                        }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: {
+                                    voiceName: voiceName
+                                }
+                            }
+                        }
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Speech API returned status ${response.status}: ${errText}`);
+            }
+
+            const data = await response.json();
+            
+            let base64Audio = null;
+            const part = data.candidates?.[0]?.content?.parts?.[0];
+            if (part?.inlineData?.data) {
+                base64Audio = part.inlineData.data;
+            } else if (part?.inline_data?.data) {
+                base64Audio = part.inline_data.data;
+            }
+            
+            if (!base64Audio) {
+                throw new Error("No speech audio found in response.");
+            }
+            
+            // Play PCM
+            const sampleRate = 24000; // Gemini default PCM output sample rate is 24kHz
+            const binaryString = atob(base64Audio);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            const numSamples = len / 2;
+            const floatData = new Float32Array(numSamples);
+            const dataView = new DataView(bytes.buffer);
+            
+            for (let i = 0; i < numSamples; i++) {
+                const val = dataView.getInt16(i * 2, true); // little endian PCM 16-bit
+                floatData[i] = val / 32768.0;
+            }
+            
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = audioCtx.createBuffer(1, numSamples, sampleRate);
+            audioBuffer.copyToChannel(floatData, 0);
+            
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+            
+            this._activeSpeechSource = source;
+        } catch (err) {
+            console.error("Failed to generate/play speech:", err);
+            alert("Speech generation failed: " + err.message);
+        }
+    }
 }

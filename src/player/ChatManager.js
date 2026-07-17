@@ -167,10 +167,37 @@ class ChatManager {
             msgDiv.classList.add('ai-message');
         }
         msgDiv.style.marginBottom = '8px';
+        msgDiv.style.display = 'flex';
+        msgDiv.style.alignItems = 'center';
+        msgDiv.style.flexWrap = 'wrap';
+        msgDiv.style.gap = '4px';
+
         const senderColor = sender === "Player" ? "#66aaff" : (sender === "System" ? "#aaaaaa" : "#ffaa00");
-        msgDiv.innerHTML = `<span style="color: ${senderColor}; font-weight: bold;">${sender}:</span> <span>${text}</span>`;
+        
+        // Add a speaker icon if the message is valid for speech
+        let speakerHtml = '';
+        if (text !== '...' && sender !== 'System' && text.trim().length > 0) {
+            speakerHtml = `<button class="chat-speaker-btn" style="background:transparent; border:none; color:#2ddbde; font-size:12px; cursor:pointer; padding:2px 4px; display:inline-flex; align-items:center; opacity:0.6; transition:opacity 0.2s, transform 0.1s;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.6'; this.style.transform='scale(1.0)'" title="Read Aloud">🔊</button>`;
+        }
+
+        msgDiv.innerHTML = `<div><span style="color: ${senderColor}; font-weight: bold;">${sender}:</span> <span>${text}</span>${speakerHtml}</div>`;
+        
         player.chatHistoryDiv.appendChild(msgDiv);
         player.chatHistoryDiv.scrollTop = player.chatHistoryDiv.scrollHeight;
+
+        // Attach click listener for speech read-aloud
+        const speakerBtn = msgDiv.querySelector('.chat-speaker-btn');
+        if (speakerBtn) {
+            speakerBtn.addEventListener('click', () => {
+                if (player.scene && player.scene.geminiService) {
+                    // Clean text (remove brackets/stars markdown markers before sending to TTS)
+                    const cleanText = text.replace(/\[.*?\]/g, '').replace(/<.*?>/g, '').replace(/[*#`_~]/g, '').trim();
+                    if (cleanText) {
+                        player.scene.geminiService.playSpeech(cleanText);
+                    }
+                }
+            });
+        }
     }
 
     async handlePlayerMessage(textInput) {
