@@ -778,7 +778,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
-    }
     
     // Continue Screen Logic
     const btnContinue = document.getElementById('btn-continue');
