@@ -140,39 +140,80 @@ class GeminiService {
     async generateContentWithTools(prompt) {
         if (!this.isReady) throw new Error("GeminiService is not ready");
         
-        console.log("[GEMINI_DBG] startChat with modelWithTools. Prompt starts with:", prompt.substring(0, 150) + "...");
-        const chat = this.modelWithTools.startChat();
-        let result = await chat.sendMessage(prompt);
-        console.log("[GEMINI_DBG] Initial result:", result);
-        
-        let attempts = 0;
-        const maxAttempts = 10;
-        
-        while (attempts < maxAttempts) {
-            const functionCalls = result.functionCalls;
-            if (functionCalls && functionCalls.length > 0) {
-                const call = functionCalls[0];
-                console.log(`[GEMINI_DBG] Tool call requested (attempt ${attempts}): ${call.name} with args:`, call.args);
-                let resultStr = "";
-                if (call.name === "rollFantasyName") {
-                    resultStr = this.rollFantasyName(call.args.category, call.args.count || 10);
-                }
-                console.log("[GEMINI_DBG] Tool execution result:", resultStr);
+        let lastError = null;
+        for (let retry = 0; retry < 3; retry++) {
+            let result = null;
+            try {
+                console.log(`[GEMINI_DBG] startChat with modelWithTools (Attempt ${retry + 1}). Prompt starts with:`, prompt.substring(0, 150) + "...");
+                const chat = this.modelWithTools.startChat();
+                result = await chat.sendMessage(prompt);
+                console.log("[GEMINI_DBG] Initial result:", result);
                 
-                result = await chat.sendMessage([{
-                    functionResponse: {
-                        name: call.name,
-                        response: { result: resultStr }
+                let attempts = 0;
+                const maxAttempts = 10;
+                let gotEmptyResponse = false;
+                
+                while (attempts < maxAttempts) {
+                    // Extract function calls manually for absolute reliability
+                    const functionCalls = [];
+                    if (result && result.response && result.response.candidates && result.response.candidates[0] && result.response.candidates[0].content && result.response.candidates[0].content.parts) {
+                        result.response.candidates[0].content.parts.forEach(part => {
+                            if (part.functionCall) {
+                                functionCalls.push(part.functionCall);
+                            }
+                        });
                     }
-                }]);
-                console.log(`[GEMINI_DBG] Chat result after tool call response (attempt ${attempts}):`, result);
-                attempts++;
-            } else {
-                console.log("[GEMINI_DBG] Final non-tool result returned successfully.");
-                return result;
+                    
+                    if (functionCalls.length > 0) {
+                        const call = functionCalls[0];
+                        console.log(`[GEMINI_DBG] Tool call requested (attempt ${attempts}): ${call.name} with args:`, call.args);
+                        let resultStr = "";
+                        if (call.name === "rollFantasyName") {
+                            resultStr = this.rollFantasyName(call.args.category, call.args.count || 10);
+                        }
+                        console.log("[GEMINI_DBG] Tool execution result:", resultStr);
+                        
+                        result = await chat.sendMessage([{
+                            functionResponse: {
+                                name: call.name,
+                                response: { result: resultStr }
+                            }
+                        }]);
+                        console.log(`[GEMINI_DBG] Chat result after tool call response (attempt ${attempts}):`, result);
+                        attempts++;
+                    } else {
+                        // Extract text parts manually for absolute reliability
+                        let text = "";
+                        if (result && result.response && result.response.candidates && result.response.candidates[0] && result.response.candidates[0].content && result.response.candidates[0].content.parts) {
+                            result.response.candidates[0].content.parts.forEach(part => {
+                                if (part.text) {
+                                    text += part.text;
+                                }
+                            });
+                        }
+                        
+                        if (!text || text.trim() === "") {
+                            console.warn(`[GEMINI_DBG] Empty response text received (Attempt ${retry + 1}).\nPrompt Sent: ${prompt}\nFull Result Object:`, JSON.stringify(result, null, 2));
+                            gotEmptyResponse = true;
+                            break;
+                        }
+                        console.log("[GEMINI_DBG] Final non-tool result returned successfully.");
+                        return result;
+                    }
+                }
+                
+                if (gotEmptyResponse) {
+                    continue;
+                }
+                throw new Error("Max tool call attempts exceeded");
+            } catch (e) {
+                console.error(`[GEMINI_DBG] Error on attempt ${retry + 1}.\nPrompt Sent: ${prompt}\nFull Result Object:`, result ? JSON.stringify(result, null, 2) : "undefined", `\nException:`, e);
+                lastError = e;
+                // Wait briefly before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
             }
         }
-        throw new Error("Max tool call attempts exceeded");
+        throw lastError || new Error("Failed after 3 attempts");
     }
 
     async getEnemyTactic(battleState) {
@@ -283,6 +324,12 @@ Return ONLY a valid JSON object:
         let contextText = "";
         if (state) {
             contextText += `\n--- GAME CONTEXT (RAG DATA) ---\n`;
+            if (saveData && saveData.narrativeJournal && saveData.narrativeJournal.length > 0) {
+                contextText += `\nNarrative Memories (Persistent Campaign History):\n`;
+                saveData.narrativeJournal.forEach(mem => {
+                    contextText += `- ${mem}\n`;
+                });
+            }
             if (state.zone) {
                 contextText += `Current Location: ${state.zone.name} (Biome: ${state.zone.biome})\nZone Lore: ${state.zone.lore}\n`;
             } else {
@@ -375,12 +422,15 @@ Write your response in English, but you must weave in characteristic speech patt
             }
         }
 
+        const npcName = (state && state.npc && state.npc.name) ? state.npc.name : 'Unknown';
         const prompt = `You are a roleplaying NPC in a dark fantasy video game.
+Your Name: ${npcName}
 Your Persona: ${npcPersona}
 
 ${languageInstruction}
 
 You must act perfectly in character. Do not break the fourth wall. 
+- CRITICAL NAME VOICE CONSTRAINT: Speak strictly as yourself (Your Name: ${npcName}). Do NOT prepend another character name (like Vespera or Brom) to your lines, nor speak in the voice of another vendor.
 CRITICAL RAG INSTRUCTION: Use the Game Context and Political Map Context provided below to dynamically weave the player's class, location, inventory, active quests, or political alignment/standing into your dialogue where natural. Speak in-character matching your faction, rank, title, and relationships. If they are heavily wounded, comment on it. If they have lots of gold, act greedy or impressed. If they are an samurai, be wary.
 If your alignment is Good:
 - Treat players with positive alignment (Good karma) with high respect, kindness, and warmth.
@@ -464,6 +514,33 @@ If you do NOT want to give a quest, simply omit the "quest" field.`;
         } catch (e) {
             console.error("GeminiService: Failed to get NPC response", e);
             return { response: "... *stares blankly*", alignmentShift: 0 };
+        }
+    }
+
+    async summarizeConversation(chatHistory) {
+        if (!this.isReady || !chatHistory || chatHistory.length === 0) return null;
+        
+        const historyText = chatHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n');
+        const prompt = `You are the Game Master for a fantasy RPG.
+Summarize the following short dialogue sequence between the player and an NPC into a single, concise, one-sentence memory in the third person. Focus on key actions, choices, agreements, details revealed, or relationship changes.
+Do not include any formatting, markdown, or prefix (like "Summary:"). Keep it under 20 words.
+
+Dialogue:
+${historyText}
+
+Memory:`;
+
+        try {
+            const result = await Promise.race([
+                this.generateContentWithTools(prompt),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
+            ]);
+            const text = result.response.text().trim();
+            console.log("Summarized conversation into memory:", text);
+            return text;
+        } catch (e) {
+            console.error("GeminiService: Failed to summarize conversation", e);
+            return null;
         }
     }
 
@@ -805,13 +882,17 @@ Return ONLY a valid JSON object in this exact format:
         const isSavior = saveData && saveData.isSavior ? 'Savior of the Realm' : 'Unknown wanderer';
         const zoneName = zoneData ? zoneData.name : 'Unknown lands';
 
+        const promptTextWithMemories = (saveData && saveData.narrativeJournal && saveData.narrativeJournal.length > 0)
+            ? `\nNarrative Memories (Recent Campaign Events):\n` + saveData.narrativeJournal.map(mem => `- ${mem}`).join('\n') + '\n'
+            : '';
+
         const prompt = `You are an AI Game Master in a dark fantasy 2D RPG.
 Current Context:
 - Player Level: ${playerLevel}
 - Player Class: ${className}
 - Player Status: ${isSavior}
 - Current Zone: ${zoneName}
-
+${promptTextWithMemories}
 Task: ${promptText}
 
 Output your response as JSON in this exact format:

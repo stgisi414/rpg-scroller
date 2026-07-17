@@ -184,6 +184,17 @@ INDOOR_LOCATIONS = {
     }
 };
 
+window.formatLeaderName = function(title, name) {
+    if (!title) return name || '';
+    if (!name) return title || '';
+    const titleWords = title.split(/\s+/).map(w => w.toLowerCase());
+    const firstWordOfName = name.split(/\s+/)[0];
+    if (firstWordOfName && titleWords.includes(firstWordOfName.toLowerCase())) {
+        return title + " " + name.substring(firstWordOfName.length).trim();
+    }
+    return title + " " + name;
+};
+
 // Initialize the title screen Phaser canvas (animated sprites behind the HTML menu)
 function initTitleScreen() {
     if (titleGame) return; // Already running
@@ -214,6 +225,8 @@ function startGame(saveDataParam) {
         titleGame.destroy(true);
         titleGame = null;
     }
+    const container = document.getElementById('game-container');
+    if (container) container.innerHTML = '';
 
     // Hide Create UI and show Game UI
     document.getElementById('ui-create').style.display = 'none';
@@ -223,14 +236,18 @@ function startGame(saveDataParam) {
 
     window.selectedClass = window.classesData[saveData.classId];
     saveData = JSON.parse(JSON.stringify(saveData));
+    if (saveData) {
+        saveData.narrativeJournal = saveData.narrativeJournal || [];
+    }
 
     // Character Stats & Level Progression Migration
     if (saveData && saveData.level) {
-        if (!saveData.stats || saveData.stats.luck === undefined || saveData.stats.migratedProgress !== true) {
-            saveData.stats = window.calculateStatsForLevel(saveData.classId || 'knight', saveData.level);
-            saveData.stats.migratedProgress = true;
+        // Always recalculate base stats based on level to correct/heal any frozen stats from the saving bug
+        saveData.stats = window.calculateStatsForLevel(saveData.classId || 'knight', saveData.level);
+        saveData.stats.migratedProgress = true;
+        
+        if (!saveData.passiveSkills || saveData.skillPoints === undefined) {
             saveData.passiveSkills = saveData.passiveSkills || {};
-            
             const totalPoints = 3 + (saveData.level - 1);
             let spentPoints = 0;
             for (const skillId in saveData.passiveSkills) {
@@ -630,6 +647,8 @@ window.returnToMainMenu = function() {
         game.destroy(true);
         game = null;
         window.game = null;
+        const container = document.getElementById('game-container');
+        if (container) container.innerHTML = '';
     }
     
     // Hide game HUD, show title screen
@@ -901,7 +920,8 @@ document.addEventListener('DOMContentLoaded', () => {
                              window.selectedClassData.id === 'knight' ? ['common', 'dwarvish'] : ['common']),
             // Skills System starting allocations
             passiveSkills: JSON.parse(JSON.stringify(creationAllocations)),
-            skillPoints: 0
+            skillPoints: 0,
+            narrativeJournal: []
         };
         
         saves.push(newSave);

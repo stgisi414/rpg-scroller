@@ -36,7 +36,29 @@ class ChatManager {
         player.isChatOpen = true;
         player.scene.player.isTalking = true;
         if (player.uiContainer) {
-            player.uiContainer.style.display = 'block';
+            player.uiContainer.style.display = 'flex';
+        }
+
+        // Clear stale DOM messages and re-render this companion's own chat history
+        if (player.chatHistoryDiv) {
+            player.chatHistoryDiv.innerHTML = '';
+            for (const msg of player.chatHistory) {
+                this.addMessageToUI(msg.sender, msg.text);
+            }
+        }
+        player._chatHistoryLengthOnOpen = player.chatHistory.length;
+
+        const chatCanvas = document.getElementById('chat-portrait-canvas');
+        if (chatCanvas && player.sprite && player.sprite.active) {
+            const classId = player.classData ? player.classData.id : 'npc';
+            const shouldFlip = (player.classData && player.classData.flipX) || false;
+            let success = false;
+            if (window.drawDetailedPortrait) {
+                success = window.drawDetailedPortrait(chatCanvas, classId, player.customConfig || null, shouldFlip, player.scene);
+            }
+            if (!success && window.drawFallbackSpriteToCanvas) {
+                window.drawFallbackSpriteToCanvas(chatCanvas, player.sprite, shouldFlip, player.scene);
+            }
         }
         
         // Use npcName or default fallback
@@ -99,6 +121,14 @@ class ChatManager {
 
     closeChat() {
         const player = this.player;
+        // Block closing while AI response is in-flight
+        if (player._isAwaitingResponse) return;
+
+        // Summarize chat if new messages were sent
+        if (player.chatHistory && player._chatHistoryLengthOnOpen !== undefined && player.chatHistory.length > player._chatHistoryLengthOnOpen) {
+            this.summarizeAndSaveJournal();
+        }
+
         player.isChatOpen = false;
         player.scene.player.isTalking = false;
         if (player.uiContainer) player.uiContainer.style.display = 'none';
@@ -150,6 +180,11 @@ class ChatManager {
 
         this.addMessageToUI("Player", text);
         if (player.chatInput) player.chatInput.value = "";
+        player.chatHistory.push({ sender: "Player", text: text });
+        if (player.chatHistory.length > 10) player.chatHistory.shift();
+
+        // Block chat close and disable input during generation
+        player._isAwaitingResponse = true;
         if (player.chatInput) player.chatInput.disabled = true;
         if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = true;
 
@@ -160,7 +195,7 @@ class ChatManager {
         const wm = player.scene.worldManager;
         const p = player.scene.player;
         const state = {
-            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome } : null,
+            zone: wm && wm.currentZoneData ? { name: wm.currentZoneData.name, lore: wm.currentZoneData.loreText, biome: wm.currentZoneData.biome, zoneIndex: wm.currentZoneIndex } : null,
             player: { level: saveData.level || 1, class: p.classData ? p.classData.id : "adventurer", hp: `${p.hp}/${p.maxHp}` }
         };
 
@@ -168,17 +203,29 @@ class ChatManager {
         const persona = player.persona || "A loyal adventurer traveling with the player.";
         
         try {
-            const response = await geminiService.getNpcResponse(persona, player.chatHistory, text, state);
+            // If this NPC has joined the party, inject companion context into persona
+            let effectivePersona = player.persona || "A loyal adventurer traveling with the player.";
+            if (player.aiState === 'party') {
+                effectivePersona += ` IMPORTANT: You have ALREADY joined the player's adventuring party as a loyal companion. You are currently traveling and fighting alongside the player. Do NOT act like a stranger or a regular townsperson. Do NOT offer delivery or fetch quests — you are an adventurer now, not a shopkeeper. Respond as a trusted ally and companion.`;
+            }
+            const startZoneIndex = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : null;
+            const response = await geminiService.getNpcResponse(effectivePersona, player.chatHistory, text, state);
             if (!player.scene || player.scene.isSceneDestroyed) return;
             if (!player.sprite || !player.sprite.active) return;
+            
+            const currentZoneIndex = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : null;
+            if (startZoneIndex !== currentZoneIndex) {
+                console.log("ChatManager: Zone changed during API call. Aborting response.");
+                return;
+            }
             
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
             this.addMessageToUI(displayName, response.response, true);
             
-            player.chatHistory.push({ sender: "Player", text: text });
             player.chatHistory.push({ sender: displayName, text: response.response });
+            if (player.chatHistory.length > 10) player.chatHistory.shift();
 
             // Process Quest if offered
             if (response && response.quest) {
@@ -225,6 +272,8 @@ class ChatManager {
                 if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = true;
                 if (player.chatInput) player.chatInput.disabled = true;
                 setTimeout(() => {
+                    if (!player.scene || player.scene.isSceneDestroyed || !player.sprite || !player.sprite.active) return;
+                    player._isAwaitingResponse = false;
                     this.closeChat();
                     if (window.reclaimCompanionEquipment) {
                         window.reclaimCompanionEquipment(player.scene, player);
@@ -242,6 +291,8 @@ class ChatManager {
                 if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = true;
                 if (player.chatInput) player.chatInput.disabled = true;
                 setTimeout(() => {
+                    if (!player.scene || player.scene.isSceneDestroyed || !player.sprite || !player.sprite.active) return;
+                    player._isAwaitingResponse = false;
                     this.closeChat();
                     if (window.reclaimCompanionEquipment) {
                         window.reclaimCompanionEquipment(player.scene, player);
@@ -273,6 +324,7 @@ class ChatManager {
             this.addMessageToUI(displayName, "Hmm... I don't know what to say.");
         }
 
+        player._isAwaitingResponse = false;
         if (player.chatInput) player.chatInput.disabled = false;
         if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = false;
         if (player.chatInput) player.chatInput.focus();
@@ -280,9 +332,11 @@ class ChatManager {
 
     async triggerHiddenPrompt(promptType, displayNameInput = null) {
         const player = this.player;
+        player._isAwaitingResponse = true;
         const displayName = displayNameInput || player.npcName || (player.classData ? player.classData.id : 'Ally');
         const loadingId = "loading-" + Date.now();
         this.addMessageToUI(displayName, "...", loadingId);
+        const startZoneIndex = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : null;
 
         const wm = player.scene.worldManager;
         const p = player.scene.player;
@@ -299,12 +353,19 @@ class ChatManager {
             if (!player.scene || player.scene.isSceneDestroyed) return;
             if (!player.sprite || !player.sprite.active) return;
             
+            const currentZoneIndex = player.scene.worldManager ? player.scene.worldManager.currentZoneIndex : null;
+            if (startZoneIndex !== currentZoneIndex) {
+                console.log("ChatManager: Zone changed during AI intro. Aborting response.");
+                return;
+            }
+            
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
             this.addMessageToUI(displayName, response.response, true);
             
             player.chatHistory.push({ sender: displayName, text: response.response });
+            if (player.chatHistory.length > 10) player.chatHistory.shift();
             
             // Process Quest if offered
             if (response && response.quest) {
@@ -342,9 +403,34 @@ class ChatManager {
             this.addMessageToUI(displayName, "Welcome to Willowbrook. I am the Game Master.");
         }
 
+        player._isAwaitingResponse = false;
         if (player.chatInput) player.chatInput.disabled = false;
         if (player.chatSubmitBtn) player.chatSubmitBtn.disabled = false;
         if (player.chatInput) player.chatInput.focus();
+    }
+
+    async summarizeAndSaveJournal() {
+        const player = this.player;
+        const newMsgs = player.chatHistory.slice(player._chatHistoryLengthOnOpen);
+        if (newMsgs.length === 0) return;
+        
+        const geminiService = player.scene.geminiService;
+        try {
+            const summary = await geminiService.summarizeConversation(newMsgs);
+            if (summary && saveData) {
+                if (!saveData.narrativeJournal) saveData.narrativeJournal = [];
+                saveData.narrativeJournal.push(summary);
+                if (saveData.narrativeJournal.length > 30) {
+                    saveData.narrativeJournal.shift();
+                }
+                console.log("Narrative journal updated:", saveData.narrativeJournal);
+                if (player.scene && typeof player.scene._autoSave === 'function') {
+                    player.scene._autoSave();
+                }
+            }
+        } catch (e) {
+            console.error("Failed to summarize and save journal:", e);
+        }
     }
 }
 

@@ -9,8 +9,36 @@ const NPCController_Helper = {
         this.isChatOpen = true;
         this.isIntroCutscene = isIntro;
         this.player.isTalking = true;
-        this.uiContainer.style.display = 'block';
+        this.uiContainer.style.display = 'flex';
         this.registerChatListeners();
+        this._chatHistoryLengthOnOpen = this.chatHistory.length;
+
+        // Clear stale DOM messages and re-render this NPC's own chat history
+        if (this.chatHistoryDiv) {
+            this.chatHistoryDiv.innerHTML = '';
+            for (const msg of this.chatHistory) {
+                this.addMessageToUI(msg.sender, msg.text);
+            }
+        }
+
+        // Draw detailed portrait or fallback
+        const chatCanvas = document.getElementById('chat-portrait-canvas');
+        if (chatCanvas && this.sprite && this.sprite.active) {
+            let classId = this.spriteKey;
+            if (this.politicalTitle === 'Guard' && classId === 'heavy_knight') {
+                classId = 'heavy_guard';
+            }
+            const baseKey = classId.replace('_rival', '');
+            const classData = (window.classesData && window.classesData[baseKey]) ? window.classesData[baseKey] : null;
+            const shouldFlip = (classData && classData.flipX) || false;
+            let success = false;
+            if (window.drawDetailedPortrait) {
+                success = window.drawDetailedPortrait(chatCanvas, classId, this.config || null, shouldFlip, this.scene);
+            }
+            if (!success && window.drawFallbackSpriteToCanvas) {
+                window.drawFallbackSpriteToCanvas(chatCanvas, this.sprite, shouldFlip, this.scene);
+            }
+        }
 
         // Show faction emblem (both absolute top-right and inline next to the name)
         const emblemImg = document.getElementById('chat-faction-emblem');
@@ -35,7 +63,13 @@ const NPCController_Helper = {
         }
 
         if (this.chatHistory.length === 0) {
-            if (isIntro) {
+            if (this.wasApproaching) {
+                this.wasApproaching = false; // Reset the flag
+                this.chatInput.disabled = true;
+                this.chatSubmitBtn.disabled = true;
+                const hiddenPrompt = `*You approached the player in town to strike up a conversation. Give a unique, personalized greeting based on your persona, share a local rumor or ask them a question about their adventures, and invite them to chat.*`;
+                this.triggerHiddenPrompt(hiddenPrompt, this.npcName);
+            } else if (isIntro) {
                 this.chatInput.disabled = true;
                 this.chatSubmitBtn.disabled = true;
                 const hiddenPrompt = `*The player has just started a new game. Welcome them to the town of Willowbrook, explain the lore of the Elden Soul, and introduce yourself as their Game Master. Give a unique, personalized greeting.*`;
@@ -97,6 +131,14 @@ const NPCController_Helper = {
     },
 
     closeChat() {
+        // Block closing while AI response is in-flight
+        if (this._isAwaitingResponse) return;
+
+        // Summarize chat if new messages were sent
+        if (this.chatHistory && this._chatHistoryLengthOnOpen !== undefined && this.chatHistory.length > this._chatHistoryLengthOnOpen) {
+            this.summarizeAndSaveJournal();
+        }
+
         this.isChatOpen = false;
         this.isIntroCutscene = false;
         this.player.isTalking = false;
@@ -281,8 +323,10 @@ const NPCController_Helper = {
         this.chatInput.value = '';
         this.addMessageToUI("Player", text);
         this.chatHistory.push({ sender: "Player", text: text });
+        if (this.chatHistory.length > 10) this.chatHistory.shift();
 
-        // Disable UI during generation
+        // Disable UI during generation and block chat close
+        this._isAwaitingResponse = true;
         this.chatInput.disabled = true;
         this.chatSubmitBtn.disabled = true;
         if (this.chatActivityBtn) this.chatActivityBtn.disabled = true;
@@ -314,12 +358,19 @@ const NPCController_Helper = {
             promptSuffix += `\n*The player has responded to your activity proposal. Assess if they responded correctly. If they did, end your response with [ACTION_SUCCESS].*`;
         }
 
+        const startZoneIndex = this.scene.worldManager ? this.scene.worldManager.currentZoneIndex : null;
         const state = this.getGameState();
         
         try {
             const response = await this.geminiService.getNpcResponse(this.persona, this.chatHistory, promptSuffix, state, this.indoorAction || '');
             if (!this.scene || this.scene.isSceneDestroyed) return;
             if (!this.sprite || !this.sprite.active) return;
+            
+            const currentZoneIndex = this.scene.worldManager ? this.scene.worldManager.currentZoneIndex : null;
+            if (startZoneIndex !== currentZoneIndex) {
+                console.log("NPCController: Zone changed during API call. Aborting response.");
+                return;
+            }
             
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
@@ -328,6 +379,7 @@ const NPCController_Helper = {
             let cleanResponse = response.response.replace(/\[ACTION_SUCCESS(?::\w+)?\]/g, '').trim();
             this.addMessageToUI(this.npcName, cleanResponse);
             this.chatHistory.push({ sender: this.npcName, text: cleanResponse });
+            if (this.chatHistory.length > 10) this.chatHistory.shift();
 
             // 5. Handle Action Success
             const successMatch = response.response.match(/\[ACTION_SUCCESS(?::(\w+))?\]/);
@@ -335,6 +387,8 @@ const NPCController_Helper = {
                 this.activeActivity = null;
                 this.executeActivityEffect(successMatch[1] || null);
             }
+
+            this._isAwaitingResponse = false;
 
             // Apply Social shifts
             if (response.socialShift && response.socialShift !== 0) {
@@ -389,6 +443,8 @@ const NPCController_Helper = {
                     this.player.updateAlignment(-5);
                 } else {
                     setTimeout(() => {
+                        if (!this.scene || this.scene.isSceneDestroyed || !this.sprite || !this.sprite.active) return;
+                        this._isAwaitingResponse = false;
                         this.closeChat();
                         if (this.scene.spawnHeroAI) {
                             this.player.updateAlignment(-10);
@@ -411,6 +467,8 @@ const NPCController_Helper = {
                     this.player.updateAlignment(5);
                 } else {
                     setTimeout(() => {
+                        if (!this.scene || this.scene.isSceneDestroyed || !this.sprite || !this.sprite.active) return;
+                        this._isAwaitingResponse = false;
                         this.closeChat();
                         if (this.scene.spawnHeroAI) {
                             if (this.isCustom) {
@@ -438,6 +496,7 @@ const NPCController_Helper = {
             if (loadingElement) loadingElement.remove();
             
             this.addMessageToUI(this.npcName, "I have nothing to say to you.");
+            this._isAwaitingResponse = false;
             this.chatInput.disabled = false;
             this.chatSubmitBtn.disabled = false;
             if (this.chatActivityBtn) this.chatActivityBtn.disabled = false;
@@ -599,8 +658,10 @@ const NPCController_Helper = {
     },
 
     async triggerHiddenPrompt(hiddenPrompt, displayName) {
+        this._isAwaitingResponse = true;
         const loadingId = "loading-" + Date.now();
         this.addMessageToUI(displayName, "...", loadingId);
+        const startZoneIndex = this.scene.worldManager ? this.scene.worldManager.currentZoneIndex : null;
 
         const state = this.getGameState();
         
@@ -609,12 +670,19 @@ const NPCController_Helper = {
             if (!this.scene || this.scene.isSceneDestroyed) return;
             if (!this.sprite || !this.sprite.active) return;
             
+            const currentZoneIndex = this.scene.worldManager ? this.scene.worldManager.currentZoneIndex : null;
+            if (startZoneIndex !== currentZoneIndex) {
+                console.log("NPCController: Zone changed during AI intro. Aborting.");
+                return;
+            }
+            
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
             this.addMessageToUI(displayName, response.response);
             
             this.chatHistory.push({ sender: displayName, text: response.response });
+            if (this.chatHistory.length > 10) this.chatHistory.shift();
             
         } catch (err) {
             if (!this.scene || this.scene.isSceneDestroyed) return;
@@ -625,8 +693,31 @@ const NPCController_Helper = {
             this.addMessageToUI(displayName, "Greetings.");
         }
 
+        this._isAwaitingResponse = false;
         if (this.chatInput) this.chatInput.disabled = false;
         if (this.chatSubmitBtn) this.chatSubmitBtn.disabled = false;
         if (this.chatInput) this.chatInput.focus();
+    },
+
+    async summarizeAndSaveJournal() {
+        const newMsgs = this.chatHistory.slice(this._chatHistoryLengthOnOpen);
+        if (newMsgs.length === 0) return;
+        
+        try {
+            const summary = await this.geminiService.summarizeConversation(newMsgs);
+            if (summary && saveData) {
+                if (!saveData.narrativeJournal) saveData.narrativeJournal = [];
+                saveData.narrativeJournal.push(summary);
+                if (saveData.narrativeJournal.length > 30) {
+                    saveData.narrativeJournal.shift();
+                }
+                console.log("Narrative journal updated:", saveData.narrativeJournal);
+                if (this.scene && typeof this.scene._autoSave === 'function') {
+                    this.scene._autoSave();
+                }
+            }
+        } catch (e) {
+            console.error("Failed to summarize and save journal:", e);
+        }
     }
 };

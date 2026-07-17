@@ -68,6 +68,7 @@ const PlayerController_Helper = {
         } else {
             saveData = {};
         }
+        saveData.narrativeJournal = saveData.narrativeJournal || [];
         
         if (this.sessionStartTime) {
             const now = Date.now();
@@ -90,7 +91,7 @@ const PlayerController_Helper = {
         // Save party members (allies)
         if (!this.isAI && this.scene && this.scene.partyMembers) {
             saveData.party = this.scene.partyMembers
-                .filter(hero => !hero.isCargoCarrier)
+                .filter(hero => !hero.isCargoCarrier && !hero.owner && hero.classData.id !== 'flame_elemental')
                 .map(hero => ({
                     classId: hero.classData.id,
                     hp: hero.hp,

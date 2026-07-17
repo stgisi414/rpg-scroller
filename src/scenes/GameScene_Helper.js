@@ -12,6 +12,12 @@ const GameScene_Helper = {
                 this.isTransitioning = false;
                 if (this.player && this.player.sprite && this.player.sprite.body) {
                     this.player.sprite.body.setAllowGravity(true);
+                    // Push player back from boundary so they don't instantly re-trigger the transition
+                    if (direction === 1) {
+                        this.player.sprite.x -= 50;
+                    } else {
+                        this.player.sprite.x += 50;
+                    }
                 }
             }
         });
@@ -132,9 +138,20 @@ const GameScene_Helper = {
                 
                 this.cleanupDynamicTextures(false);
                 
-                // Clear active rescuee companion if we are leaving a pocket dimension
-                if (isPocketDimension) {
+                // Save active rescuee data to saveData for re-creation in the next zone
+                if (this.activeRescuee && this.activeRescuee.state === 'following' && !isPocketDimension) {
+                    saveData.activeRescuee = this.activeRescuee.getSaveData();
+                    this.activeRescuee.destroy();
                     this.activeRescuee = null;
+                } else {
+                    // Clear active rescuee companion if we are leaving a pocket dimension or not following
+                    if (this.activeRescuee) {
+                        this.activeRescuee.destroy();
+                    }
+                    this.activeRescuee = null;
+                    if (isPocketDimension) {
+                        saveData.activeRescuee = null;
+                    }
                 }
                 
                 this.worldManager.loadZone(nextZoneIndex, spawnSide).then(() => {
@@ -292,6 +309,10 @@ const GameScene_Helper = {
         // Slight random X offset to prevent stacking
         const offsetX = (Math.random() - 0.5) * 30;
         
+        const isGM = (typeof displayMessage === 'string' && displayMessage.startsWith('GM:'));
+        const wrapWidth = isGM ? 480 : 280;
+        const duration = isGM ? 8000 : 3500;
+
         const text = this.add.text(x + offsetX, y, displayMessage, {
             fontFamily: '"Space Grotesk", sans-serif',
             fontSize: '22px',
@@ -300,7 +321,7 @@ const GameScene_Helper = {
             strokeThickness: 4,
             fontStyle: 'bold',
             align: 'center',
-            wordWrap: { width: 280, useAdvancedWrap: true }
+            wordWrap: { width: wrapWidth, useAdvancedWrap: true }
         });
         text.setOrigin(0.5, 1.0);
         text.setScale(0.5);
@@ -318,7 +339,7 @@ const GameScene_Helper = {
                     y: y - 80,
                     scale: 0.9,
                     alpha: 0,
-                    duration: 3500,
+                    duration: duration,
                     ease: 'Power1.easeOut',
                     onComplete: () => text.destroy()
                 });
@@ -469,5 +490,13 @@ const GameScene_Helper = {
         }
 
         this.indoorBlackBg = null;
+
+        if (window.roomTrackerInterval) {
+            clearInterval(window.roomTrackerInterval);
+            window.roomTrackerInterval = null;
+        }
+        if (window._gameScene === this) {
+            window._gameScene = null;
+        }
     }
 };
