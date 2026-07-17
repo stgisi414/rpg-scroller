@@ -783,10 +783,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnContinue = document.getElementById('btn-continue');
     
     function renderContinueScreen() {
-        const saves = getSaves();
         const container = document.getElementById('save-slots-container');
         container.innerHTML = '';
         
+        if (firebase.auth().currentUser && window.cachedCloudSaves === null) {
+            container.innerHTML = `<div class="text-center py-12 text-secondary font-bold uppercase tracking-wider text-[14px]">Loading Cloud Saves...</div>`;
+            return;
+        }
+        
+        const saves = getSaves();
         for (let i = 0; i < 8; i++) {
             if (i < saves.length) {
                 const save = saves[i];
@@ -979,26 +984,217 @@ document.addEventListener('DOMContentLoaded', () => {
             startFighterSuite();
         });
     }
+
+    // ==========================================
+    // Firebase Auth & Cloud Saves Logic
+    // ==========================================
+    window.cachedCloudSaves = null;
+
+    const authModal = document.getElementById('ui-menu-auth');
+    const authStatusIcon = document.getElementById('auth-status-icon');
+    const authStatusText = document.getElementById('auth-status-text');
+    const btnAuthAction = document.getElementById('btn-auth-action');
+    const btnCloseAuth = document.getElementById('btn-close-menu-auth');
+    const btnAuthSubmit = document.getElementById('btn-auth-submit');
+    const btnAuthToggle = document.getElementById('btn-auth-toggle');
+    const authTogglePrompt = document.getElementById('auth-toggle-prompt');
+    const authModalTitle = document.getElementById('auth-modal-title');
+    const authModalSubtitle = document.getElementById('auth-modal-subtitle');
+    const authErrorMsg = document.getElementById('auth-error-msg');
+    
+    let isRegisterMode = false;
+
+    if (btnAuthToggle) {
+        btnAuthToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            isRegisterMode = !isRegisterMode;
+            authErrorMsg.innerText = '';
+            if (isRegisterMode) {
+                authModalTitle.innerText = "Create Cloud Account";
+                authModalSubtitle.innerText = "Register to back up saves online";
+                btnAuthSubmit.innerText = "Register";
+                authTogglePrompt.innerText = "Already have an account?";
+                btnAuthToggle.innerText = "Sign In Here";
+            } else {
+                authModalTitle.innerText = "Cloud Saves Account";
+                authModalSubtitle.innerText = "Sign in to back up your characters online";
+                btnAuthSubmit.innerText = "Sign In";
+                authTogglePrompt.innerText = "Don't have an account?";
+                btnAuthToggle.innerText = "Register Here";
+            }
+        });
+    }
+
+    if (btnCloseAuth && authModal) {
+        btnCloseAuth.addEventListener('click', () => {
+            authModal.style.display = 'none';
+        });
+    }
+
+    if (btnAuthAction && authModal) {
+        btnAuthAction.addEventListener('click', () => {
+            const user = firebase.auth().currentUser;
+            if (user) {
+                firebase.auth().signOut().then(() => {
+                    alert("Logged out successfully.");
+                }).catch(err => {
+                    console.error("Sign out error:", err);
+                });
+            } else {
+                isRegisterMode = false;
+                authErrorMsg.innerText = '';
+                authModalTitle.innerText = "Cloud Saves Account";
+                authModalSubtitle.innerText = "Sign in to back up your characters online";
+                btnAuthSubmit.innerText = "Sign In";
+                authTogglePrompt.innerText = "Don't have an account?";
+                btnAuthToggle.innerText = "Register Here";
+                document.getElementById('input-auth-email').value = '';
+                document.getElementById('input-auth-password').value = '';
+                authModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if (btnAuthSubmit) {
+        btnAuthSubmit.addEventListener('click', () => {
+            const email = document.getElementById('input-auth-email').value.trim();
+            const password = document.getElementById('input-auth-password').value;
+            authErrorMsg.innerText = '';
+
+            if (!email || !password) {
+                authErrorMsg.innerText = "Please fill in all fields.";
+                return;
+            }
+
+            btnAuthSubmit.disabled = true;
+            const originalText = btnAuthSubmit.innerText;
+            btnAuthSubmit.innerText = "Processing...";
+
+            if (isRegisterMode) {
+                firebase.auth().createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        authModal.style.display = 'none';
+                        alert("Account registered successfully!");
+                    })
+                    .catch((error) => {
+                        authErrorMsg.innerText = error.message;
+                    })
+                    .finally(() => {
+                        btnAuthSubmit.disabled = false;
+                        btnAuthSubmit.innerText = originalText;
+                    });
+            } else {
+                firebase.auth().signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        authModal.style.display = 'none';
+                        alert("Signed in successfully!");
+                    })
+                    .catch((error) => {
+                        authErrorMsg.innerText = error.message;
+                    })
+                    .finally(() => {
+                        btnAuthSubmit.disabled = false;
+                        btnAuthSubmit.innerText = originalText;
+                    });
+            }
+        });
+    }
+
+    firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+            if (authStatusIcon) {
+                authStatusIcon.innerText = 'cloud';
+                authStatusIcon.style.color = '#00ff00';
+            }
+            if (authStatusText) {
+                authStatusText.innerText = `Logged in as: ${user.email}`;
+            }
+            if (btnAuthAction) {
+                btnAuthAction.innerText = 'Sign Out';
+            }
+
+            const db = firebase.firestore();
+            db.collection("users").doc(user.uid).get()
+                .then((doc) => {
+                    let cloudSaves = [];
+                    if (doc.exists && doc.data().saves) {
+                        cloudSaves = doc.data().saves;
+                    }
+                    window.cachedCloudSaves = cloudSaves;
+
+                    let localSaves = [];
+                    try {
+                        const localData = localStorage.getItem('elden_soul_saves');
+                        if (localData) localSaves = JSON.parse(localData);
+                    } catch (e) {}
+
+                    if (cloudSaves.length === 0 && localSaves.length > 0) {
+                        if (confirm("We detected local saves on this device. Would you like to upload them to your new cloud account so you don't lose progress?")) {
+                            window.saveSaves(localSaves);
+                        }
+                    }
+
+                    if (document.getElementById('ui-select').style.display !== 'none') {
+                        renderContinueScreen();
+                    }
+                })
+                .catch((err) => {
+                    console.error("Error loading cloud saves:", err);
+                    window.cachedCloudSaves = [];
+                });
+        } else {
+            window.cachedCloudSaves = null;
+            if (authStatusIcon) {
+                authStatusIcon.innerText = 'cloud_off';
+                authStatusIcon.style.color = '#888';
+            }
+            if (authStatusText) {
+                authStatusText.innerText = 'Guest Mode (Local Saves)';
+            }
+            if (btnAuthAction) {
+                btnAuthAction.innerText = 'Sign In';
+            }
+            if (document.getElementById('ui-select').style.display !== 'none') {
+                renderContinueScreen();
+            }
+        }
+    });
 });
 
 // startFighterSuite and setupFighterHTMLHandlers are now loaded from src/scenes/FighterSuiteManager.js
 
 // Save System Utils
 window.getSaves = function() {
-    try {
-        const data = localStorage.getItem('elden_soul_saves');
-        return data ? JSON.parse(data) : [];
-    } catch (e) {
-        console.error('Failed to parse saves', e);
-        return [];
+    if (firebase.auth().currentUser) {
+        return window.cachedCloudSaves || [];
+    } else {
+        try {
+            const data = localStorage.getItem('elden_soul_saves');
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error('Failed to parse saves', e);
+            return [];
+        }
     }
 };
 
 window.saveSaves = function(saves) {
-    try {
-        localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
-    } catch (e) {
-        console.error('Failed to save saves', e);
+    if (firebase.auth().currentUser) {
+        window.cachedCloudSaves = saves;
+        const user = firebase.auth().currentUser;
+        const db = firebase.firestore();
+        db.collection("users").doc(user.uid).set({
+            saves: saves,
+            lastUpdated: Date.now()
+        }).catch(err => {
+            console.error("Failed to save to Firestore:", err);
+        });
+    } else {
+        try {
+            localStorage.setItem('elden_soul_saves', JSON.stringify(saves));
+        } catch (e) {
+            console.error('Failed to save saves', e);
+        }
     }
 };
 
