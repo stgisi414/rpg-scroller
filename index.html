@@ -1864,41 +1864,29 @@
 
 <!-- Auth Modal -->
 <div id="ui-menu-auth" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; box-sizing:border-box; font-family:'Space Grotesk', sans-serif;">
-  <div style="background:rgba(13, 13, 15, 0.95); border:2px solid #2ddbde; border-radius:12px; padding:28px; width:400px; max-width:95vw; box-shadow:0 0 50px rgba(45,219,222,0.25); position:relative; box-sizing:border-box; color:#fff; display:flex; flex-direction:column; gap:20px;">
+  <div style="background:rgba(13, 13, 15, 0.95); border:2px solid #2ddbde; border-radius:12px; padding:28px; width:360px; max-width:95vw; box-shadow:0 0 50px rgba(45,219,222,0.25); position:relative; box-sizing:border-box; color:#fff; display:flex; flex-direction:column; gap:20px;">
     
     <!-- Close button -->
     <button id="btn-close-menu-auth" style="position:absolute; top:20px; right:20px; background:transparent; border:none; color:#aaa; font-size:16px; font-weight:bold; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#ff4444'" onmouseout="this.style.color='#aaa'">✕ CLOSE</button>
     
     <div style="text-align:center;">
-      <h2 id="auth-modal-title" style="color:#2ddbde; margin:0; font-size:22px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 10px rgba(45,219,222,0.4);">Cloud Saves Account</h2>
-      <p id="auth-modal-subtitle" style="color:#888; font-size:11px; margin:4px 0 0; text-transform:uppercase; letter-spacing:1px;">Sign in to back up your characters online</p>
+      <h2 style="color:#2ddbde; margin:0; font-size:20px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; text-shadow:0 0 10px rgba(45,219,222,0.4);">Cloud Saves</h2>
+      <p style="color:#888; font-size:11px; margin:4px 0 0; text-transform:uppercase; letter-spacing:1px;">Log in to back up your characters online</p>
     </div>
 
-    <!-- Auth Inputs -->
-    <div style="display:flex; flex-direction:column; gap:16px;">
-      <div style="display:flex; flex-direction:column; gap:6px;">
-        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Email Address</label>
-        <input type="email" id="input-auth-email" placeholder="hero@eldensoul.net" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
-      </div>
+    <!-- Error Message Area -->
+    <div id="auth-error-msg" style="color:#ff4444; font-size:12px; min-height:18px; text-align:center; margin-bottom:-10px;"></div>
 
-      <div style="display:flex; flex-direction:column; gap:6px;">
-        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Password</label>
-        <input type="password" id="input-auth-password" placeholder="••••••••" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
-      </div>
-      
-      <!-- Error Message Area -->
-      <div id="auth-error-msg" style="color:#ff4444; font-size:12px; min-height:18px; text-align:center;"></div>
-    </div>
-
-    <!-- Buttons -->
-    <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
-      <button id="btn-auth-submit" style="background:#2ddbde; border:none; border-radius:6px; color:#0d0d0f; padding:12px 0; font-family:inherit; font-size:14px; font-weight:bold; text-transform:uppercase; cursor:pointer; box-shadow:0 0 15px rgba(45,219,222,0.3); transition:transform 0.1s, opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1.0'" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">Sign In</button>
-      
-      <div style="text-align:center; font-size:12px; color:#888;">
-        <span id="auth-toggle-prompt">Don't have an account?</span>
-        <a id="btn-auth-toggle" href="#" style="color:#2ddbde; text-decoration:underline; font-weight:bold;">Register Here</a>
-      </div>
-    </div>
+    <!-- Google Button -->
+    <button id="btn-auth-google" style="background:#ffffff; border:none; border-radius:6px; color:#0d0d0f; padding:12px 0; font-family:inherit; font-size:14px; font-weight:bold; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1.0'" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+      <svg style="width:18px; height:18px;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
 
   </div>
 </div>

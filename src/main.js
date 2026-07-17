@@ -986,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // Firebase Auth & Cloud Saves Logic
+    // Firebase Auth & Cloud Saves Logic (Google Only)
     // ==========================================
     window.cachedCloudSaves = null;
 
@@ -995,35 +995,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const authStatusText = document.getElementById('auth-status-text');
     const btnAuthAction = document.getElementById('btn-auth-action');
     const btnCloseAuth = document.getElementById('btn-close-menu-auth');
-    const btnAuthSubmit = document.getElementById('btn-auth-submit');
-    const btnAuthToggle = document.getElementById('btn-auth-toggle');
-    const authTogglePrompt = document.getElementById('auth-toggle-prompt');
-    const authModalTitle = document.getElementById('auth-modal-title');
-    const authModalSubtitle = document.getElementById('auth-modal-subtitle');
+    const btnAuthGoogle = document.getElementById('btn-auth-google');
     const authErrorMsg = document.getElementById('auth-error-msg');
-    
-    let isRegisterMode = false;
-
-    if (btnAuthToggle) {
-        btnAuthToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            isRegisterMode = !isRegisterMode;
-            authErrorMsg.innerText = '';
-            if (isRegisterMode) {
-                authModalTitle.innerText = "Create Cloud Account";
-                authModalSubtitle.innerText = "Register to back up saves online";
-                btnAuthSubmit.innerText = "Register";
-                authTogglePrompt.innerText = "Already have an account?";
-                btnAuthToggle.innerText = "Sign In Here";
-            } else {
-                authModalTitle.innerText = "Cloud Saves Account";
-                authModalSubtitle.innerText = "Sign in to back up your characters online";
-                btnAuthSubmit.innerText = "Sign In";
-                authTogglePrompt.innerText = "Don't have an account?";
-                btnAuthToggle.innerText = "Register Here";
-            }
-        });
-    }
 
     if (btnCloseAuth && authModal) {
         btnCloseAuth.addEventListener('click', () => {
@@ -1041,62 +1014,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error("Sign out error:", err);
                 });
             } else {
-                isRegisterMode = false;
                 authErrorMsg.innerText = '';
-                authModalTitle.innerText = "Cloud Saves Account";
-                authModalSubtitle.innerText = "Sign in to back up your characters online";
-                btnAuthSubmit.innerText = "Sign In";
-                authTogglePrompt.innerText = "Don't have an account?";
-                btnAuthToggle.innerText = "Register Here";
-                document.getElementById('input-auth-email').value = '';
-                document.getElementById('input-auth-password').value = '';
                 authModal.style.display = 'flex';
             }
         });
     }
 
-    if (btnAuthSubmit) {
-        btnAuthSubmit.addEventListener('click', () => {
-            const email = document.getElementById('input-auth-email').value.trim();
-            const password = document.getElementById('input-auth-password').value;
+    if (btnAuthGoogle) {
+        btnAuthGoogle.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            btnAuthGoogle.disabled = true;
+            const originalText = btnAuthGoogle.innerText;
+            btnAuthGoogle.innerText = "Connecting...";
             authErrorMsg.innerText = '';
 
-            if (!email || !password) {
-                authErrorMsg.innerText = "Please fill in all fields.";
-                return;
-            }
-
-            btnAuthSubmit.disabled = true;
-            const originalText = btnAuthSubmit.innerText;
-            btnAuthSubmit.innerText = "Processing...";
-
-            if (isRegisterMode) {
-                firebase.auth().createUserWithEmailAndPassword(email, password)
-                    .then((userCredential) => {
-                        authModal.style.display = 'none';
-                        alert("Account registered successfully!");
-                    })
-                    .catch((error) => {
-                        authErrorMsg.innerText = error.message;
-                    })
-                    .finally(() => {
-                        btnAuthSubmit.disabled = false;
-                        btnAuthSubmit.innerText = originalText;
-                    });
-            } else {
-                firebase.auth().signInWithEmailAndPassword(email, password)
-                    .then((userCredential) => {
-                        authModal.style.display = 'none';
-                        alert("Signed in successfully!");
-                    })
-                    .catch((error) => {
-                        authErrorMsg.innerText = error.message;
-                    })
-                    .finally(() => {
-                        btnAuthSubmit.disabled = false;
-                        btnAuthSubmit.innerText = originalText;
-                    });
-            }
+            firebase.auth().signInWithPopup(provider)
+                .then(() => {
+                    authModal.style.display = 'none';
+                    alert("Logged in with Google successfully!");
+                })
+                .catch((error) => {
+                    authErrorMsg.innerText = error.message;
+                })
+                .finally(() => {
+                    btnAuthGoogle.disabled = false;
+                    btnAuthGoogle.innerText = originalText;
+                });
         });
     }
 
