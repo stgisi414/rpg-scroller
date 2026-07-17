@@ -193,7 +193,7 @@ const PlayerController_Helper = {
 
         // Town Portal (Wizard only)
         if (!this.isAI && this.classData && this.classData.id === 'wizard') {
-            if (Phaser.Input.Keyboard.JustDown(this.inputManager.keys.down)) {
+            if (Phaser.Input.Keyboard.JustDown(this.inputManager.keys.down) || Phaser.Input.Keyboard.JustDown(this.inputManager.cursors.down)) {
                 if (time - (this.lastDownPressTime || 0) < 500) {
                     this.downPressCount = (this.downPressCount || 0) + 1;
                 } else {
@@ -441,7 +441,7 @@ const PlayerController_Helper = {
                 this.aiInput.up = false; // Consume the jump request
             }
         } else {
-            const upJustDown = keys.up ? Phaser.Input.Keyboard.JustDown(keys.up) : false;
+            const upJustDown = keys.up ? (Phaser.Input.Keyboard.JustDown(keys.up) || Phaser.Input.Keyboard.JustDown(this.inputManager.cursors.up)) : false;
             const spaceJustDown = keys.space ? Phaser.Input.Keyboard.JustDown(keys.space) : false;
             if (upJustDown || spaceJustDown) {
                 jumpPressed = true;

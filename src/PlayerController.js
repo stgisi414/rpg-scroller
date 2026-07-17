@@ -604,16 +604,32 @@ class PlayerController {
     renderQuests() {
         this.questManager.renderQuests();
     }
-    isLeftDown()  { if (this.isAI) return this.aiInput.left;    if (this.inputManager.blocked) return false; return this.inputManager.keys.left.isDown; }
-    isRightDown() { if (this.isAI) return this.aiInput.right;   if (this.inputManager.blocked) return false; return this.inputManager.keys.right.isDown; }
+    isLeftDown()  { 
+        if (this.isAI) return this.aiInput.left;    
+        if (this.inputManager.blocked) return false; 
+        return this.inputManager.keys.left.isDown || this.inputManager.cursors.left.isDown; 
+    }
+    isRightDown() { 
+        if (this.isAI) return this.aiInput.right;   
+        if (this.inputManager.blocked) return false; 
+        return this.inputManager.keys.right.isDown || this.inputManager.cursors.right.isDown; 
+    }
     isUpDown()    { 
         if (this.isCargoCarrier) return false;
         if (this.isAI) return this.aiInput.up;      
         if (this.inputManager.blocked) return false; 
-        return this.inputManager.keys.up.isDown || (this.inputManager.keys.space ? this.inputManager.keys.space.isDown : false); 
+        return this.inputManager.keys.up.isDown || this.inputManager.cursors.up.isDown || (this.inputManager.keys.space ? this.inputManager.keys.space.isDown : false); 
     }
-    isDownDown()  { if (this.isAI) return this.aiInput.down;    if (this.inputManager.blocked) return false; return this.inputManager.keys.down.isDown; }
-    isInteractDown() { if (this.isAI) return this.aiInput.interact; if (this.inputManager.blocked) return false; return this.inputManager.keys.interact.isDown; }
+    isDownDown()  { 
+        if (this.isAI) return this.aiInput.down;    
+        if (this.inputManager.blocked) return false; 
+        return this.inputManager.keys.down.isDown || this.inputManager.cursors.down.isDown; 
+    }
+    isInteractDown() { 
+        if (this.isAI) return this.aiInput.interact; 
+        if (this.inputManager.blocked) return false; 
+        return this.inputManager.keys.interact.isDown; 
+    }
     consumeDashLeft() { 
         if (this.isCargoCarrier) return false;
         if (this.isAI) {

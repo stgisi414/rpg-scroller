@@ -5,19 +5,15 @@ class InputManager {
         this.scene = scene;
         this.blocked = false; // True while any HTML UI (chat, party builder, etc.) is open
         
-        // WASD
-        const wasd = this.scene.input.keyboard.addKeys({
+        // Expose cursors (Arrow Keys, Space, Shift) so PlayerController can query them directly
+        this.cursors = this.scene.input.keyboard.createCursorKeys();
+
+        // Standard Keys (Direct Phaser Key instances)
+        this.keys = this.scene.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.W,
             down: Phaser.Input.Keyboard.KeyCodes.S,
             left: Phaser.Input.Keyboard.KeyCodes.A,
-            right: Phaser.Input.Keyboard.KeyCodes.D
-        });
-        
-        // Cursors (Arrow Keys, Space, Shift)
-        const cursors = this.scene.input.keyboard.createCursorKeys();
-        
-        // Combat and Utility Keys
-        const otherKeys = this.scene.input.keyboard.addKeys({
+            right: Phaser.Input.Keyboard.KeyCodes.D,
             attack: Phaser.Input.Keyboard.KeyCodes.PERIOD,
             enter: Phaser.Input.Keyboard.KeyCodes.ENTER,
             interact: Phaser.Input.Keyboard.KeyCodes.F,
@@ -31,47 +27,9 @@ class InputManager {
             superSpell: Phaser.Input.Keyboard.KeyCodes.COMMA,
             megaSpell: Phaser.Input.Keyboard.KeyCodes.FORWARD_SLASH,
             summonSpell: Phaser.Input.Keyboard.KeyCodes.M,
+            space: Phaser.Input.Keyboard.KeyCodes.SPACE,
             spawnParty: Phaser.Input.Keyboard.KeyCodes.P
         });
-
-        // Unified keys mappings matching Phaser's key API structure
-        this.keys = {
-            left: {
-                get isDown() { return wasd.left.isDown || cursors.left.isDown; },
-                get justDown() { return wasd.left.justDown || cursors.left.justDown; },
-                set justDown(val) { wasd.left.justDown = val; cursors.left.justDown = val; }
-            },
-            right: {
-                get isDown() { return wasd.right.isDown || cursors.right.isDown; },
-                get justDown() { return wasd.right.justDown || cursors.right.justDown; },
-                set justDown(val) { wasd.right.justDown = val; cursors.right.justDown = val; }
-            },
-            up: {
-                get isDown() { return wasd.up.isDown || cursors.up.isDown; },
-                get justDown() { return wasd.up.justDown || cursors.up.justDown; },
-                set justDown(val) { wasd.up.justDown = val; cursors.up.justDown = val; }
-            },
-            down: {
-                get isDown() { return wasd.down.isDown || cursors.down.isDown; },
-                get justDown() { return wasd.down.justDown || cursors.down.justDown; },
-                set justDown(val) { wasd.down.justDown = val; cursors.down.justDown = val; }
-            },
-            space: cursors.space,
-            attack: otherKeys.attack,
-            enter: otherKeys.enter,
-            interact: otherKeys.interact,
-            inventory: otherKeys.inventory,
-            skill1: otherKeys.skill1,
-            skill2: otherKeys.skill2,
-            skill3: otherKeys.skill3,
-            skill4: otherKeys.skill4,
-            skill5: otherKeys.skill5,
-            skill6: otherKeys.skill6,
-            superSpell: otherKeys.superSpell,
-            megaSpell: otherKeys.megaSpell,
-            summonSpell: otherKeys.summonSpell,
-            spawnParty: otherKeys.spawnParty
-        };
 
         // Pointer click detection
         this.pointer = this.scene.input.activePointer;
