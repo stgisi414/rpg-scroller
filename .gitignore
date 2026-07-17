@@ -43,3 +43,10 @@ scratch/
 *.gz
 *.rar
 *.7z
+
+# Firebase cache, CLI state, and logs
+.firebase/
+firebase-debug.log
+.firebaserc.user
+*secret*.json
+*creds*.json
