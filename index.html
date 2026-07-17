@@ -12,6 +12,22 @@
     <link href="src/styles/main.css" rel="stylesheet">
     <link href="src/styles/title.css" rel="stylesheet">
     <link href="src/styles/fighter.css" rel="stylesheet">
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics-compat.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyDFDeGukYsY_8nZdtl6qN_DyMqTeLQvSh0",
+        authDomain: "elden-soul.firebaseapp.com",
+        projectId: "elden-soul",
+        storageBucket: "elden-soul.firebasestorage.app",
+        messagingSenderId: "212615354076",
+        appId: "1:212615354076:web:79277fce3ad110a0a78619",
+        measurementId: "G-DYDKX3L91X"
+      };
+      firebase.initializeApp(firebaseConfig);
+      firebase.analytics();
+    </script>
 </head>
 <body>
     <!-- Beautiful Loading Screen Wrapper -->
@@ -1792,18 +1808,31 @@
       <p style="color:#888; font-size:11px; margin:4px 0 0; text-transform:uppercase; letter-spacing:1px;">Configure AI and lore generation keys</p>
     </div>
 
+    <div style="background:rgba(255, 68, 68, 0.08); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.5; color: #ff8888; font-family: inherit;">
+      <strong style="color: #ff5555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">⚠️ Security Notice: Why you need your own keys</strong>
+      To prevent bots from scraping private credentials — which resulted in a massive hack causing over $2,000 in unauthorized charges on my previous project — Elden Soul requires you to provide your own API keys. 
+      <br><br>
+      Don't worry: Google AI Studio keys are <strong>completely free</strong> and take less than 60 seconds to create!
+    </div>
+
     <!-- Inputs -->
     <div style="display:flex; flex-direction:column; gap:16px;">
       <div style="display:flex; flex-direction:column; gap:6px;">
-        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Gemini API Key</label>
-        <input type="password" id="input-setting-gemini" placeholder="AI storyteller key (AI-xxxx...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
-        <span style="color:#666; font-size:10px;">Used for dynamic AI dialog, game mastering, and procedural story updates.</span>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Gemini API Key</label>
+          <a href="https://aistudio.google.com/" target="_blank" style="color: #2ddbde; font-size: 11px; text-decoration: underline; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Get Free Key ↗</a>
+        </div>
+        <input type="password" id="input-setting-gemini" placeholder="AI storyteller key (AIzaSy...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
+        <span style="color:#aaa; font-size:10px;">Go to <a href="https://aistudio.google.com/" target="_blank" style="color: #2ddbde;">Google AI Studio</a>, log in with any Google account, click "Create API Key", and paste it above.</span>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:6px;">
-        <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Chartopia API Key</label>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="color:#2ddbde; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">Chartopia API Key (Optional)</label>
+          <a href="https://chartopia.d12dev.com/" target="_blank" style="color: #2ddbde; font-size: 11px; text-decoration: underline; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Get Key ↗</a>
+        </div>
         <input type="password" id="input-setting-chartopia" placeholder="Faction & lore generator key (0xsv...)" style="background:rgba(255,255,255,0.05); border:1px solid rgba(45,219,222,0.3); border-radius:6px; color:#fff; padding:10px 12px; font-size:14px; font-family:monospace; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#2ddbde'" onblur="this.style.borderColor='rgba(45,219,222,0.3)'">
-        <span style="color:#666; font-size:10px;">Used for generating rich faction histories, custom town layouts, and kingdom lore.</span>
+        <span style="color:#888; font-size:10px;">Used for generating custom town layouts and kingdom lore. If left blank, local offline generation is used.</span>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:6px;">

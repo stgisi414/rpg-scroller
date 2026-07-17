@@ -682,6 +682,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // Boot the title screen Phaser canvas
     initTitleScreen();
 
+    // Settings Modal Logic
+    const settingsModal = document.getElementById('ui-menu-settings');
+    const btnSettings = document.getElementById('btn-menu-settings');
+    
+    // Auto-open on load if Gemini API Key is missing so players are guided to input it
+    if (settingsModal && !localStorage.getItem("gemini_api_key")) {
+        document.getElementById('input-setting-gemini').value = "";
+        document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
+        document.getElementById('select-setting-cutscene-mode').value = localStorage.getItem("cutscene_mode") || "traditional";
+        settingsModal.style.display = 'flex';
+    }
+
+    if (settingsModal && btnSettings) {
+        btnSettings.addEventListener('click', () => {
+            document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
+            document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
+            document.getElementById('select-setting-cutscene-mode').value = localStorage.getItem("cutscene_mode") || "traditional";
+            settingsModal.style.display = 'flex';
+        });
+        document.getElementById('btn-close-menu-settings').addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+        document.getElementById('btn-save-settings').addEventListener('click', () => {
+            const geminiKey = document.getElementById('input-setting-gemini').value.trim();
+            const chartopiaKey = document.getElementById('input-setting-chartopia').value.trim();
+            const cutsceneMode = document.getElementById('select-setting-cutscene-mode').value;
+            
+            if (geminiKey) localStorage.setItem("gemini_api_key", geminiKey);
+            else localStorage.removeItem("gemini_api_key");
+            
+            if (chartopiaKey) localStorage.setItem("chartopia_api_key", chartopiaKey);
+            else localStorage.removeItem("chartopia_api_key");
+
+            localStorage.setItem("cutscene_mode", cutsceneMode);
+            
+            alert("Settings saved successfully!");
+            settingsModal.style.display = 'none';
+        });
+        document.getElementById('btn-reset-settings').addEventListener('click', () => {
+            if (confirm("Are you sure you want to clear your stored API keys?")) {
+                localStorage.removeItem("gemini_api_key");
+                localStorage.removeItem("chartopia_api_key");
+                localStorage.setItem("cutscene_mode", "traditional");
+                document.getElementById('input-setting-gemini').value = "";
+                document.getElementById('input-setting-chartopia').value = "";
+                document.getElementById('select-setting-cutscene-mode').value = "traditional";
+                alert("API keys cleared.");
+            }
+        });
+    }
+
     document.getElementById('btn-new-game').addEventListener('click', showCreateScreen);
     
     // Help Modal Logic
@@ -694,47 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
             helpModal.style.display = 'none';
         });
 
-        // Settings Modal Logic
-        const settingsModal = document.getElementById('ui-menu-settings');
-        const btnSettings = document.getElementById('btn-menu-settings');
-        if (settingsModal && btnSettings) {
-            btnSettings.addEventListener('click', () => {
-                document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
-                document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
-                document.getElementById('select-setting-cutscene-mode').value = localStorage.getItem("cutscene_mode") || "traditional";
-                settingsModal.style.display = 'flex';
-            });
-            document.getElementById('btn-close-menu-settings').addEventListener('click', () => {
-                settingsModal.style.display = 'none';
-            });
-            document.getElementById('btn-save-settings').addEventListener('click', () => {
-                const geminiKey = document.getElementById('input-setting-gemini').value.trim();
-                const chartopiaKey = document.getElementById('input-setting-chartopia').value.trim();
-                const cutsceneMode = document.getElementById('select-setting-cutscene-mode').value;
-                
-                if (geminiKey) localStorage.setItem("gemini_api_key", geminiKey);
-                else localStorage.removeItem("gemini_api_key");
-                
-                if (chartopiaKey) localStorage.setItem("chartopia_api_key", chartopiaKey);
-                else localStorage.removeItem("chartopia_api_key");
-
-                localStorage.setItem("cutscene_mode", cutsceneMode);
-                
-                alert("Settings saved successfully!");
-                settingsModal.style.display = 'none';
-            });
-            document.getElementById('btn-reset-settings').addEventListener('click', () => {
-                if (confirm("Are you sure you want to clear your stored API keys?")) {
-                    localStorage.removeItem("gemini_api_key");
-                    localStorage.removeItem("chartopia_api_key");
-                    localStorage.setItem("cutscene_mode", "traditional");
-                    document.getElementById('input-setting-gemini').value = "";
-                    document.getElementById('input-setting-chartopia').value = "";
-                    document.getElementById('select-setting-cutscene-mode').value = "traditional";
-                    alert("API keys cleared.");
-                }
-            });
-        }
+    }
 
         // Tab Switching
         const tabBtns = document.querySelectorAll('.help-tab-btn');
