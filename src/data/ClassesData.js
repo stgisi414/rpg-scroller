@@ -159,8 +159,9 @@ const classesData = {
             duck: { frames: [0] },
             jump: { frames: [0] },
             fall: { frames: [0] },
-            hit: { start: 36, end: 40 },
-            die: { start: 48, end: 52 }
+            hit: { start: 36, end: 38 },
+            die: { start: 48, end: 52 },
+            attack: { start: 24, end: 27 }
         },
         slotPortraitX: -20, slotPortraitY: -52,
         previewScale: 1.6,
