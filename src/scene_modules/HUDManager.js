@@ -539,8 +539,17 @@ class HUDManager {
     dismissPartyMember(index) {
         if (!this.scene.partyMembers || index < 0 || index >= this.scene.partyMembers.length) return;
         const member = this.scene.partyMembers[index];
-        if (member && member.sprite && member.sprite.active) {
-            member.die();
+        if (member) {
+            if (member.sprite && member.sprite.active) {
+                member.die();
+            }
+            
+            // Force removal from party list if still present (handles already inactive/destroyed sprites)
+            const idx = this.scene.partyMembers.indexOf(member);
+            if (idx > -1) {
+                this.scene.partyMembers.splice(idx, 1);
+            }
+
             if (this.scene.player && this.scene.player.sprite) {
                 this.scene.showFloatingText(this.scene.player.sprite.x, this.scene.player.sprite.y - 30, "Companion Dismissed", 0xffaa00);
             }

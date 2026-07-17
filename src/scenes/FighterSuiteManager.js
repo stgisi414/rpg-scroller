@@ -6,6 +6,8 @@ window.startFighterSuite = function() {
         window.fighterGame.destroy(true);
         window.fighterGame = null;
     }
+    const container = document.getElementById('game-container');
+    if (container) container.innerHTML = '';
 
     const config = {
         type: Phaser.AUTO,
@@ -559,6 +561,8 @@ window.setupFighterHTMLHandlers = function() {
             window.fighterGame = null;
             window.game = null;
         }
+        const container = document.getElementById('game-container');
+        if (container) container.innerHTML = '';
 
         if (uiSuite) {
             uiSuite.style.display = 'none';

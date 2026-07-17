@@ -842,3 +842,5 @@ die() {
         return window.EnemyActions.shootDarkElfSpell.call(this, shouldFlip);
     }
 }
+
+window.EnemyController = EnemyController;

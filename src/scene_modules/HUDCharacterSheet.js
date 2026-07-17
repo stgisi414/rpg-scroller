@@ -264,50 +264,10 @@ window.HUDCharacterSheet = {
         const playerCanvas = document.getElementById('cs-sprite-canvas');
         if (playerCanvas && p.sprite && p.sprite.active) {
             const shouldFlip = cd.flipX || false;
-            if (window.drawDetailedPortrait && window.drawDetailedPortrait(playerCanvas, cd.id, p.customConfig || null, shouldFlip)) {
+            if (window.drawDetailedPortrait && window.drawDetailedPortrait(playerCanvas, cd.id, p.customConfig || null, shouldFlip, p.scene)) {
                 // Drawn high-detail portrait successfully!
-            } else {
-                const ctx = playerCanvas.getContext('2d');
-                ctx.imageSmoothingEnabled = false;
-                ctx.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
-                
-                const frame = p.sprite.frame;
-                if (frame) {
-                    const sourceImage = frame.texture.getSourceImage();
-                    const sWidth = frame.cutWidth;
-                    const sHeight = frame.cutHeight;
-                    
-                    // Choose precise crop dimensions/Y-offset based on frame height
-                    let cropW, cropH, cropX, cropY;
-                    if (sHeight >= 128) {
-                        cropW = 36;
-                        cropH = 36;
-                        cropX = frame.cutX + (sWidth - cropW) / 2;
-                        cropY = frame.cutY + 58; // Craftpix sprites start at Y=60 inside the 128x128 frame
-                    } else {
-                        cropW = 24;
-                        cropH = 24;
-                        cropX = frame.cutX + (sWidth - cropW) / 2;
-                        cropY = frame.cutY + 16;
-                    }
-                    
-                    // Mirror horizontally if character faces left by default in sheet
-                    if (shouldFlip) {
-                        ctx.save();
-                        ctx.translate(playerCanvas.width, 0);
-                        ctx.scale(-1, 1);
-                    }
-                    
-                    ctx.drawImage(
-                        sourceImage,
-                        cropX, cropY, cropW, cropH,
-                        0, 0, playerCanvas.width, playerCanvas.height
-                    );
-                    
-                    if (shouldFlip) {
-                        ctx.restore();
-                    }
-                }
+            } else if (window.drawFallbackSpriteToCanvas) {
+                window.drawFallbackSpriteToCanvas(playerCanvas, p.sprite, shouldFlip, p.scene);
             }
         }
         
@@ -639,50 +599,10 @@ window.HUDCharacterSheet = {
                 const canvas = document.getElementById('cs-portrait-' + idx);
                 if (canvas && member.sprite && member.sprite.active) {
                     const shouldFlip = member.classData.flipX || false;
-                    if (window.drawDetailedPortrait && window.drawDetailedPortrait(canvas, member.classData.id, member.customConfig || null, shouldFlip)) {
+                    if (window.drawDetailedPortrait && window.drawDetailedPortrait(canvas, member.classData.id, member.customConfig || null, shouldFlip, hudManager.scene)) {
                         // Drawn successfully!
-                    } else {
-                        const ctx = canvas.getContext('2d');
-                        ctx.imageSmoothingEnabled = false;
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        
-                        const frame = member.sprite.frame;
-                        if (frame) {
-                            const sourceImage = frame.texture.getSourceImage();
-                            const sWidth = frame.cutWidth;
-                            const sHeight = frame.cutHeight;
-                            
-                            // Choose precise crop dimensions/Y-offset based on frame height
-                            let cropW, cropH, cropX, cropY;
-                            if (sHeight >= 128) {
-                                cropW = 36;
-                                cropH = 36;
-                                cropX = frame.cutX + (sWidth - cropW) / 2;
-                                cropY = frame.cutY + 58; // Craftpix sprites start at Y=60 inside the 128x128 frame
-                            } else {
-                                cropW = 24;
-                                cropH = 24;
-                                cropX = frame.cutX + (sWidth - cropW) / 2;
-                                cropY = frame.cutY + 16;
-                            }
-                            
-                            // Mirror horizontally if character faces left by default in sheet
-                            if (shouldFlip) {
-                                ctx.save();
-                                ctx.translate(canvas.width, 0);
-                                ctx.scale(-1, 1);
-                            }
-                            
-                            ctx.drawImage(
-                                sourceImage,
-                                cropX, cropY, cropW, cropH,
-                                0, 0, canvas.width, canvas.height
-                            );
-                            
-                            if (shouldFlip) {
-                                ctx.restore();
-                            }
-                        }
+                    } else if (window.drawFallbackSpriteToCanvas) {
+                        window.drawFallbackSpriteToCanvas(canvas, member.sprite, shouldFlip, hudManager.scene);
                     }
                 }
             });
@@ -1217,6 +1137,7 @@ window.reclaimCompanionEquipment = function(scene, companion) {
 const DETAILED_PORTRAITS = {
     'knight': 'src/assets/portraits/knight.png',
     'heavy_knight': 'src/assets/portraits/heavy_knight.png',
+    'heavy_guard': 'src/assets/portraits/heavy_guard.png',
     'wizard': 'src/assets/portraits/wizard.png',
     'wizard_rival': 'src/assets/portraits/wizard_rival.png',
     'samurai': 'src/assets/portraits/samurai.png',
@@ -1231,11 +1152,112 @@ const DETAILED_PORTRAITS = {
     'human_queen': 'src/assets/portraits/human_queen.png',
     'dwarf_warrior': 'src/assets/portraits/dwarf_warrior.png',
     'dwarf_king': 'src/assets/portraits/dwarf_king.png',
+    'alchemist': 'src/assets/portraits/alchemist.png',
+    'blacksmith': 'src/assets/portraits/blacksmith.png',
+    'sage': 'src/assets/portraits/sage.png',
+    
+    // New Classes (7)
+    'elven_longbowman': 'src/assets/portraits/elven_longbowman.png',
+    'elven_guard': 'src/assets/portraits/elven_guard.png',
+    'dwarf_miner': 'src/assets/portraits/dwarf_miner.png',
+    'dark_elf_guard': 'src/assets/portraits/dark_elf_guard.png',
+    'dark_elf_spellblade': 'src/assets/portraits/dark_elf_spellblade.png',
+    'dark_elf_longbowman': 'src/assets/portraits/dark_elf_longbowman.png',
+    'dark_elf_queen': 'src/assets/portraits/dark_elf_queen.png',
+
+    // Generic Ambient NPC Portraits (18)
+    'generic_human_male_light': 'src/assets/portraits/generic_human_male_light.png',
+    'generic_human_male_medium': 'src/assets/portraits/generic_human_male_medium.png',
+    'generic_human_male_dark': 'src/assets/portraits/generic_human_male_dark.png',
+    'generic_human_female_light': 'src/assets/portraits/generic_human_female_light.png',
+    'generic_human_female_medium': 'src/assets/portraits/generic_human_female_medium.png',
+    'generic_human_female_dark': 'src/assets/portraits/generic_human_female_dark.png',
+
+    'generic_elf_male_light': 'src/assets/portraits/generic_elf_male_light.png',
+    'generic_elf_male_medium': 'src/assets/portraits/generic_elf_male_medium.png',
+    'generic_elf_male_dark': 'src/assets/portraits/generic_elf_male_dark.png',
+    'generic_elf_female_light': 'src/assets/portraits/generic_elf_female_light.png',
+    'generic_elf_female_medium': 'src/assets/portraits/generic_elf_female_medium.png',
+    'generic_elf_female_dark': 'src/assets/portraits/generic_elf_female_dark.png',
+
+    'generic_dwarf_male_light': 'src/assets/portraits/generic_dwarf_male_light.png',
+    'generic_dwarf_male_medium': 'src/assets/portraits/generic_dwarf_male_medium.png',
+    'generic_dwarf_male_dark': 'src/assets/portraits/generic_dwarf_male_dark.png',
+    'generic_dwarf_female_light': 'src/assets/portraits/generic_dwarf_female_light.png',
+    'generic_dwarf_female_medium': 'src/assets/portraits/generic_dwarf_female_medium.png',
+    'generic_dwarf_female_dark': 'src/assets/portraits/generic_dwarf_female_dark.png'
 };
 
-window.drawDetailedPortrait = function(canvas, classId, customConfig = null, shouldFlip = false) {
+function getAmbientPortraitKey(npc) {
+    if (!npc || !npc.config || !npc.config.layers) return null;
+    const layers = npc.config.layers;
+    let skinLayer = layers.find(l => l && (l.startsWith('npc_male_skin') || l.startsWith('npc_female_skin')));
+    if (!skinLayer) return null;
+    
+    let gender = skinLayer.startsWith('npc_male_skin') ? 'male' : 'female';
+    let skinTone = 'light';
+    if (skinLayer.endsWith('3')) skinTone = 'medium';
+    else if (skinLayer.endsWith('4') || skinLayer.endsWith('5')) skinTone = 'dark';
+    
+    let hasElvenEars = layers.some(l => l && l.includes('elven'));
+    let race = 'human';
+    if (hasElvenEars) {
+        race = 'elf';
+    } else {
+        const activeScene = window.game ? window.game.scene.scenes.find(s => s.sys.settings.active) : null;
+        const wm = activeScene ? activeScene.worldManager : null;
+        const currentKingdom = wm ? wm.currentKingdom : null;
+        const isDwarvenKingdom = currentKingdom && (
+            (currentKingdom.biomes && currentKingdom.biomes.includes('Cave')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('dwarf')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('dwarven')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('underrealm')) || 
+            (currentKingdom.name && currentKingdom.name.toLowerCase().includes('stronghold')) || 
+            (currentKingdom.rulingFaction && currentKingdom.rulingFaction.toLowerCase().includes('dwarf')) ||
+            (currentKingdom.rulingFaction && currentKingdom.rulingFaction.toLowerCase().includes('dwarven'))
+        );
+        if (isDwarvenKingdom) {
+            race = 'dwarf';
+        }
+    }
+    
+    return `generic_${race}_${gender}_${skinTone}`;
+}
+
+function getBiomeBackdropSrc(scene) {
+    const activeScene = scene || (window.game ? window.game.scene.scenes.find(s => s.sys.settings.active) : null);
+    const wm = activeScene ? activeScene.worldManager : null;
+    const zoneData = wm ? wm.currentZoneData : null;
+    const biome = zoneData ? zoneData.name : 'Plains';
+    const zoneType = activeScene ? activeScene.zoneType : 'Hostile';
+    
+    const isSafe = zoneType === 'Safe';
+    const typeKey = isSafe ? 'town' : 'wild';
+    let bKey = 'forest'; // default fallback
+    
+    if (biome) {
+        const lowerBiome = biome.toLowerCase();
+        if (lowerBiome.includes('desert')) bKey = 'desert';
+        else if (lowerBiome.includes('winter') || lowerBiome.includes('mountain') || lowerBiome.includes('ice') || lowerBiome.includes('snow') || lowerBiome.includes('frost')) bKey = 'winter';
+        else if (lowerBiome.includes('hell') || lowerBiome.includes('lava') || lowerBiome.includes('abyss') || lowerBiome.includes('underworld')) bKey = 'hell';
+        else if (lowerBiome.includes('heaven') || lowerBiome.includes('sky') || lowerBiome.includes('cloud')) bKey = 'heaven';
+        else if (lowerBiome.includes('coastal') || lowerBiome.includes('beach') || lowerBiome.includes('sea') || lowerBiome.includes('ocean')) bKey = 'coastal';
+        else if (lowerBiome.includes('deadwood') || lowerBiome.includes('swamp') || lowerBiome.includes('bog') || lowerBiome.includes('witches')) bKey = 'deadwoods';
+    }
+    
+    return `src/assets/portraits/backdrops/${bKey}_${typeKey}.png`;
+}
+
+window.drawDetailedPortrait = function(canvas, classId, customConfig = null, shouldFlip = false, sceneContext = null) {
     let taskId = classId;
     if (classId) {
+        if (classId.startsWith('custom_npc_')) {
+            if (customConfig && customConfig.layers) {
+                const ambientKey = getAmbientPortraitKey({ config: customConfig });
+                if (ambientKey) taskId = ambientKey;
+            }
+        }
+        
         if (classId.startsWith('wizard_')) taskId = 'wizard';
         if (classId.startsWith('priest_')) taskId = 'priest';
         if (classId.startsWith('witch_')) taskId = 'witch';
@@ -1247,7 +1269,8 @@ window.drawDetailedPortrait = function(canvas, classId, customConfig = null, sho
         if (classId === 'ranger_rival') taskId = 'ranger';
         
         // Map generic NPC dialog portrait keys
-        if (classId === 'npc_guard') taskId = 'heavy_knight';
+        if (classId === 'npc') taskId = 'sage';
+        if (classId === 'npc_guard') taskId = 'heavy_guard';
         if (classId === 'npc_crier') taskId = 'wizard';
         if (classId === 'npc_angel') taskId = 'priest';
         if (classId === 'npc_demon') taskId = 'witch';
@@ -1256,6 +1279,16 @@ window.drawDetailedPortrait = function(canvas, classId, customConfig = null, sho
         if (classId === 'npc_fiend') taskId = 'witch';
         if (classId === 'npc_chancellor') taskId = 'wizard';
         if (classId === 'npc_sentinel') taskId = 'samurai';
+        
+        // Map new class rivals/variants
+        if (classId === 'elven_longbowman_rival') taskId = 'elven_longbowman';
+        if (classId === 'elven_guard_rival') taskId = 'elven_guard';
+        if (classId === 'dwarf_miner_rival') taskId = 'dwarf_miner';
+        if (classId === 'dwarf_king_rival') taskId = 'dwarf_king';
+        if (classId === 'dwarf_warrior_rival') taskId = 'dwarf_warrior';
+        if (classId === 'elven_queen_rival') taskId = 'elven_queen';
+        if (classId === 'witch_1_rival' || classId === 'witch_3_rival' || classId === 'witch_1' || classId === 'witch_2' || classId === 'witch_3') taskId = 'witch';
+        if (classId === 'pyromancer_1_rival' || classId === 'pyromancer_2_rival') taskId = 'pyromancer';
     }
     
     // Only load if portrait is successfully generated and exists in the manifest
@@ -1266,26 +1299,151 @@ window.drawDetailedPortrait = function(canvas, classId, customConfig = null, sho
     if (!src) return false;
     
     const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.src = src;
-    img.onload = () => {
-        canvas.width = img.naturalWidth || 256;
-        canvas.height = img.naturalHeight || 256;
-        const ctx2 = canvas.getContext('2d');
-        ctx2.imageSmoothingEnabled = false;
-        ctx2.clearRect(0, 0, canvas.width, canvas.height);
-        if (shouldFlip) {
-            ctx2.save();
-            ctx2.translate(canvas.width, 0);
-            ctx2.scale(-1, 1);
-        }
-        ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
-        if (shouldFlip) {
-            ctx2.restore();
+    const bgImg = new Image();
+    bgImg.src = getBiomeBackdropSrc(sceneContext) + '?v=rebuild_20260717';
+    
+    bgImg.onload = () => {
+        canvas.width = 256;
+        canvas.height = 256;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. Draw Backdrop
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+        
+        // 2. Draw Portrait
+        const img = new Image();
+        img.src = src + '?v=rebuild_20260717';
+        img.onload = () => {
+            if (shouldFlip) {
+                ctx.save();
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            if (shouldFlip) {
+                ctx.restore();
+            }
+        };
+    };
+    bgImg.onerror = () => {
+        canvas.width = 256;
+        canvas.height = 256;
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = '#111122';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        const img = new Image();
+        img.src = src + '?v=rebuild_20260717';
+        img.onload = () => {
+            if (shouldFlip) {
+                ctx.save();
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            if (shouldFlip) {
+                ctx.restore();
+            }
+        };
+    };
+    return true;
+};
+
+window.drawFallbackSpriteToCanvas = function(canvas, sprite, shouldFlip = false, sceneContext = null) {
+    if (!canvas || !sprite || !sprite.active) return false;
+    const ctx = canvas.getContext('2d');
+    
+    const bgImg = new Image();
+    bgImg.src = getBiomeBackdropSrc(sceneContext) + '?v=rebuild_20260717';
+    bgImg.onload = () => {
+        canvas.width = 120;
+        canvas.height = 120;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. Draw Backdrop
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+        
+        // 2. Draw Sprite Crop
+        const frame = sprite.frame;
+        if (frame) {
+            const sourceImage = frame.texture.getSourceImage();
+            const sWidth = frame.cutWidth;
+            const sHeight = frame.cutHeight;
+            
+            let cropW, cropH, cropX, cropY;
+            if (sHeight >= 128) {
+                cropW = 36;
+                cropH = 36;
+                cropX = frame.cutX + (sWidth - cropW) / 2;
+                cropY = frame.cutY + 58; // Craftpix sprites start at Y=60 inside the 128x128 frame
+            } else {
+                cropW = 24;
+                cropH = 24;
+                cropX = frame.cutX + (sWidth - cropW) / 2;
+                cropY = frame.cutY + 16;
+            }
+            
+            if (shouldFlip) {
+                ctx.save();
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            
+            ctx.drawImage(
+                sourceImage,
+                cropX, cropY, cropW, cropH,
+                0, 0, canvas.width, canvas.height
+            );
+            
+            if (shouldFlip) {
+                ctx.restore();
+            }
         }
     };
-    img.onerror = () => {
-        // Fallback silently if image is missing so game doesn't break
+    bgImg.onerror = () => {
+        canvas.width = 120;
+        canvas.height = 120;
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = '#111122';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        const frame = sprite.frame;
+        if (frame) {
+            const sourceImage = frame.texture.getSourceImage();
+            const sWidth = frame.cutWidth;
+            const sHeight = frame.cutHeight;
+            
+            let cropW, cropH, cropX, cropY;
+            if (sHeight >= 128) {
+                cropW = 36;
+                cropH = 36;
+                cropX = frame.cutX + (sWidth - cropW) / 2;
+                cropY = frame.cutY + 58;
+            } else {
+                cropW = 24;
+                cropH = 24;
+                cropX = frame.cutX + (sWidth - cropW) / 2;
+                cropY = frame.cutY + 16;
+            }
+            
+            if (shouldFlip) {
+                ctx.save();
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            
+            ctx.drawImage(
+                sourceImage,
+                cropX, cropY, cropW, cropH,
+                0, 0, canvas.width, canvas.height
+            );
+            
+            if (shouldFlip) {
+                ctx.restore();
+            }
+        }
     };
     return true;
 };

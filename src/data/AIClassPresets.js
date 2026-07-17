@@ -93,7 +93,7 @@ window.getAIClassPresetData = function(classId, weaponType = 'sword') {
         else if (classId === 'heavenly_seraph') scale = 1.0;
         else if (classId === 'heavenly_valkyrie') scale = 1.0;
         else if (classId === 'heavenly_archangel') scale = 1.2;
-        else if (classId === 'flame_elemental') scale = 0.6;
+        else if (classId === 'flame_elemental') scale = 1.3;
         else if (classId === 'old_demon') scale = 1.8 * 1.5;
         else scale = 1.8 * 1.5;
         

@@ -533,6 +533,9 @@ die() {
             // ═══════════════════════════════════════════
             const scene = player.scene;
             scene.isCutscene = true;
+            scene.isIndoors = false;
+            scene.currentIndoorLocation = null;
+            if (scene.indoorLeaveBtn) scene.indoorLeaveBtn.style.display = 'none';
 
             // --- 1. WIPE ALL PARTY MEMBERS & MULES ---
             if (scene.partyMembers) {

@@ -189,7 +189,7 @@ class WorldManager {
                 const rulingFactionId = kingdom ? kingdom.rulingFaction : null;
                 const factionName = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].name : "the Local Ruler";
                 const leaderObj = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].leader : null;
-                const leaderName = leaderObj ? `${leaderObj.title} ${leaderObj.name}` : "the Sovereign";
+                const leaderName = leaderObj ? window.formatLeaderName(leaderObj.title, leaderObj.name) : "the Sovereign";
                 
                 const context = {
                     kingdomName: kingdom ? kingdom.name : 'this region',
@@ -239,10 +239,9 @@ class WorldManager {
 
         const resetEntity = (entity, x, y) => {
             if (entity && entity.sprite) {
+                entity.sprite.setPosition(x, y);
                 if (entity.sprite.body) {
                     entity.sprite.body.reset(x, y);
-                } else {
-                    entity.sprite.setPosition(x, y);
                 }
             }
         };
@@ -859,7 +858,7 @@ class WorldManager {
                     const kingdom = window.getKingdomForZone ? window.getKingdomForZone(currentZoneIdx) : null;
                     const rulingFactionId = kingdom ? kingdom.rulingFaction : null;
                     const leaderObj = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].leader : null;
-                    const leaderName = leaderObj ? `${leaderObj.title} ${leaderObj.name}` : "the Sovereign";
+                    const leaderName = leaderObj ? window.formatLeaderName(leaderObj.title, leaderObj.name) : "the Sovereign";
                     const factionName = window.WORLD_FACTIONS[rivalFaction] ? window.WORLD_FACTIONS[rivalFaction].name : rivalFaction;
                     const context = {
                         kingdomName: kingdom ? kingdom.name : "the realm",
@@ -877,7 +876,8 @@ class WorldManager {
 
                 // Also fire async Gemini request to potentially upgrade the cutscene with a better line (Phase 8)
                 const factionName = window.WORLD_FACTIONS[rivalFaction] ? window.WORLD_FACTIONS[rivalFaction].name : rivalFaction;
-                let prompt = `Generate a 2-sentence trash-talk dialogue from a rival adventurer (${rivalClass}) representing the faction "${factionName}" who just ambushed the player in ${zoneData.name}. Inject their faction's personality, goals, or rivalries into their speech. Be aggressive, arrogant, and dramatic.`;
+                const cleanRivalClassName = rivalClass ? rivalClass.replace('_rival', '').replace(/_/g, ' ') : 'adventurer';
+                let prompt = `Generate a 2-sentence trash-talk dialogue from a rival adventurer (${cleanRivalClassName}) representing the faction "${factionName}" who just ambushed the player in ${zoneData.name}. Inject their faction's personality, goals, or rivalries into their speech. Be aggressive, arrogant, and dramatic.`;
                 if (isMegaboss) {
                     prompt = `Generate an epic 3-sentence boss monologue from the Rival Megaboss representing the faction "${factionName}". The player has defeated all his lieutenants, and now he is attacking with his entire elite squad of 4 heroes! This is the ultimate showdown.`;
                 }

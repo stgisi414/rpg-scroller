@@ -459,7 +459,8 @@ summonComboSpell() {
                 const ally = new PlayerController(player.scene, spawnX, spawnY, player.inputManager, {
                     isAI: true,
                     aiState: 'party',
-                    classId: 'flame_elemental'
+                    classId: 'flame_elemental',
+                    owner: player
                 });
                 
                 if (player.scene.partyMembers) {

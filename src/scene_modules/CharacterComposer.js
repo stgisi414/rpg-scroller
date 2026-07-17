@@ -861,7 +861,22 @@ class CharacterComposer {
         return { spriteKey: uniqueKey, weaponType: weaponType };
     }
 
-    static generateRandomName(theme = null) {
+    static isFemaleName(name) {
+        const femaleNames = ["Sophia", "Morgana", "Riven", "Morrigan", "Saskia", "Valera", "Jalyn", "Rhea",
+            "Daphne", "Selene", "Hesperia", "Korr", "Rune", "Astral", "Ondine", "Elowen",
+            "Wren", "Artemis", "Yara", "Kestrel", "Peregrine", "Silva", "Mist", "Shadow",
+            "Swift", "Clover", "Fern", "Tomoe", "Kaede", "Yuki", "Valkyrie", "Freya",
+            "Astrid", "Hilda", "Brunhilda", "Sigrid", "Ingrid", "Lyra", "Mira", "Seraphina",
+            "Isolde", "Rowena", "Brynn", "Calista", "Thea", "Fiora", "Linnea", "Rhiannon",
+            "Cerys", "Aisling", "Sylvia", "Briar", "Cora", "Eira", "Fay", "Gwen", "Hazel",
+            "Iris", "Jade", "Maeve", "Niamh", "Opal", "Pearl", "Quinn", "Rose", "Saffron",
+            "Talia", "Una", "Violet", "Xenia", "Yvaine", "Zola", "Elara", "Galadriel",
+            "Aredhel", "Arwen", "Sylara", "Miriél", "Lúthien", "Hlin", "Torgga", "Audhild",
+            "Dagnal", "Gunnloda", "Bardryn", "Helja"];
+        return femaleNames.includes(name);
+    }
+
+    static generateRandomName(theme = null, isMale = null) {
         // Large, diverse pools of thematic names
         const knightNames = [
             "Aldric", "Theron", "Gareth", "Bram", "Valerius", "Arthur", "Lancelot", "Galahad", 
@@ -930,13 +945,58 @@ class CharacterComposer {
         const funnyTitle = ["the Unwashed", "the Confused", "the Round", "the Sticky", "the Loud", "of the Puddle", "the Clumsy", "the Hungry", "the Sleepy", "the Bold-ish"];
         const lastNames = ["Starwhisper", "Ironfoot", "Stormrider", "Nightshade", "Dawncaller", "Oakhaven", "Goldseeker", "Silverblade", "Stonebreaker", "Wildrunner"];
 
+        const maleNamesPool = [
+            "Aldric", "Theron", "Gareth", "Bram", "Valerius", "Arthur", "Lancelot", "Galahad", 
+            "Godric", "Emeric", "Balin", "Gawain", "Ector", "Percival", "Tristan", "Bors",
+            "Cador", "Lucan", "Bedivere", "Kay", "Alisander", "Drian", "Garm", "Sigurd",
+            "Uther", "Gorn", "Garret", "Lothar", "Wulfgar", "Dax", "Brutus", "Drake",
+            "Talon", "Cassian", "Leif", "Osric", "Halden", "Corbin", "Silas", "Rowan",
+            "Ignatius", "Elidor", "Zephyr", "Merlin", "Alistair", "Archibald", "Balthazar",
+            "Gideon", "Gwydion", "Solomon", "Thaddeus", "Orpheus", "Prospero", "Aurelius",
+            "Cyrus", "Vesper", "Kaelen", "Zephyrus", "Lucius", "Morbius", "Malakai", "Gaius",
+            "Salazar", "Damian", "Ignis", "Orion", "Robin", "Sylas", "Sylvan", "Thorn",
+            "Faolan", "Hunter", "Hawke", "Fletcher", "Bowen", "Garrick", "Scythe", "Tracker",
+            "Brand", "Elm", "Ash", "Flint", "Ridge", "Gully", "Kenji", "Hiroshi", "Takeshi",
+            "Musashi", "Jin", "Katsu", "Nobu", "Hattori", "Hanzo", "Juro", "Kojiro", "Sojiro",
+            "Gennosuke", "Chiba", "Masamune", "Muramasa", "Saito", "Tadao", "Ryoma", "Shingen",
+            "Kenshin", "Yojimbo", "Ronin", "Katashi", "Katsuro", "Raiden", "Ren", "Ryu", "Shinji",
+            "Taiki", "Takahiro", "Yasuo", "Yoshi", "Kaito", "Daiki", "Tariq", "Sato", "Conan",
+            "Ragnar", "Kratos", "Rolf", "Torstein", "Bjorn", "Gunnar", "Halfdan", "Harald",
+            "Ivar", "Odin", "Thor", "Loki", "Tyr", "Beowulf", "Wulf", "Harkon", "Cedric",
+            "Darian", "Halden", "Idris", "Orin", "Dara", "Legolas", "Celeborn", "Haldir",
+            "Thranduil", "Elladan", "Elrohir", "Glorfindel", "Cirdan", "Elrond", "Faelar",
+            "Aerendyl", "Beren", "Finrod", "Turgon", "Thorin", "Gimli", "Dvalin", "Gloin",
+            "Bofur", "Bifur", "Bombur", "Dain", "Thrain", "Thror", "Bruenor", "Durnar",
+            "Kili", "Fili", "Oin", "Korgan", "Yeslick", "Barim", "Brokk", "Sindri", "Eitri",
+            "Gurnison", "Gotrek", "Durin", "Moradin", "Fargrim"
+        ];
+
+        const femaleNamesPool = [
+            "Sophia", "Morgana", "Riven", "Morrigan", "Saskia", "Valera", "Jalyn", "Rhea",
+            "Daphne", "Selene", "Hesperia", "Korr", "Rune", "Astral", "Ondine", "Elowen",
+            "Wren", "Artemis", "Yara", "Kestrel", "Peregrine", "Silva", "Mist", "Shadow",
+            "Swift", "Clover", "Fern", "Tomoe", "Kaede", "Yuki", "Valkyrie", "Freya",
+            "Astrid", "Hilda", "Brunhilda", "Sigrid", "Ingrid", "Lyra", "Mira", "Seraphina",
+            "Isolde", "Rowena", "Brynn", "Calista", "Thea", "Fiora", "Linnea", "Rhiannon",
+            "Cerys", "Aisling", "Sylvia", "Briar", "Cora", "Eira", "Fay", "Gwen", "Hazel",
+            "Iris", "Jade", "Maeve", "Niamh", "Opal", "Pearl", "Quinn", "Rose", "Saffron",
+            "Talia", "Una", "Violet", "Xenia", "Yvaine", "Zola", "Elara", "Galadriel",
+            "Aredhel", "Arwen", "Sylara", "Miriél", "Lúthien", "Hlin", "Torgga", "Audhild",
+            "Dagnal", "Gunnloda", "Bardryn", "Helja"
+        ];
+
+        let male = isMale;
+        if (male === null) {
+            male = Math.random() < 0.5;
+        }
+
         const isFunny = Math.random() < 0.2;
         if (isFunny) {
             return funnyFirst[Math.floor(Math.random() * funnyFirst.length)] + " " + funnyTitle[Math.floor(Math.random() * funnyTitle.length)];
         }
 
         // Detect pool based on theme/class
-        let pool = generalNames;
+        let pool = male ? maleNamesPool : femaleNamesPool;
         let poolLast = lastNames;
         const normalizedTheme = theme ? theme.toLowerCase() : "";
         if (normalizedTheme.includes("dwarf") || normalizedTheme.includes("dwarven")) {
@@ -955,12 +1015,17 @@ class CharacterComposer {
             pool = samuraiNames;
         } else if (normalizedTheme.includes("warrior") || normalizedTheme.includes("barbarian")) {
             pool = warriorNames;
+        } else {
+            pool = generalNames;
         }
 
-        const first = pool[Math.floor(Math.random() * pool.length)];
-        if (Math.random() < 0.4) {
-            return first;
+        // Filter pool by gender list
+        let genderPool = pool.filter(name => male ? maleNamesPool.includes(name) : femaleNamesPool.includes(name));
+        if (genderPool.length === 0) {
+            genderPool = male ? maleNamesPool : femaleNamesPool;
         }
+
+        const first = genderPool[Math.floor(Math.random() * genderPool.length)];
         const last = poolLast[Math.floor(Math.random() * poolLast.length)];
         return first + " " + last;
     }

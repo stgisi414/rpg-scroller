@@ -11,10 +11,10 @@ window.TownBuilder = {
         // Retroactively add town NPCs to old saves if missing
         if (!zoneData.npcs || zoneData.npcs.length < 4) {
             zoneData.npcs = [
-                { name: "Elara the Sage", persona: "A wise elder who offers counsel on magical threats.", x: 250, spriteKey: "npc" },
-                { name: "Brom the Hammer", persona: "A gruff blacksmith who forged his weapons in dragon fire.", x: 500, spriteKey: "blacksmith" },
-                { name: "Orion the Hunter", persona: "A quiet tracker offering goods from the wilds.", x: 750, spriteKey: "ranger" },
-                { name: "Vespera", persona: "An enigmatic alchemist selling curious concoctions.", x: 1000, spriteKey: "alchemist" }
+                { name: (currentZoneIdx === 0) ? "Elara the Sage" : (window.CharacterComposer ? window.CharacterComposer.generateRandomName('wizard', false).split(" ")[0] + " the Sage" : "Elara the Sage"), persona: "A wise elder who offers counsel on magical threats.", x: 250, spriteKey: "npc" },
+                { name: (currentZoneIdx === 0) ? "Brom the Hammer" : (window.CharacterComposer ? window.CharacterComposer.generateRandomName('warrior', true).split(" ")[0] + " the Hammer" : "Brom the Hammer"), persona: "A gruff blacksmith who forged his weapons in dragon fire.", x: 500, spriteKey: "blacksmith" },
+                { name: (currentZoneIdx === 0) ? "Orion the Hunter" : (window.CharacterComposer ? window.CharacterComposer.generateRandomName('ranger', true).split(" ")[0] + " the Hunter" : "Orion the Hunter"), persona: "A quiet tracker offering goods from the wilds.", x: 750, spriteKey: "ranger" },
+                { name: (currentZoneIdx === 0) ? "Ignatius the Alchemist" : (window.CharacterComposer ? window.CharacterComposer.generateRandomName('alchemist', true).split(" ")[0] + " the Alchemist" : "Ignatius"), persona: "An enigmatic alchemist selling curious concoctions.", x: 1000, spriteKey: "alchemist" }
             ];
             // Update cache
             const saves = window.getSaves();
@@ -24,6 +24,78 @@ window.TownBuilder = {
                 const clonedSave = JSON.parse(JSON.stringify(saveData));
                 if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
                 window.saveSaves(saves);
+            }
+        } else if (currentZoneIdx !== 0) {
+            // Rename default tutorial names to unique names in Zone 1+
+            let changed = false;
+            zoneData.npcs.forEach(npc => {
+                if (npc.name === "Elara the Sage") {
+                    npc.name = window.CharacterComposer ? window.CharacterComposer.generateRandomName('wizard', false).split(" ")[0] + " the Sage" : npc.name;
+                    changed = true;
+                } else if (npc.name === "Brom the Hammer") {
+                    npc.name = window.CharacterComposer ? window.CharacterComposer.generateRandomName('warrior', true).split(" ")[0] + " the Hammer" : npc.name;
+                    changed = true;
+                } else if (npc.name === "Orion the Hunter") {
+                    npc.name = window.CharacterComposer ? window.CharacterComposer.generateRandomName('ranger', true).split(" ")[0] + " the Hunter" : npc.name;
+                    changed = true;
+                } else if (npc.name === "Vespera" || npc.name === "Vespera the Alchemist" || npc.name === "Ignatius" || npc.name === "Ignatius the Alchemist" || npc.name.includes("the Alchemist") || npc.name.includes("the Hunter") || npc.name.includes("the Hammer") || npc.name.includes("the Sage")) {
+                    // Rebuild name to strip double titles and correct gender alignment
+                    if (npc.name.includes("the Sage")) {
+                        let first = npc.name.split(" ")[0];
+                        if (window.CharacterComposer && window.CharacterComposer.isFemaleName && !window.CharacterComposer.isFemaleName(first)) {
+                            first = window.CharacterComposer.generateRandomName('wizard', false).split(" ")[0];
+                        }
+                        npc.name = first + " the Sage";
+                    } else if (npc.name.includes("the Hammer")) {
+                        let first = npc.name.split(" ")[0];
+                        if (window.CharacterComposer && window.CharacterComposer.isFemaleName && window.CharacterComposer.isFemaleName(first)) {
+                            first = window.CharacterComposer.generateRandomName('warrior', true).split(" ")[0];
+                        }
+                        npc.name = first + " the Hammer";
+                    } else if (npc.name.includes("the Hunter")) {
+                        let first = npc.name.split(" ")[0];
+                        if (window.CharacterComposer && window.CharacterComposer.isFemaleName && window.CharacterComposer.isFemaleName(first)) {
+                            first = window.CharacterComposer.generateRandomName('ranger', true).split(" ")[0];
+                        }
+                        npc.name = first + " the Hunter";
+                    } else {
+                        let first = npc.name.split(" ")[0];
+                        if (window.CharacterComposer && window.CharacterComposer.isFemaleName && window.CharacterComposer.isFemaleName(first)) {
+                            first = window.CharacterComposer.generateRandomName('alchemist', true).split(" ")[0];
+                        }
+                        npc.name = first + " the Alchemist";
+                    }
+                    changed = true;
+                }
+            });
+            if (changed) {
+                const saves = window.getSaves();
+                if (saveData && saveData.zones) {
+                    saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
+                    const idx = saves.findIndex(s => s.id === saveData.id);
+                    const clonedSave = JSON.parse(JSON.stringify(saveData));
+                    if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
+                    window.saveSaves(saves);
+                }
+            }
+        } else if (currentZoneIdx === 0) {
+            // Rename Vespera to Ignatius in Zone 0 to match male sprite
+            let changed = false;
+            zoneData.npcs.forEach(npc => {
+                if (npc.name === "Vespera" || npc.name === "Vespera the Alchemist") {
+                    npc.name = "Ignatius the Alchemist";
+                    changed = true;
+                }
+            });
+            if (changed) {
+                const saves = window.getSaves();
+                if (saveData && saveData.zones) {
+                    saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
+                    const idx = saves.findIndex(s => s.id === saveData.id);
+                    const clonedSave = JSON.parse(JSON.stringify(saveData));
+                    if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
+                    window.saveSaves(saves);
+                }
             }
         }
 
@@ -293,7 +365,13 @@ window.TownBuilder = {
                     });
                 } else {
                     const npcData = window.CharacterComposer.generateRandomNPC(scene, null, { isElven: isElvenKingdom, isDwarven: isDwarvenKingdom });
-                    const villagerName = window.CharacterComposer.generateRandomName(isDwarvenKingdom ? 'dwarf' : (isElvenKingdom ? 'elf' : npcData.weaponType));
+                    const isMale = npcData.config && npcData.config.layers 
+                        ? npcData.config.layers.some(l => l.startsWith('npc_male_skin'))
+                        : Math.random() < 0.5;
+                    const villagerName = window.CharacterComposer.generateRandomName(
+                        isDwarvenKingdom ? 'dwarf' : (isElvenKingdom ? 'elf' : npcData.weaponType),
+                        isMale
+                    );
                     zoneData.ambientNpcs.push({
                         name: villagerName,
                         x: ambientSlots[i],
@@ -301,6 +379,32 @@ window.TownBuilder = {
                         weaponType: npcData.weaponType,
                         customConfig: npcData.config
                     });
+                }
+            }
+        }
+
+        if (zoneData.ambientNpcs && zoneData.ambientNpcs.length > 0) {
+            let changed = false;
+            zoneData.ambientNpcs.forEach(n => {
+                if (n.customConfig && n.customConfig.layers) {
+                    const isMale = n.customConfig.layers.some(l => l.startsWith('npc_male_skin'));
+                    const isFemaleName = ["Lyra", "Mira", "Seraphina", "Isolde", "Rowena", "Brynn", "Astrid", "Calista", "Thea", "Fiora", "Linnea", "Rhiannon", "Cerys", "Aisling", "Sylvia", "Briar", "Cora", "Eira", "Fay", "Gwen", "Hazel", "Iris", "Jade", "Maeve", "Niamh", "Opal", "Pearl", "Quinn", "Rose", "Saffron", "Talia", "Una", "Violet", "Wren", "Xenia", "Yvaine", "Zola"].some(fn => n.name.startsWith(fn));
+                    const isMaleName = ["Aldric", "Theron", "Gareth", "Bram", "Valerius", "Arthur", "Lancelot", "Galahad", "Godric", "Emeric", "Balin", "Gawain", "Ector", "Percival", "Tristan", "Bors", "Cador", "Lucan", "Bedivere", "Kay", "Alisander", "Drian", "Garm", "Sigurd", "Uther", "Gorn", "Garret", "Lothar", "Wulfgar", "Dax", "Brutus", "Drake", "Talon", "Cassian", "Leif", "Osric", "Halden", "Corbin", "Silas", "Rowan", "Ignatius", "Elidor", "Zephyr", "Merlin", "Alistair", "Archibald", "Balthazar", "Gideon", "Gwydion", "Solomon", "Thaddeus", "Orpheus", "Prospero", "Aurelius", "Cyrus", "Vesper", "Kaelen", "Zephyrus", "Lucius", "Morbius", "Malakai", "Gaius", "Salazar", "Damian", "Ignis", "Orion", "Robin", "Sylas", "Sylvan", "Thorn", "Faolan", "Hunter", "Hawke", "Fletcher", "Bowen", "Garrick", "Scythe", "Tracker", "Brand", "Elm", "Ash", "Flint", "Ridge", "Gully", "Kenji", "Hiroshi", "Takeshi", "Musashi", "Jin", "Katsu", "Nobu", "Hattori", "Hanzo", "Juro", "Kojiro", "Sojiro", "Gennosuke", "Chiba", "Masamune", "Muramasa", "Saito", "Tadao", "Ryoma", "Shingen", "Kenshin", "Yojimbo", "Ronin", "Katashi", "Katsuro", "Raiden", "Ren", "Ryu", "Shinji", "Taiki", "Takahiro", "Yasuo", "Yoshi", "Kaito", "Daiki", "Tariq", "Sato", "Conan", "Ragnar", "Kratos", "Rolf", "Torstein", "Bjorn", "Gunnar", "Halfdan", "Harald", "Ivar", "Odin", "Thor", "Loki", "Tyr", "Beowulf", "Wulf", "Harkon", "Cedric", "Darian", "Halden", "Idris", "Orin", "Dara"].some(mn => n.name.startsWith(mn));
+                    
+                    if ((isMale && isFemaleName && !isMaleName) || (!isMale && isMaleName && !isFemaleName)) {
+                        n.name = window.CharacterComposer.generateRandomName(isDwarvenKingdom ? 'dwarf' : (isElvenKingdom ? 'elf' : n.weaponType), isMale);
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) {
+                const saves = window.getSaves();
+                if (saveData && saveData.zones) {
+                    saveData.zones[currentZoneIdx] = JSON.parse(JSON.stringify(zoneData));
+                    const idx = saves.findIndex(s => s.id === saveData.id);
+                    const clonedSave = JSON.parse(JSON.stringify(saveData));
+                    if (idx > -1) saves[idx] = clonedSave; else saves.push(clonedSave);
+                    window.saveSaves(saves);
                 }
             }
         }
@@ -325,6 +429,7 @@ window.TownBuilder = {
             } else {
                 const recreated = window.CharacterComposer.recreateNPC(scene, nData.spriteKey, nData.customConfig.layers, nData.customConfig.weaponType);
                 villager = new window.NPCController(scene, nData.x, 624, scene.player, wm.geminiService, nData.name, 'A friendly townsperson going about their day.', recreated.spriteKey, recreated.weaponType);
+                villager.config = nData.customConfig; // Attach modular configuration details
             }
             scene.physics.add.collider(villager.sprite, scene.platforms);
             scene.npcs.push(villager);
@@ -378,11 +483,16 @@ window.TownBuilder = {
                 scene.guardWarningCutscenePlayed = true;
                 if (scene.cutsceneController) {
                     const reason = hostility.reason || "The King has ordered your arrest!";
+                    const factionObj = (window.getFactionForZone && window.getFactionForZone(currentZoneIdx)) || null;
+                    const leaderObj = factionObj ? factionObj.leader : null;
+                    const leaderName = leaderObj ? window.formatLeaderName(leaderObj.title, leaderObj.name) : "the Sovereign";
+
                     const context = {
                         reason: reason,
                         playerName: (scene.player && scene.player.name) ? scene.player.name : "Outlaw",
-                        factionName: (window.getFactionForZone && window.getFactionForZone(currentZoneIdx)) ? window.getFactionForZone(currentZoneIdx).name : "the ruling council",
+                        factionName: factionObj ? factionObj.name : "the ruling council",
                         kingdomName: (window.getKingdomForZone && window.getKingdomForZone(currentZoneIdx)) ? window.getKingdomForZone(currentZoneIdx).name : "the kingdom",
+                        leaderName: leaderName,
                         zoneName: "Town Entrance"
                     };
                     scene.cutsceneController.playCutscene('guard_warning', context);

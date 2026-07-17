@@ -41,9 +41,9 @@ class IndoorManager {
             if (isCapital && currentKingdom && window.WORLD_FACTIONS) {
                 const faction = window.WORLD_FACTIONS[currentKingdom.rulingFaction];
                 if (faction && faction.leader) {
-                    INDOOR_LOCATIONS.throne_room.npcName = `${faction.leader.title} ${faction.leader.name}`;
+                    INDOOR_LOCATIONS.throne_room.npcName = window.formatLeaderName(faction.leader.title, faction.leader.name);
                     INDOOR_LOCATIONS.throne_room.npcPersona = faction.leader.persona;
-                    INDOOR_LOCATIONS.throne_room.desc = `Audience with ${faction.leader.title} ${faction.leader.name}`;
+                    INDOOR_LOCATIONS.throne_room.desc = `Audience with ${window.formatLeaderName(faction.leader.title, faction.leader.name)}`;
                 }
             }
 
@@ -627,16 +627,18 @@ class IndoorManager {
             // Set indoor floor collision
             if (!scene.indoorFloor) {
                 // Use a physics zone instead of an image to avoid missing texture issues
-                scene.indoorFloor = scene.add.zone(640, 696, 1280, 50);
+                // Thickened to 500px to prevent vertical tunneling on high-velocity falls
+                scene.indoorFloor = scene.add.zone(640, 921, 1280, 500);
                 scene.physics.add.existing(scene.indoorFloor, true); // true = static body
                 scene.physics.add.collider(scene.player.sprite, scene.indoorFloor);
 
                 // Add invisible walls to prevent walking off the floor into the void
-                scene.indoorLeftWall = scene.add.zone(32, 360, 64, 720);
+                // Thickened to 500px to prevent horizontal tunneling on high-velocity knockbacks/dashes
+                scene.indoorLeftWall = scene.add.zone(-186, 360, 500, 720);
                 scene.physics.add.existing(scene.indoorLeftWall, true);
                 scene.physics.add.collider(scene.player.sprite, scene.indoorLeftWall);
 
-                scene.indoorRightWall = scene.add.zone(1248, 360, 64, 720);
+                scene.indoorRightWall = scene.add.zone(1466, 360, 500, 720);
                 scene.physics.add.existing(scene.indoorRightWall, true);
                 scene.physics.add.collider(scene.player.sprite, scene.indoorRightWall);
             } else {
@@ -693,6 +695,107 @@ class IndoorManager {
             let finalNpcName = loc.npcName;
             
             const currentZoneIdx = (saveData && saveData.currentZone) || 0;
+
+            const getSeededIndoorNpcName = (locId, zoneIdx) => {
+                const seedStr = `zone_${zoneIdx}_loc_${locId}`;
+                let seedValue = 0;
+                for (let i = 0; i < seedStr.length; i++) {
+                    seedValue = (seedValue * 31 + seedStr.charCodeAt(i)) | 0;
+                }
+                const randomLcg = () => {
+                    seedValue = (seedValue * 1664525 + 1013904223) % 4294967296;
+                    return Math.abs(seedValue) / 4294967296;
+                };
+
+                const currentKingdom = window.getKingdomForZone ? window.getKingdomForZone(zoneIdx) : null;
+                const isElven = currentKingdom && (
+                    (currentKingdom.biomes && currentKingdom.biomes.includes('Deadwoods')) || 
+                    currentKingdom.id === 'duskveil' || 
+                    currentKingdom.id === 'ashenmoor' || 
+                    (currentKingdom.name && currentKingdom.name.toLowerCase().includes('elven')) || 
+                    (currentKingdom.rulingFaction && currentKingdom.rulingFaction.toLowerCase().includes('elven'))
+                );
+                const isDwarven = currentKingdom && (
+                    (currentKingdom.biomes && currentKingdom.biomes.includes('Mountain')) || 
+                    currentKingdom.id === 'ironforge' || 
+                    (currentKingdom.name && currentKingdom.name.toLowerCase().includes('dwarf'))
+                );
+
+                let isMale = randomLcg() < 0.5;
+                let title = "";
+                switch (locId) {
+                    case 'temple':
+                        isMale = false;
+                        title = "the High Priestess";
+                        break;
+                    case 'coliseum':
+                        isMale = true;
+                        title = "the Arena Master";
+                        break;
+                    case 'temple_sanctum':
+                        isMale = true;
+                        title = "the Abbot";
+                        break;
+                    case 'elven_sanctum':
+                        isMale = false;
+                        title = "the Spellblade";
+                        break;
+                    case 'witches_coven':
+                        isMale = false;
+                        title = "the Coven Mother";
+                        break;
+                    case 'tavern':
+                        title = "the Barkeep";
+                        break;
+                    case 'blacksmith':
+                        title = "the Master Smith";
+                        break;
+                    case 'apothecary':
+                        title = "the Apothecary";
+                        break;
+                    case 'guild_hall':
+                        title = "the Guildmaster";
+                        break;
+                    case 'library':
+                        title = "the Head Librarian";
+                        break;
+                    case 'training':
+                        title = "the Weapons Master";
+                        break;
+                    case 'warrior_guild':
+                        title = "the Grandmaster";
+                        break;
+                    case 'magic_guild':
+                        title = "the Archmage";
+                        break;
+                    case 'ranger_lodge':
+                        title = "the Huntmaster";
+                        break;
+                    default:
+                        title = "the Merchant";
+                }
+
+                let pool = [];
+                const fn = window.FANTASY_NAMES || {};
+                if (isElven) {
+                    pool = isMale ? (fn.elf_male || []) : (fn.elf_female || []);
+                } else if (isDwarven) {
+                    pool = isMale ? (fn.dwarf_male || []) : (fn.dwarf_female || []);
+                } else {
+                    pool = isMale ? (fn.human_male || []) : (fn.human_female || []);
+                }
+
+                let firstName = "Alden";
+                if (pool.length > 0) {
+                    const idx = Math.floor(randomLcg() * pool.length);
+                    firstName = pool[idx];
+                }
+                return `${firstName} ${title}`;
+            };
+
+            if (locationId !== 'throne_room' && locationId !== 'estate') {
+                finalNpcName = getSeededIndoorNpcName(locationId, currentZoneIdx);
+            }
             const currentZoneData = (saveData && saveData.zones) ? saveData.zones[currentZoneIdx] : null;
             const isHeaven = currentZoneData && currentZoneData.biome === 'Heaven';
 

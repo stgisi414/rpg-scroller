@@ -410,7 +410,8 @@ Style: Majestic fantasy adventure cinematic video, matching the screenshot layou
 
         // Fallbacks for generic NPC portrait keys that might be referenced but not loaded
         let mappedKey = textureKey;
-        if (textureKey === 'npc_guard') mappedKey = 'heavy_knight';
+        if (textureKey === 'npc') mappedKey = 'sage';
+        else if (textureKey === 'npc_guard') mappedKey = 'heavy_guard';
         else if (textureKey === 'npc_crier') mappedKey = 'wizard';
         else if (textureKey === 'npc_angel') mappedKey = 'priest';
         else if (textureKey === 'npc_demon') mappedKey = 'witch';

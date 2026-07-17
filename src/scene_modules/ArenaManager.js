@@ -119,6 +119,7 @@ class ArenaManager {
             this.scene.player.coliseumReputation = (this.scene.player.coliseumReputation || 0) + this.currentWave;
             this.scene.player.coliseumHighestWave = Math.max(this.scene.player.coliseumHighestWave || 0, this.currentWave);
             if (this.scene.player.saveGame) this.scene.player.saveGame();
+            if (this.scene.player._persistToLocalStorage) this.scene.player._persistToLocalStorage();
         }
 
         this.currentWave++;

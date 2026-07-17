@@ -334,11 +334,16 @@ class EnemyAnimationLoader {
             }
         });
 
-        // Stitched 12-column 5-row Enemies (Dark Elves, Mimics, Gorgons, Golems)
+        // Stitched 12-column 5-row Enemies (Dark Elves, Mimics, Gorgons, Golems, and Elven Classes)
         const stitchedTypes = [
             'dark_elf_guard', 'dark_elf_guard_rival',
             'dark_elf_spellblade', 'dark_elf_spellblade_rival',
             'dark_elf_longbowman', 'dark_elf_longbowman_rival',
+            'elven_guard', 'elven_guard_rival',
+            'elven_spellblade', 'elven_spellblade_rival',
+            'elven_longbowman', 'elven_longbowman_rival',
+            'elven_king', 'elven_king_rival',
+            'elven_queen', 'elven_queen_rival',
             'mimic_1', 'mimic_1_rival', 'mimic_2', 'mimic_2_rival', 'mimic_3', 'mimic_3_rival',
             'gorgon_1', 'gorgon_1_rival', 'gorgon_2', 'gorgon_2_rival', 'gorgon_3', 'gorgon_3_rival',
             'stone_golem', 'stone_golem_rival',

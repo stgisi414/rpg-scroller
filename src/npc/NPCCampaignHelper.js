@@ -38,6 +38,7 @@ window.NPCCampaignHelper = {
                 coliseumReputation: p.coliseumReputation || 0
             },
             npc: {
+                name: npc.npcName,
                 alignment: npc.alignment,
                 socialScore: luckOverride ? Math.max(20, npc.socialScore) : npc.socialScore,
                 isMismatched: !luckOverride && ((npc.alignment === 'Good' && p.alignment <= -40) || (npc.alignment === 'Evil' && p.alignment >= 40)),

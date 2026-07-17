@@ -27,7 +27,7 @@ class GameScene extends Phaser.Scene {
             const rulingFactionId = kingdom ? kingdom.rulingFaction : null;
             const factionName = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].name : "the Local Ruler";
             const leaderObj = rulingFactionId && window.WORLD_FACTIONS[rulingFactionId] ? window.WORLD_FACTIONS[rulingFactionId].leader : null;
-            const leaderName = leaderObj ? `${leaderObj.title} ${leaderObj.name}` : "the Sovereign";
+            const leaderName = leaderObj ? window.formatLeaderName(leaderObj.title, leaderObj.name) : "the Sovereign";
             
             const context = {
                 kingdomName: kingdom ? kingdom.name : 'this region',
@@ -231,7 +231,7 @@ class GameScene extends Phaser.Scene {
         // Restore saved party members
          if (saveData && saveData.party && saveData.party.length > 0) {
              // Cleanup any corrupted pack mules in the save data (Phase 12)
-             saveData.party = saveData.party.filter(member => member.classId !== 'pack_mule' && (!member.npcName || !member.npcName.startsWith('Pack Mule')));
+             saveData.party = saveData.party.filter(member => member.classId !== 'pack_mule' && member.classId !== 'flame_elemental' && (!member.npcName || !member.npcName.startsWith('Pack Mule')));
              
              const mapWidth = this.physics.world.bounds.width || 1280;
              saveData.party.forEach((memberData, i) => {
@@ -299,6 +299,7 @@ class GameScene extends Phaser.Scene {
 
         // Character Sheet Toggle (C)
         this.input.keyboard.on('keydown-C', (event) => {
+            if (event && (event.ctrlKey || event.metaKey || event.altKey)) return;
             // Do not toggle if the user is typing in any text field
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             // Do not toggle if the party builder is open
@@ -308,6 +309,7 @@ class GameScene extends Phaser.Scene {
         
         // Spawn Party Member via Party Builder UI (P)
         this.input.keyboard.on('keydown-P', (event) => {
+            if (event && (event.ctrlKey || event.metaKey || event.altKey)) return;
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             if (!this.partyMembers) this.partyMembers = [];
             if (this.partyMembers.length >= 6) {
@@ -421,6 +423,9 @@ class GameScene extends Phaser.Scene {
 
     createHUD() {
         this.hudManager.createHUD();
+        if (this.player && typeof this.player.renderQuests === 'function') {
+            this.player.renderQuests();
+        }
     }
     
        renderRoomTracker() {
@@ -460,6 +465,14 @@ class GameScene extends Phaser.Scene {
     }
 
     openTownDirectory() {
+        const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+        const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZone, (window.saveData && window.saveData.alignment) || 0) : { shouldAttack: false, reason: null };
+        if (hostility.shouldAttack) {
+            if (this.showFloatingText) {
+                this.showFloatingText(this.player.sprite.x, this.player.sprite.y - 100, "Town Directory Blocked (Hostile Faction)", 0xff0000);
+            }
+            return;
+        }
         this.indoorManager.openTownDirectory();
     }
 
@@ -609,6 +622,20 @@ transitionZone(direction) {
     update(time, delta) {
         if (this.isTransitioning) return;
 
+        // Pause/resume physics world and skip updates if player is chatting with an NPC
+        const isTalking = this.player && this.player.isTalking;
+        if (isTalking) {
+            if (this.physics.world && !this.physics.world.isPaused) {
+                this.physics.world.pause();
+            }
+            this.npcs.forEach(npc => npc.update(time, delta));
+            return;
+        } else {
+            if (this.physics.world && this.physics.world.isPaused) {
+                this.physics.world.resume();
+            }
+        }
+
         // Clouds are now animated in the manual parallax section at the bottom of update()
         
         // Animate Water Layers
@@ -620,6 +647,32 @@ transitionZone(direction) {
 
         this.inputManager.update();
         if (this.player) this.player.update(time, delta);
+
+        if (this.isIndoors) {
+            if (this.player && this.player.sprite && this.player.sprite.active) {
+                if (this.player.sprite.x < 64) {
+                    this.player.sprite.x = 64;
+                    if (this.player.sprite.body) this.player.sprite.body.setVelocityX(0);
+                } else if (this.player.sprite.x > 1216) {
+                    this.player.sprite.x = 1216;
+                    if (this.player.sprite.body) this.player.sprite.body.setVelocityX(0);
+                }
+            }
+            if (this.partyMembers) {
+                this.partyMembers.forEach(member => {
+                    if (member.sprite && member.sprite.active) {
+                        if (member.sprite.x < 64) {
+                            member.sprite.x = 64;
+                            if (member.sprite.body) member.sprite.body.setVelocityX(0);
+                        } else if (member.sprite.x > 1216) {
+                            member.sprite.x = 1216;
+                            if (member.sprite.body) member.sprite.body.setVelocityX(0);
+                        }
+                    }
+                });
+            }
+        }
+
         if (this.arenaManager) this.arenaManager.update();
         if (this.weatherManager) this.weatherManager.update(time, delta);
         
@@ -683,8 +736,11 @@ transitionZone(direction) {
                 zone: { name: this.worldManager.currentZoneData.name, biome: this.worldManager.currentZoneData.biome },
                 activeEnemies: activeEnemies
             };
+            const requestZoneIdx = this.worldManager.currentZoneIndex;
             this.geminiService.getGameMasterDecision(gameState).then(res => {
                 if (this.isSceneDestroyed) return;
+                // Reject if the player transitioned to another zone since the request was made
+                if (this.worldManager.currentZoneIndex !== requestZoneIdx) return;
                 // Re-check zone type — the async call may resolve after player transitioned to a safe zone
                 if (!this.worldManager || !this.worldManager.currentZoneData || this.worldManager.currentZoneData.type !== 'Dangerous') return;
                 if (res && res.action !== 'NONE') {
@@ -802,7 +858,7 @@ transitionZone(direction) {
 
         // Update Loot Chests
         if (this.lootChests && this.lootChests.length > 0) {
-            const interactDistance = 100; // Increased from 60 to 100 to allow smooth interaction with vertical offsets
+            const interactDistance = this.isIndoors ? 160 : 100; // Scaled up indoors for larger character/chest sprites
             const px = this.player.sprite.x;
             const py = this.player.sprite.y;
 
@@ -816,7 +872,14 @@ transitionZone(direction) {
                     chest.promptText.setPosition(chest.sprite.x, chest.sprite.y + promptYOffset + Math.sin(time / 150) * 3);
                 }
 
-                const dist = Phaser.Math.Distance.Between(px, py, chest.sprite.x, chest.sprite.y);
+                const dist = (this.player.sprite.body && chest.sprite.body)
+                    ? Phaser.Math.Distance.Between(
+                        this.player.sprite.body.center.x,
+                        this.player.sprite.body.center.y,
+                        chest.sprite.body.center.x,
+                        chest.sprite.body.center.y
+                      )
+                    : Phaser.Math.Distance.Between(px, py, chest.sprite.x, chest.sprite.y);
                 
                 // Show prompt if close
                 if (dist < interactDistance) {
@@ -909,7 +972,10 @@ transitionZone(direction) {
                     });
                 }
 
-                if (!npcCloser && !isChatOpen && !isShopOpen) {
+                const currentZone = (window.saveData && window.saveData.currentZone) || 0;
+                const hostility = window.checkGuardHostility ? window.checkGuardHostility(currentZone, (window.saveData && window.saveData.alignment) || 0) : { shouldAttack: false, reason: null };
+
+                if (!npcCloser && !isChatOpen && !isShopOpen && !hostility.shouldAttack) {
                     if (!this.angelPromptText) {
                         this.angelPromptText = this.add.text(this.angelStatue.x, this.angelStatue.y - 120, 'Press F - Town Directory', {
                             fontFamily: '"Courier Prime", Courier, monospace',
@@ -1053,6 +1119,10 @@ cleanupScene() {
                         keepKeys.add(member.sprite.texture.key);
                     }
                 });
+            }
+            // Preserve active rescuee texture during zone transitions
+            if (this.activeRescuee && this.activeRescuee.sprite && this.activeRescuee.sprite.texture) {
+                keepKeys.add(this.activeRescuee.sprite.texture.key);
             }
         }
 

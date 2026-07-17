@@ -1329,10 +1329,6 @@ input:where([type='file']):focus {
   height: 100vh;
 }
 
-.max-h-\[120px\] {
-  max-height: 120px;
-}
-
 .max-h-\[160px\] {
   max-height: 160px;
 }
@@ -1361,20 +1357,16 @@ input:where([type='file']):focus {
   min-height: 220px;
 }
 
-.min-h-\[28px\] {
-  min-height: 28px;
-}
-
 .min-h-\[30px\] {
   min-height: 30px;
 }
 
-.min-h-screen {
-  min-height: 100vh;
-}
-
 .min-h-\[60px\] {
   min-height: 60px;
+}
+
+.min-h-screen {
+  min-height: 100vh;
 }
 
 .w-1 {
@@ -1568,6 +1560,10 @@ input:where([type='file']):focus {
 
 .flex-\[1\.5\] {
   flex: 1.5;
+}
+
+.flex-shrink {
+  flex-shrink: 1;
 }
 
 .flex-shrink-0 {
@@ -3241,6 +3237,12 @@ input:where([type='file']):focus {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
+.shadow-\[0_0_12px_rgba\(45\2c 219\2c 222\2c 0\.3\)\] {
+  --tw-shadow: 0 0 12px rgba(45,219,222,0.3);
+  --tw-shadow-colored: 0 0 12px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
 .shadow-\[0_0_15px_rgba\(246\2c 190\2c 59\2c 0\.2\)\] {
   --tw-shadow: 0 0 15px rgba(246,190,59,0.2);
   --tw-shadow-colored: 0 0 15px var(--tw-shadow-color);
@@ -3430,12 +3432,6 @@ input:where([type='file']):focus {
 .shadow-sm {
   --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
-  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-
-.shadow-\[0_0_12px_rgba\(45\2c 219\2c 222\2c 0\.3\)\] {
-  --tw-shadow: 0 0 12px rgba(45,219,222,0.3);
-  --tw-shadow-colored: 0 0 12px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
@@ -3897,6 +3893,12 @@ input:where([type='file']):focus {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
+.hover\:shadow-\[0_0_24px_rgba\(45\2c 219\2c 222\2c 0\.6\)\]:hover {
+  --tw-shadow: 0 0 24px rgba(45,219,222,0.6);
+  --tw-shadow-colored: 0 0 24px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
 .hover\:shadow-\[0_0_30px_rgba\(239\2c 68\2c 68\2c 0\.5\)\]:hover {
   --tw-shadow: 0 0 30px rgba(239,68,68,0.5);
   --tw-shadow-colored: 0 0 30px var(--tw-shadow-color);
@@ -3906,12 +3908,6 @@ input:where([type='file']):focus {
 .hover\:shadow-\[2px_2px_0px_\#ffb4ab\]:hover {
   --tw-shadow: 2px 2px 0px #ffb4ab;
   --tw-shadow-colored: 2px 2px 0px var(--tw-shadow-color);
-  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-
-.hover\:shadow-\[0_0_24px_rgba\(45\2c 219\2c 222\2c 0\.6\)\]:hover {
-  --tw-shadow: 0 0 24px rgba(45,219,222,0.6);
-  --tw-shadow-colored: 0 0 24px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 

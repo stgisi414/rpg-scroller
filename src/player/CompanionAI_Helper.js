@@ -204,8 +204,10 @@ const CompanionAI_Helper = {
             if (chest) {
                 const cx = chest.sprite.x;
                 const cy = chest.sprite.y;
-                const dist = Math.abs(cx - player.sprite.x);
-                const verticalDist = Math.abs(cy - player.sprite.y);
+                const pBody = player.sprite.body;
+                const cBody = chest.sprite.body;
+                const dist = (pBody && cBody) ? Math.abs(cBody.center.x - pBody.center.x) : Math.abs(cx - player.sprite.x);
+                const verticalDist = (pBody && cBody) ? Math.abs(cBody.center.y - pBody.center.y) : Math.abs(cy - player.sprite.y);
 
                 if (dist > 40 || verticalDist > 50) {
                     // Check if we are blocked by a ceiling or running into a wall horizontally while seeking a chest

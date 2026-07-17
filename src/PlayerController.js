@@ -18,6 +18,7 @@ class PlayerController {
         this.aiState = options.aiState || (this.isAI ? 'party' : 'idle');
         this.npcName = options.npcName || null;
         this.persona = options.persona || null;
+        this.owner = options.owner || null;
         this.camaraderie = options.camaraderie || 0;
         this.classId = options.classId || 'knight';
         this.weaponType = options.weaponType || 'sword';
@@ -478,7 +479,7 @@ class PlayerController {
             this.recalculateStats(); // Ensure stats are fully initialized for AI/Fighter scene too!
         }
 
-        if (isFighterScene) {
+        if (isFighterScene || (this.scene && this.scene.isIndoors)) {
             this.setScaleWithPhysics(this.baseScale * (2.5 / 1.5));
         }
     }

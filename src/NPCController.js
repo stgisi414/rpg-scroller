@@ -72,6 +72,13 @@ class NPCController {
         this.isShopOpen = false;
         this.activeActivity = null;
 
+        // NPC Approach States
+        this.approachingPlayer = false;
+        this.wasApproaching = false;
+        this.approachCooldown = 0;
+        this.playerIgnoreTimer = 0;
+        this.lastApproachCheck = 0;
+
         // Create the physics sprite using the appropriate sprite key
         this.sprite = this.scene.physics.add.sprite(x, y, spriteKey, 0);
         const baseKey = spriteKey.replace('_rival', '');
@@ -697,6 +704,15 @@ class NPCController {
                 const isAnyOtherChatActive = this.scene.npcs && this.scene.npcs.some(n => n !== this && (n.isChatOpen || n.isShopOpen));
                 if (this.player.isInteractDown() && !this.isChatOpen && !this.isShopOpen && !isColiseumActive && !isAnyOtherChatActive && !this.player.isTalking) {
                     if (time - (this.lastInteractTime || 0) > 500) {
+                        if (this.approachingPlayer) {
+                            this.wasApproaching = true;
+                            this.approachingPlayer = false;
+                            if (this.scene.approachingNpc === this) {
+                                this.scene.approachingNpc = null;
+                            }
+                            this.playerIgnoreTimer = 0;
+                            this.approachCooldown = time + 120000;
+                        }
                         // Check for delivery quest completion before opening chat
                         this._checkDeliveryQuestCompletion();
                         this.openChat();
@@ -712,9 +728,81 @@ class NPCController {
             if (this.isShopOpen) this.closeShop();
         }
 
+        // NPC Approach State Machine (Safe zones only)
+        const isSafeZone = this.scene.zoneType === 'Safe';
+        let isPlayerStandingStill = false;
+        if (this.player.sprite && this.player.sprite.body) {
+            const velX = Math.abs(this.player.sprite.body.velocity.x);
+            const velY = Math.abs(this.player.sprite.body.velocity.y);
+            isPlayerStandingStill = velX < 5 && velY < 5;
+        }
+
+        if (isSafeZone && isPlayerStandingStill && !this.isChatOpen && !this.isShopOpen && !this.player.isTalking && !this.scene.approachingNpc) {
+            const isAnyChatActive = this.scene.npcs && this.scene.npcs.some(n => n.isChatOpen || n.isShopOpen) || this.scene.partyMembers.some(m => m.isChatOpen);
+            if (!isAnyChatActive && time > (this.approachCooldown || 0) && (!this.scene.globalApproachCooldown || time > this.scene.globalApproachCooldown)) {
+                if (distanceToPlayer > 120 && distanceToPlayer < 400 && yDiff < 50) {
+                    if (time - (this.lastApproachCheck || 0) > 6000) {
+                        this.lastApproachCheck = time;
+                        if (Math.random() < 0.15) {
+                            this.approachingPlayer = true;
+                            this.scene.approachingNpc = this;
+                            this.playerIgnoreTimer = 0;
+                            this.lastSpeechBubbleTime = time;
+                            if (this.scene.showFloatingText) {
+                                this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, "Excuse me, traveler!", 0xffff00);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (this.approachingPlayer) {
+            const isAnyChatActive = this.scene.npcs && this.scene.npcs.some(n => n !== this && (n.isChatOpen || n.isShopOpen)) || this.player.isTalking;
+            if (isAnyChatActive || this.scene.zoneType !== 'Safe') {
+                this.approachingPlayer = false;
+                if (this.scene.approachingNpc === this) this.scene.approachingNpc = null;
+                this.playerIgnoreTimer = 0;
+            } else {
+                const dir = Math.sign(this.player.sprite.x - this.sprite.x);
+                if (distanceToPlayer > 80) {
+                    this.sprite.setVelocityX(dir * 70);
+                    let walkAnim = this.spriteKey + '_walk';
+                    if (this.scene.anims.exists(this.spriteKey + '-move')) walkAnim = this.spriteKey + '-move';
+                    this.sprite.anims.play(walkAnim, true);
+                    this.sprite.setFlipX(isLeftFacing ? (dir > 0) : (dir < 0));
+                    
+                    if (time - (this.lastSpeechBubbleTime || 0) > 5000) {
+                        this.lastSpeechBubbleTime = time;
+                        const calls = ["Wait up!", "Pardon me!", "A word, hero!", "Excuse me!"];
+                        const call = calls[Math.floor(Math.random() * calls.length)];
+                        if (this.scene.showFloatingText) {
+                            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, call, 0xffff00);
+                        }
+                    }
+                } else {
+                    this.sprite.setVelocityX(0);
+                    let idleAnim = this.spriteKey + '_idle';
+                    if (this.scene.anims.exists(this.spriteKey + '-idle')) idleAnim = this.spriteKey + '-idle';
+                    this.sprite.anims.play(idleAnim, true);
+                    
+                    if (this.playerIgnoreTimer === 0) {
+                        this.playerIgnoreTimer = time + 20000;
+                        if (this.scene.showFloatingText) {
+                            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, "Hey, can we talk? (F)", 0x00ffff);
+                        }
+                    }
+                    
+                    if (distanceToPlayer > 180 || time > this.playerIgnoreTimer) {
+                        this.decreaseSocialScoreForIgnore(time);
+                    }
+                }
+            }
+        }
+
         // Handle NPC Wandering if they are not talking to the player
         const isStaticNPC = false; // Allow all NPCs to wander
-        if (!this.isChatOpen && !this.isShopOpen && !isStaticNPC) {
+        if (!this.isChatOpen && !this.isShopOpen && !isStaticNPC && !this.approachingPlayer) {
             if (!this.wanderTimer) {
                 this.wanderTimer = time + Phaser.Math.Between(1000, 3000); // 1-3s initial delay
                 this.wanderState = 0; // 0: idle, 1: walk left, 2: walk right
@@ -1026,13 +1114,20 @@ async triggerHiddenPrompt(hiddenPrompt, displayName) {
         const player = this.player;
         if (player && player.classData) {
             const pClass = player.classData.id;
-            if (langInfo.language === 'elvish' && (pClass === 'ranger' || pClass === 'elven_spellblade' || pClass === 'elven_spellblade_rival')) {
+            const isElven = pClass === 'ranger' || pClass.startsWith('elven_');
+            const isDwarven = pClass === 'knight' || pClass.startsWith('dwarf_');
+            const isWitch = pClass === 'witch' || pClass.startsWith('witch_');
+            
+            if (langInfo.language === 'elvish' && isElven) {
                 return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
             }
             if (langInfo.language === 'celestial' && pClass === 'wizard') {
                 return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
             }
-            if (langInfo.language === 'dwarvish' && pClass === 'knight') {
+            if (langInfo.language === 'dwarvish' && isDwarven) {
+                return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
+            }
+            if (langInfo.language === 'infernal' && isWitch) {
                 return { understands: true, translator: null, language: langInfo.language, dialect: langInfo.dialect };
             }
         }
@@ -1042,13 +1137,20 @@ async triggerHiddenPrompt(hiddenPrompt, displayName) {
             for (const member of this.scene.partyMembers) {
                 const companionClass = member.classId || member.spriteKey;
                 const name = member.npcName || 'your Companion';
-                if (langInfo.language === 'elvish' && companionClass === 'ranger') {
+                const isElvenComp = companionClass === 'ranger' || (companionClass && companionClass.startsWith('elven_'));
+                const isDwarvenComp = companionClass === 'knight' || (companionClass && companionClass.startsWith('dwarf_'));
+                const isWitchComp = companionClass === 'witch' || (companionClass && companionClass.startsWith('witch_'));
+                
+                if (langInfo.language === 'elvish' && isElvenComp) {
                     return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
                 }
                 if (langInfo.language === 'celestial' && companionClass === 'wizard') {
                     return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
                 }
-                if (langInfo.language === 'dwarvish' && companionClass === 'knight') {
+                if (langInfo.language === 'dwarvish' && isDwarvenComp) {
+                    return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
+                }
+                if (langInfo.language === 'infernal' && isWitchComp) {
                     return { understands: true, translator: name, language: langInfo.language, dialect: langInfo.dialect };
                 }
             }
@@ -1097,6 +1199,40 @@ async triggerHiddenPrompt(hiddenPrompt, displayName) {
         window.NPCCampaignHelper.addIntelButton(this);
     }
 
+
+    decreaseSocialScoreForIgnore(time) {
+        this.approachingPlayer = false;
+        if (this.scene.approachingNpc === this) {
+            this.scene.approachingNpc = null;
+        }
+        this.playerIgnoreTimer = 0;
+        this.approachCooldown = time + 120000; // 2 minutes NPC cooldown
+        this.scene.globalApproachCooldown = time + 60000; // 1 minute town global cooldown
+        
+        // Halved decreases: social score -5, faction rep -2
+        this.socialScore = Math.max(-100, this.socialScore - 5);
+        if (saveData && saveData.npcRelations) {
+            saveData.npcRelations[this.npcId] = this.socialScore;
+        }
+        
+        if (this.faction && saveData && saveData.factionReputation) {
+            if (saveData.factionReputation[this.faction] !== undefined) {
+                saveData.factionReputation[this.faction] = Math.max(-1000, saveData.factionReputation[this.faction] - 2);
+            }
+        }
+        
+        const reacts = ["Hmph, how rude...", "Fine, ignore me then.", "Too busy for commoners?", "Typical adventurer..."];
+        const react = reacts[Math.floor(Math.random() * reacts.length)];
+        if (this.scene.showFloatingText) {
+            this.scene.showFloatingText(this.sprite.x, this.sprite.y - 40, react, 0xff4444);
+            this.scene.showFloatingText(this.player.sprite.x, this.player.sprite.y - 60, "Social Score -5 (Ignored Citizen)", 0xff4444);
+        }
+        
+        // Auto-save
+        if (this.player && typeof this.player.saveGame === 'function') {
+            this.player.saveGame();
+        }
+    }
 
     destroy() {
         if (this.isChatOpen) this.closeChat();

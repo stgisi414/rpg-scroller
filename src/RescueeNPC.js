@@ -211,6 +211,16 @@ class RescueeNPC {
             return;
         }
 
+        // Safety: if rescuee falls below the world, teleport back to player
+        if (this.sprite.y > 700 && this.scene.player && this.scene.player.sprite) {
+            this.sprite.setPosition(this.scene.player.sprite.x, this.scene.player.sprite.y - 20);
+            this.sprite.setVelocity(0, 0);
+            // Re-establish platform collider if lost
+            if (!this.platformCollider && this.scene.platforms) {
+                this.platformCollider = this.scene.physics.add.collider(this.sprite, this.scene.platforms);
+            }
+        }
+
         // Update text positions above sprite
         this._updateTextPositions();
 

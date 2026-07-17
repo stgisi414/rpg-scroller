@@ -95,7 +95,8 @@ class CombatController {
         let getTargetController = (sprite) => sprite ? sprite.controller : null;
         
         if (isFighterScene) {
-            if (player === player.scene.p1) {
+            const isP1Side = (player === player.scene.p1 || (player.owner && player.owner === player.scene.p1));
+            if (isP1Side) {
                 targetGroup = player.scene.p2 ? player.scene.p2.sprite : null;
                 getTargetController = () => player.scene.p2;
             } else {
@@ -288,16 +289,14 @@ class CombatController {
             // Flame Elemental: shoots fireballs and punches with fire, causes burning on all attacks
             let dist = 999;
             let targetSprite = null;
-            if (player.isAI && player.target) {
+            if (player.isAI && player.target && player.target.sprite && player.target.sprite.active) {
                 targetSprite = player.target.sprite;
-                if (targetSprite && targetSprite.active) {
-                    dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);
-                }
-            } else if (!player.isAI) {
-                // If controlled by player (e.g. in 1v1 testing scene!), target is player.scene.p2
+                dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);
+            } else {
                 const isFighterScene = player.scene && player.scene.sys && player.scene.sys.settings && player.scene.sys.settings.key === 'FighterScene';
                 if (isFighterScene) {
-                    const opponent = (player === player.scene.p1) ? player.scene.p2 : player.scene.p1;
+                    const isP1Side = (player === player.scene.p1 || (player.owner && player.owner === player.scene.p1));
+                    const opponent = isP1Side ? player.scene.p2 : player.scene.p1;
                     if (opponent && opponent.sprite && opponent.sprite.active) {
                         targetSprite = opponent.sprite;
                         dist = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, targetSprite.x, targetSprite.y);

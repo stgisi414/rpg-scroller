@@ -32,7 +32,7 @@ class StatsManager {
                 if (skillDef && skillDef.statsModifiers) {
                     for (const statKey in skillDef.statsModifiers) {
                         const val = skillDef.statsModifiers[statKey];
-                        if (statKey.toLowerCase().includes('multiplier')) {
+                        if (statKey.toLowerCase().includes('multiplier') || statKey === 'movement_speed' || statKey === 'jump_height') {
                             // Multipliers (like 1.15 or 0.9) represent (1 + delta).
                             // We aggregate the delta: (val - 1) * rank.
                             const delta = val - 1;
@@ -54,14 +54,16 @@ class StatsManager {
 
         player.luck = stats.luck;
 
-        // Apply base calculations
-        player.speed = 200 + (stats.dex * 5);          // DEX → movement speed
-        player.jumpVelocity = -400 - (stats.str * 10);  // STR → jump height
-        player.dashSpeed = 400 + (stats.dex * 15);       // DEX → dash speed & distance
+        // Apply base calculations (balanced coefficients for safe scaling at high levels)
+        player.speed = 200 + (stats.dex * 2.0);          // DEX → movement speed (reduced coefficient from 5)
+        player.jumpVelocity = -400 - (stats.str * 3.0);  // STR → jump height (reduced coefficient from 10)
+        player.dashSpeed = 400 + (stats.dex * 6.0);       // DEX → dash speed (reduced coefficient from 15)
         player.maxHp = stats.vit * 10;                   // VIT → max HP
         player.critChance = stats.dex * 0.5;             // DEX → crit %
 
         // Apply percentage multipliers from skills
+        if (activeModifiers.movement_speed) player.speed *= (1 + activeModifiers.movement_speed);
+        if (activeModifiers.jump_height) player.jumpVelocity *= (1 + activeModifiers.jump_height);
         if (activeModifiers.move_speed_multiplier) player.speed *= (1 + activeModifiers.move_speed_multiplier);
         if (activeModifiers.speedMultiplier) player.speed *= (1 + activeModifiers.speedMultiplier);
         if (activeModifiers.max_hp_multiplier) player.maxHp = Math.floor(player.maxHp * (1 + activeModifiers.max_hp_multiplier));

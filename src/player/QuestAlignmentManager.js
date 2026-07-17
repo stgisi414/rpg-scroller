@@ -64,7 +64,16 @@ class QuestAlignmentManager {
 
             // Kill quests: match by targetType or quest ID
             if (questType === 'kill') {
-                if (q.targetType === questIdOrEnemyType || q.id === questIdOrEnemyType) {
+                const targetLower = (q.targetType || '').toLowerCase().trim();
+                const enemyLower = (questIdOrEnemyType || '').toLowerCase().trim();
+                
+                const isMatch = targetLower === enemyLower ||
+                                targetLower === enemyLower + 's' ||
+                                enemyLower === targetLower + 's' ||
+                                (targetLower.length > 2 && enemyLower.length > 2 && (targetLower.includes(enemyLower) || enemyLower.includes(targetLower))) ||
+                                q.id === questIdOrEnemyType;
+
+                if (isMatch) {
                     const addAmount = (typeof amount === 'number') ? amount : 1;
                     q.currentCount += addAmount;
                     questUpdated = true;
@@ -211,6 +220,8 @@ class QuestAlignmentManager {
         }
 
         player.quests.splice(index, 1);
+        saveData.quests = player.quests;
+        player._persistToLocalStorage();
     }
 
     // Check if player has a rescue quest for a specific zone
@@ -256,12 +267,32 @@ class QuestAlignmentManager {
         const uiQuests = document.getElementById('ui-quests');
         if (!questList || !uiQuests) return;
 
+        // Initialize toggle button event listener
+        const toggleBtn = document.getElementById('btn-toggle-quests');
+        if (toggleBtn && !toggleBtn.hasListener) {
+            toggleBtn.hasListener = true;
+            toggleBtn.onclick = () => {
+                window.questsCollapsed = !window.questsCollapsed;
+                this.renderQuests();
+            };
+        }
+
         if (player.quests.length === 0) {
             uiQuests.classList.add('translate-x-full');
             return;
         }
 
         uiQuests.classList.remove('translate-x-full');
+        
+        // Apply collapsed state
+        if (window.questsCollapsed) {
+            questList.style.display = 'none';
+            if (toggleBtn) toggleBtn.innerText = 'Show';
+        } else {
+            questList.style.display = 'flex';
+            if (toggleBtn) toggleBtn.innerText = 'Hide';
+        }
+
         questList.innerHTML = '';
         player.quests.forEach(q => {
             const questType = q.type || 'kill';

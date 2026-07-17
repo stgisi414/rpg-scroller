@@ -48,6 +48,9 @@ class ProgressionManager {
             if (window.selectedClass) {
                 window.selectedClass.stats = { ...newStats };
             }
+            if (scene.player && scene.player.classData) {
+                scene.player.classData.stats = { ...newStats };
+            }
             saveData.skillPoints = (saveData.skillPoints || 0) + gainedPoints;
             console.log(`[Level Up] Reached level ${currentLevel}. Gained ${gainedPoints} skill points. Total points: ${saveData.skillPoints}`);
         }
