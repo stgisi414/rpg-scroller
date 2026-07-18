@@ -1505,11 +1505,15 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             console.log("[Gemini TTS Response Data]:", JSON.stringify(data, null, 2));
             
             let base64Audio = null;
-            const part = data.candidates?.[0]?.content?.parts?.[0];
-            if (part?.inlineData?.data) {
-                base64Audio = part.inlineData.data;
-            } else if (part?.inline_data?.data) {
-                base64Audio = part.inline_data.data;
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    base64Audio = part.inlineData.data;
+                    break;
+                } else if (part.inline_data && part.inline_data.data) {
+                    base64Audio = part.inline_data.data;
+                    break;
+                }
             }
             
             if (!base64Audio) {

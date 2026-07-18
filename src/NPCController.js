@@ -982,6 +982,10 @@ async triggerHiddenPrompt(hiddenPrompt, displayName) {
         const msgDiv = document.createElement('div');
         if (id) msgDiv.id = id;
         msgDiv.style.marginBottom = '8px';
+        msgDiv.style.display = 'flex';
+        msgDiv.style.alignItems = 'center';
+        msgDiv.style.flexWrap = 'wrap';
+        msgDiv.style.gap = '4px';
         
         const senderColor = sender === "Player" ? "#66aaff" : (sender === "System" ? "#aaaaaa" : "#ffaa00");
         
@@ -997,10 +1001,31 @@ async triggerHiddenPrompt(hiddenPrompt, displayName) {
             }
         }
         
-        msgDiv.innerHTML = `<span style="color: ${senderColor}; font-weight: bold;">${sender}:</span> <span>${displayText}</span>`;
-        this.chatHistoryDiv.appendChild(msgDiv);
+        // Add a speaker icon if TTS is enabled and it is a valid speaker message
+        let speakerHtml = '';
+        const isTtsEnabled = localStorage.getItem("tts_enabled") !== "disabled";
+        if (isTtsEnabled && text !== '...' && sender !== 'System' && text.trim().length > 0) {
+            speakerHtml = `<button class="chat-speaker-btn" style="background:transparent; border:none; color:#2ddbde; font-size:12px; cursor:pointer; padding:2px 4px; display:inline-flex; align-items:center; opacity:0.6; transition:opacity 0.2s, transform 0.1s;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.6'; this.style.transform='scale(1.0)'" title="Read Aloud">🔊</button>`;
+        }
         
+        msgDiv.innerHTML = `<div><span style="color: ${senderColor}; font-weight: bold;">${sender}:</span> <span>${displayText}</span>${speakerHtml}</div>`;
+        this.chatHistoryDiv.appendChild(msgDiv);
         this.chatHistoryDiv.scrollTop = this.chatHistoryDiv.scrollHeight;
+
+        // Attach click listener for speech read-aloud
+        const speakerBtn = msgDiv.querySelector('.chat-speaker-btn');
+        if (speakerBtn) {
+            speakerBtn.addEventListener('click', () => {
+                if (this.scene && this.scene.geminiService) {
+                    // Clean text (remove brackets/stars markdown markers before sending to TTS)
+                    const cleanText = text.replace(/\[.*?\]/g, '').replace(/<.*?>/g, '').replace(/[*#`_~]/g, '').trim();
+                    if (cleanText) {
+                        const voiceName = this.chatManager ? this.chatManager.getTtsVoice(sender) : 'Kore';
+                        this.scene.geminiService.playSpeech(cleanText, voiceName);
+                    }
+                }
+            });
+        }
     }
 
     getLanguageInfo() {

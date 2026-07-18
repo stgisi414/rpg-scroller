@@ -841,13 +841,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             console.log("[Lyria API Response Data]:", JSON.stringify(data, null, 2));
             
-            // Find base64 audio data in response
+            // Find base64 audio data by scanning all parts in the response candidate
             let base64Audio = null;
-            const part = data.candidates?.[0]?.content?.parts?.[0];
-            if (part?.inlineData?.data) {
-                base64Audio = part.inlineData.data;
-            } else if (part?.inline_data?.data) {
-                base64Audio = part.inline_data.data;
+            let audioMime = "audio/mp3";
+            
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    base64Audio = part.inlineData.data;
+                    audioMime = part.inlineData.mimeType || "audio/mp3";
+                    break;
+                } else if (part.inline_data && part.inline_data.data) {
+                    base64Audio = part.inline_data.data;
+                    audioMime = part.inline_data.mime_type || "audio/mp3";
+                    break;
+                }
             }
             
             if (!base64Audio) {
@@ -860,7 +868,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.lyriaAudioInstance = null;
             }
             
-            const audioMime = part?.inlineData?.mimeType || part?.inline_data?.mime_type || "audio/mp3";
             const audioSrc = `data:${audioMime};base64,${base64Audio}`;
             
             // Cache generated music
@@ -871,7 +878,14 @@ document.addEventListener('DOMContentLoaded', () => {
             audio.volume = 0.5;
             
             window.lyriaAudioInstance = audio;
-            audio.play().catch(e => console.log("Autoplay blocked, waiting for interaction", e));
+            audio.play().catch(e => {
+                console.log("Autoplay blocked, adding click listener to play generated music");
+                const startOnInteraction = () => {
+                    audio.play().catch(e => console.warn(e));
+                    document.removeEventListener('click', startOnInteraction);
+                };
+                document.addEventListener('click', startOnInteraction);
+            });
         } catch (err) {
             console.error("Failed to generate background music:", err);
             if (isRateLimitError(err) || String(err).includes("429")) {
