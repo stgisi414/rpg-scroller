@@ -701,6 +701,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Auto-open on load if Gemini API Key is missing so players are guided to input it
+    // Load/Save functions helper for settings
+    const loadSettingsToDOM = () => {
+        document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
+        document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
+        document.getElementById('select-setting-cutscene-mode').value = localStorage.getItem("cutscene_mode") || "traditional";
+        document.getElementById('select-setting-tts-enabled').value = localStorage.getItem("tts_enabled") || "enabled";
+        document.getElementById('select-setting-lyria-enabled').value = localStorage.getItem("lyria_enabled") || "enabled";
+    };
+
+    // Auto-open on load if Gemini API Key is missing so players are guided to input it
     if (settingsModal && !localStorage.getItem("gemini_api_key")) {
         loadSettingsToDOM();
         settingsModal.style.display = 'flex';
@@ -716,37 +726,12 @@ document.addEventListener('DOMContentLoaded', () => {
             settingsModal.style.display = 'none';
         });
 
-        // Realtime Volume slider change listener
-        const volumeSlider = document.getElementById('slider-setting-lyria-volume');
-        const volumeLabel = document.getElementById('label-lyria-volume');
-        if (volumeSlider && volumeLabel) {
-            volumeSlider.addEventListener('input', (e) => {
-                const val = e.target.value;
-                volumeLabel.innerText = Math.round(parseFloat(val) * 100) + "%";
-                localStorage.setItem("lyria_music_volume", val);
-                if (window.lyriaAudioInstance) {
-                    window.lyriaAudioInstance.volume = parseFloat(val);
-                }
-            });
-        }
-
-        // Generate Lyria Music button click listener
-        document.getElementById('btn-generate-lyria').addEventListener('click', async () => {
-            const prompt = document.getElementById('input-setting-lyria-prompt').value.trim();
-            if (!prompt) {
-                alert("Please write a description for the music prompt!");
-                return;
-            }
-            await window.playLyriaMusic(prompt);
-        });
-
         document.getElementById('btn-save-settings').addEventListener('click', () => {
             const geminiKey = document.getElementById('input-setting-gemini').value.trim();
             const chartopiaKey = document.getElementById('input-setting-chartopia').value.trim();
             const cutsceneMode = document.getElementById('select-setting-cutscene-mode').value;
-            const ttsVoice = document.getElementById('select-setting-tts-voice').value;
-            const lyriaPrompt = document.getElementById('input-setting-lyria-prompt').value.trim();
-            const lyriaVol = document.getElementById('slider-setting-lyria-volume').value;
+            const ttsEnabled = document.getElementById('select-setting-tts-enabled').value;
+            const lyriaEnabled = document.getElementById('select-setting-lyria-enabled').value;
             
             if (geminiKey) localStorage.setItem("gemini_api_key", geminiKey);
             else localStorage.removeItem("gemini_api_key");
@@ -755,29 +740,26 @@ document.addEventListener('DOMContentLoaded', () => {
             else localStorage.removeItem("chartopia_api_key");
 
             localStorage.setItem("cutscene_mode", cutsceneMode);
-            localStorage.setItem("tts_voice", ttsVoice);
-            localStorage.setItem("lyria_music_prompt", lyriaPrompt);
-            localStorage.setItem("lyria_music_volume", lyriaVol);
+            localStorage.setItem("tts_enabled", ttsEnabled);
+            localStorage.setItem("lyria_enabled", lyriaEnabled);
+            
+            // Start or stop the auto-loop based on new setting
+            window.startLyriaAutoLoop();
             
             alert("Settings saved successfully!");
             settingsModal.style.display = 'none';
         });
 
         document.getElementById('btn-reset-settings').addEventListener('click', () => {
-            if (confirm("Are you sure you want to clear your stored configurations and custom music?")) {
+            if (confirm("Are you sure you want to clear your stored configurations?")) {
                 localStorage.removeItem("gemini_api_key");
                 localStorage.removeItem("chartopia_api_key");
                 localStorage.setItem("cutscene_mode", "traditional");
-                localStorage.setItem("tts_voice", "Kore");
-                localStorage.setItem("lyria_music_prompt", "A loopable, atmospheric retro fantasy background music track with soft strings and acoustic guitar, suitable for side-scroller gameplay.");
-                localStorage.setItem("lyria_music_volume", "0.5");
+                localStorage.setItem("tts_enabled", "enabled");
+                localStorage.setItem("lyria_enabled", "enabled");
                 localStorage.removeItem("lyria_music_data");
                 
-                if (window.lyriaAudioInstance) {
-                    window.lyriaAudioInstance.pause();
-                    window.lyriaAudioInstance = null;
-                }
-                
+                window.startLyriaAutoLoop();
                 loadSettingsToDOM();
                 alert("Configurations and custom music cleared.");
             }
@@ -787,16 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lyria Music Generation Handler
     window.playLyriaMusic = async function(prompt) {
         const key = localStorage.getItem("gemini_api_key");
-        if (!key) {
-            alert("Please configure your Gemini API Key first!");
-            return;
-        }
-        
-        const btn = document.getElementById('btn-generate-lyria');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerText = "Generating...";
-        }
+        if (!key) return;
         
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/lyria-3-clip-preview:generateContent?key=${key}`;
@@ -852,41 +825,66 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const audio = new Audio(audioSrc);
             audio.loop = true;
-            audio.volume = parseFloat(localStorage.getItem("lyria_music_volume") || "0.5");
+            audio.volume = 0.5;
             
             window.lyriaAudioInstance = audio;
             audio.play().catch(e => console.log("Autoplay blocked, waiting for interaction", e));
-            
-            if (btn) btn.innerText = "Regenerate ↗";
-            alert("Success! Custom Lyria background music generated and playing.");
         } catch (err) {
             console.error("Failed to generate background music:", err);
-            alert("Failed to generate music: " + err.message);
-            if (btn) btn.innerText = "Generate Music ↗";
-        } finally {
-            if (btn) btn.disabled = false;
         }
     };
 
-    // Auto-play cached background music on load (works after first interaction)
-    const cachedMusic = localStorage.getItem("lyria_music_data");
-    if (cachedMusic) {
-        const playCached = () => {
-            if (window.lyriaAudioInstance) return;
-            const audio = new Audio(cachedMusic);
-            audio.loop = true;
-            audio.volume = parseFloat(localStorage.getItem("lyria_music_volume") || "0.5");
-            window.lyriaAudioInstance = audio;
-            audio.play().catch(e => {
-                const startOnInteraction = () => {
-                    audio.play().catch(e => console.warn(e));
-                    document.removeEventListener('click', startOnInteraction);
-                };
-                document.addEventListener('click', startOnInteraction);
-            });
+    let musicInterval = null;
+    window.startLyriaAutoLoop = () => {
+        if (musicInterval) {
+            clearInterval(musicInterval);
+            musicInterval = null;
+        }
+
+        const isMusicEnabled = localStorage.getItem("lyria_enabled") !== "disabled";
+        if (!isMusicEnabled) {
+            if (window.lyriaAudioInstance) {
+                window.lyriaAudioInstance.pause();
+                window.lyriaAudioInstance = null;
+            }
+            return;
+        }
+
+        const triggerGen = async () => {
+            const hasKey = localStorage.getItem("gemini_api_key");
+            const isMusicEnabledNow = localStorage.getItem("lyria_enabled") !== "disabled";
+            if (!hasKey || !isMusicEnabledNow) return;
+            
+            console.log("[Lyria Auto-Loop] Generating fresh background loop...");
+            const defaultPrompt = "A loopable, atmospheric retro fantasy background music track with soft strings and acoustic guitar, suitable for side-scroller gameplay.";
+            await window.playLyriaMusic(defaultPrompt);
         };
-        playCached();
-    }
+
+        const cachedMusic = localStorage.getItem("lyria_music_data");
+        if (cachedMusic) {
+            if (!window.lyriaAudioInstance) {
+                const audio = new Audio(cachedMusic);
+                audio.loop = true;
+                audio.volume = 0.5;
+                window.lyriaAudioInstance = audio;
+                audio.play().catch(e => {
+                    const startOnInteraction = () => {
+                        audio.play().catch(e => console.warn(e));
+                        document.removeEventListener('click', startOnInteraction);
+                    };
+                    document.addEventListener('click', startOnInteraction);
+                });
+            }
+        } else {
+            triggerGen();
+        }
+
+        // Set interval to run every 5 minutes (300,000 ms)
+        musicInterval = setInterval(triggerGen, 300000);
+    };
+
+    // Auto-run loop on start
+    window.startLyriaAutoLoop();
 
     document.getElementById('btn-new-game').addEventListener('click', showCreateScreen);
     

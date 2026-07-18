@@ -174,9 +174,11 @@ class ChatManager {
 
         const senderColor = sender === "Player" ? "#66aaff" : (sender === "System" ? "#aaaaaa" : "#ffaa00");
         
-        // Add a speaker icon if the message is valid for speech
+        // Add a speaker icon if TTS is enabled and it is a valid speaker message
         let speakerHtml = '';
-        if (text !== '...' && sender !== 'System' && text.trim().length > 0) {
+        const isTtsEnabled = localStorage.getItem("tts_enabled") !== "disabled";
+        
+        if (isTtsEnabled && text !== '...' && sender !== 'System' && text.trim().length > 0) {
             speakerHtml = `<button class="chat-speaker-btn" style="background:transparent; border:none; color:#2ddbde; font-size:12px; cursor:pointer; padding:2px 4px; display:inline-flex; align-items:center; opacity:0.6; transition:opacity 0.2s, transform 0.1s;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.6'; this.style.transform='scale(1.0)'" title="Read Aloud">🔊</button>`;
         }
 
@@ -193,10 +195,55 @@ class ChatManager {
                     // Clean text (remove brackets/stars markdown markers before sending to TTS)
                     const cleanText = text.replace(/\[.*?\]/g, '').replace(/<.*?>/g, '').replace(/[*#`_~]/g, '').trim();
                     if (cleanText) {
-                        player.scene.geminiService.playSpeech(cleanText);
+                        const voiceName = this.getTtsVoice(sender);
+                        player.scene.geminiService.playSpeech(cleanText, voiceName);
                     }
                 }
             });
+        }
+    }
+
+    getTtsVoice(sender) {
+        const player = this.player;
+        if (!player) return 'Kore';
+
+        // Check if there is an explicit gender property on the NPC or companion
+        let gender = player.gender || player.classData?.gender || '';
+        
+        const classId = (player.classData?.id || '').toLowerCase();
+        const spriteKey = (player.spriteKey || '').toLowerCase();
+        const npcName = (player.npcName || sender || '').toLowerCase();
+        
+        // 1. Resolve Gender (Sex)
+        if (!gender) {
+            // Check common female classes or keywords
+            const femaleKeywords = [
+                'female', 'queen', 'witch', 'valkyrie', 'seraphina', 
+                'astrid', 'maren', 'lyra', 'priestess', 'spellblade', 'wife'
+            ];
+            const isFemale = femaleKeywords.some(kw => 
+                classId.includes(kw) || spriteKey.includes(kw) || npcName.includes(kw)
+            );
+            gender = isFemale ? 'female' : 'male';
+        }
+        
+        // 2. Resolve Race
+        let race = 'human';
+        if (classId.includes('elf') || spriteKey.includes('elf') || npcName.includes('elf')) {
+            race = 'elf';
+        } else if (classId.includes('dwarf') || spriteKey.includes('dwarf') || npcName.includes('dwarf') || classId.includes('miner')) {
+            race = 'dwarf';
+        }
+        
+        // 3. Assign prebuilt voice based on Race & Sex
+        // Supported voices: Kore, Leda, Puck, Charon, Fenrir, Aoede
+        if (race === 'dwarf') {
+            return gender === 'female' ? 'Aoede' : 'Fenrir'; // Gruff Dwarf Male (Fenrir), Clear Dwarf Female (Aoede)
+        } else if (race === 'elf') {
+            return gender === 'female' ? 'Aoede' : 'Puck'; // Melodic Elf Female (Aoede), Light Elf Male (Puck)
+        } else {
+            // Human or fallback
+            return gender === 'female' ? 'Leda' : 'Charon'; // Rich Human Female (Leda), Deep Human Male (Charon)
         }
     }
 

@@ -1433,7 +1433,7 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
         throw new Error("Timed out waiting for video generation operation to complete.");
     }
 
-    async playSpeech(text) {
+    async playSpeech(text, voiceName = null) {
         if (!this.apiKey) {
             alert("Please configure your Gemini API Key in Settings to read messages aloud!");
             return;
@@ -1447,7 +1447,7 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             this._activeSpeechSource = null;
         }
         
-        const voiceName = localStorage.getItem("tts_voice") || "Kore";
+        const activeVoice = voiceName || localStorage.getItem("tts_voice") || "Kore";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${this.apiKey}`;
         
         try {
@@ -1467,7 +1467,7 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
                         speechConfig: {
                             voiceConfig: {
                                 prebuiltVoiceConfig: {
-                                    voiceName: voiceName
+                                    voiceName: activeVoice
                                 }
                             }
                         }
