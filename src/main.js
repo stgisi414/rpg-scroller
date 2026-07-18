@@ -687,20 +687,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSettings = document.getElementById('btn-menu-settings');
     
     // Auto-open on load if Gemini API Key is missing so players are guided to input it
-    // Load/Save functions helper for voice and music settings
-    const loadSettingsToDOM = () => {
-        document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
-        document.getElementById('input-setting-chartopia').value = localStorage.getItem("chartopia_api_key") || "";
-        document.getElementById('select-setting-cutscene-mode').value = localStorage.getItem("cutscene_mode") || "traditional";
-        document.getElementById('select-setting-tts-voice').value = localStorage.getItem("tts_voice") || "Kore";
-        document.getElementById('input-setting-lyria-prompt').value = localStorage.getItem("lyria_music_prompt") || "A loopable, atmospheric retro fantasy background music track with soft strings and acoustic guitar, suitable for side-scroller gameplay.";
-        
-        const vol = localStorage.getItem("lyria_music_volume") || "0.5";
-        document.getElementById('slider-setting-lyria-volume').value = vol;
-        document.getElementById('label-lyria-volume').innerText = Math.round(parseFloat(vol) * 100) + "%";
-    };
-
-    // Auto-open on load if Gemini API Key is missing so players are guided to input it
     // Load/Save functions helper for settings
     const loadSettingsToDOM = () => {
         document.getElementById('input-setting-gemini').value = localStorage.getItem("gemini_api_key") || "";
