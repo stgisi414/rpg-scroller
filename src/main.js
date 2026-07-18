@@ -752,6 +752,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Helper to detect rate limit or quota exceeded errors
+    function isRateLimitError(err) {
+        if (!err) return false;
+        const str = String(err).toUpperCase();
+        return str.includes("RESOURCE_EXHAUSTED") || 
+               str.includes("429") || 
+               str.includes("RATE_LIMIT") || 
+               str.includes("RATE LIMIT") || 
+               str.includes("QUOTA");
+    }
+    window.isRateLimitErrorGlobal = isRateLimitError; // Expose globally for GeminiService
+
+    window.handleGeminiRateLimit = function(errorMsg, isFatal) {
+        console.warn(`[Gemini Rate Limit Handler] errorMsg: ${errorMsg}, isFatal: ${isFatal}`);
+        
+        if (isFatal) {
+            // Force return to main menu
+            alert("⚠️ Critical Gemini API Quota Exceeded (RESOURCE_EXHAUSTED):\n\n" +
+                  "Your API Key has run out of quota or hit a rate limit. Because text narrative generation is required to play the game, you are being returned to the main menu.\n\n" +
+                  "Please check your API Key settings or billing status on Google AI Studio.");
+            
+            if (window.returnToMainMenu) {
+                window.returnToMainMenu();
+            } else {
+                location.reload();
+            }
+        } else {
+            // Non-fatal. Auto-disable audio, music, and omni video cutscenes to save remaining quota.
+            const wasTtsEnabled = localStorage.getItem("tts_enabled") !== "disabled";
+            const wasLyriaEnabled = localStorage.getItem("lyria_enabled") !== "disabled";
+            const wasOmniCutscenes = localStorage.getItem("cutscene_mode") === "omni";
+
+            if (wasTtsEnabled || wasLyriaEnabled || wasOmniCutscenes) {
+                localStorage.setItem("tts_enabled", "disabled");
+                localStorage.setItem("lyria_enabled", "disabled");
+                localStorage.setItem("cutscene_mode", "traditional");
+
+                // Update settings DOM if open/available
+                const selectTts = document.getElementById('select-setting-tts-enabled');
+                const selectLyria = document.getElementById('select-setting-lyria-enabled');
+                const selectCutscene = document.getElementById('select-setting-cutscene-mode');
+                if (selectTts) selectTts.value = "disabled";
+                if (selectLyria) selectLyria.value = "disabled";
+                if (selectCutscene) selectCutscene.value = "traditional";
+
+                // Stop active Lyria loop
+                if (window.startLyriaAutoLoop) {
+                    window.startLyriaAutoLoop();
+                }
+
+                alert("⚠️ Gemini API Rate Limit Warning:\n\n" +
+                      "A non-essential request (music, speech read-aloud, or video cutscenes) triggered a rate limit/quota error.\n\n" +
+                      "To preserve your remaining API key usage for core storytelling, AI Background Music, AI Chat Read-Aloud, and Omni video cutscenes have been turned OFF autonomously.");
+            }
+        }
+    };
+
     // Lyria Music Generation Handler
     window.playLyriaMusic = async function(prompt) {
         const key = localStorage.getItem("gemini_api_key");
@@ -817,6 +874,9 @@ document.addEventListener('DOMContentLoaded', () => {
             audio.play().catch(e => console.log("Autoplay blocked, waiting for interaction", e));
         } catch (err) {
             console.error("Failed to generate background music:", err);
+            if (isRateLimitError(err) || String(err).includes("429")) {
+                window.handleGeminiRateLimit(err.message || String(err), false);
+            }
         }
     };
 

@@ -209,6 +209,9 @@ class GeminiService {
             } catch (e) {
                 console.error(`[GEMINI_DBG] Error on attempt ${retry + 1}.\nPrompt Sent: ${prompt}\nFull Result Object:`, result ? JSON.stringify(result, null, 2) : "undefined", `\nException:`, e);
                 lastError = e;
+                if (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(e)) {
+                    window.handleGeminiRateLimit(e.message || String(e), true);
+                }
                 // Wait briefly before retrying (exponential backoff)
                 await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
             }
@@ -1290,7 +1293,11 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
 
             if (!response.ok) {
                 const errText = await response.text();
-                throw new Error(`API returned error status ${response.status}: ${errText}`);
+                const err = new Error(`API returned error status ${response.status}: ${errText}`);
+                if (response.status === 429 || (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(err))) {
+                    window.handleGeminiRateLimit(err.message, false);
+                }
+                throw err;
             }
 
             const data = await response.json();
@@ -1357,6 +1364,9 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             throw new Error("No video data returned in Omni response.");
         } catch (err) {
             console.error("[GeminiService] Failed to generate video on-the-fly:", err);
+            if (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(err)) {
+                window.handleGeminiRateLimit(err.message || String(err), false);
+            }
             return null;
         }
     }
@@ -1413,7 +1423,11 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
-                    throw new Error(`Failed to poll status: ${response.status}`);
+                    const err = new Error(`Failed to poll status: ${response.status}`);
+                    if (response.status === 429 || (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(err))) {
+                        window.handleGeminiRateLimit(err.message, false);
+                    }
+                    throw err;
                 }
                 const data = await response.json();
                 console.log(`[GeminiService] Polled operation ${operationName} data:`, JSON.stringify(data, null, 2));
@@ -1428,6 +1442,9 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
                 console.log(`[GeminiService] Polling LRO ${operationName} (attempt ${i + 1}/${maxRetries}): not done yet...`);
             } catch (err) {
                 console.warn("[GeminiService] Error polling operation status:", err);
+                if (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(err)) {
+                    window.handleGeminiRateLimit(err.message || String(err), false);
+                }
             }
         }
         throw new Error("Timed out waiting for video generation operation to complete.");
@@ -1477,7 +1494,11 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
 
             if (!response.ok) {
                 const errText = await response.text();
-                throw new Error(`Speech API returned status ${response.status}: ${errText}`);
+                const err = new Error(`Speech API returned status ${response.status}: ${errText}`);
+                if (response.status === 429 || (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(err))) {
+                    window.handleGeminiRateLimit(err.message, false);
+                }
+                throw err;
             }
 
             const data = await response.json();
@@ -1525,7 +1546,11 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             this._activeSpeechSource = source;
         } catch (err) {
             console.error("Failed to generate/play speech:", err);
-            alert("Speech generation failed: " + err.message);
+            if (window.isRateLimitErrorGlobal && window.isRateLimitErrorGlobal(err)) {
+                window.handleGeminiRateLimit(err.message || String(err), false);
+            } else {
+                alert("Speech generation failed: " + err.message);
+            }
         }
     }
 }
