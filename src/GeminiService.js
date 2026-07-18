@@ -1481,6 +1481,7 @@ Keep it punchy, atmospheric, and highly tailored to their class/level/alignment.
             }
 
             const data = await response.json();
+            console.log("[Gemini TTS Response Data]:", JSON.stringify(data, null, 2));
             
             let base64Audio = null;
             const part = data.candidates?.[0]?.content?.parts?.[0];

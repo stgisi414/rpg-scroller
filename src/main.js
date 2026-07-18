@@ -823,6 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            console.log("[Lyria API Response Data]:", JSON.stringify(data, null, 2));
             
             // Find base64 audio data in response
             let base64Audio = null;
